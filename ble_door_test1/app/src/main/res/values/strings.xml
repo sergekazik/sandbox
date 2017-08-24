@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Ring BLE test1</string>
+    <string name="action_settings">Settings</string>
+    <string name="unknown_service">unknown service</string>
+    <string name="unknown_characteristic">unknown characteristic</string>
+    <string name="connected">connected</string>
+    <string name="disconnected">disconnected</string>
+</resources>
