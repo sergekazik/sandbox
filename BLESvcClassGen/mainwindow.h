@@ -27,11 +27,24 @@ private slots:
     void on_checkBox_8_stateChanged(int arg1);
     void on_checkBox_9_stateChanged(int arg1);
 
+    void on_radioButton_10_toggled(bool checked);
+    void on_radioButton_11_toggled(bool checked);
+    void on_radioButton_12_toggled(bool checked);
+    void on_radioButton_13_toggled(bool checked);
+    void on_radioButton_14_toggled(bool checked);
+    void on_radioButton_15_toggled(bool checked);
+    void on_radioButton_16_toggled(bool checked);
+    void on_radioButton_17_toggled(bool checked);
+    void on_radioButton_18_toggled(bool checked);
+    void on_radioButton_19_toggled(bool checked);
+    void on_radioButton_20_toggled(bool checked);
+
 private:
     unsigned int mDevClassVal;
 
     Ui::MainWindow *ui;
     void onStateChange(QCheckBox *cb, int position);
+    void renderDevClassVal_label();
 };
 
 #endif // MAINWINDOW_H
