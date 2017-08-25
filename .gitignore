@@ -5,4 +5,6 @@ Ring1.creator
 Ring1.files
 Ring1.includes
 build*
+*.pro.user
+_saved
 
