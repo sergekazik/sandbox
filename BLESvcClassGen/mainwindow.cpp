@@ -11,7 +11,11 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    this->renderDevClassVal_label();
+    ui->checkBox_5->setCheckState(Qt::Checked);
+    ui->checkBox_7->setCheckState(Qt::Checked);
+
+    on_radioButton_14_toggled(true);
+    on_radioButton_31_toggled(true);
 }
 
 MainWindow::~MainWindow()
@@ -74,13 +78,25 @@ DECLARE_CHECKBOX(9, 23)
 0	1	0	0	1	Health
 1	1	1	1	1	Uncategorized: device code not specified
 --------------------------------------------------*/
-#define DECLARE_RADIOBOX(_num, _val) void MainWindow::on_radioButton_##_num##_toggled(bool checked) {   \
+//unsigned int val = 0x1F << 8; \
+//mDevClassVal &= ~val; /* clean 5 bits starting from 8th */  \
+//mDevClassVal |= (_val << 8); \
+
+#define SET_RADIOBOX_VALUE(_clean_bits, _shift, _num, _val)  \
+    unsigned int val = _clean_bits << _shift; \
+    mDevClassVal &= ~val; /* clean "_clean_bits" bits starting from "_shift"-th bit*/  \
+    mDevClassVal |= (_val << _shift); \
+    QRadioButton *pRb = ui->radioButton_##_num;   \
+    if (!pRb->isChecked()) \
+        pRb->setChecked(true); \
+    renderDevClassVal_label();
+
+#define DECLARE_RADIOBOX(_num, _val) void MainWindow::on_radioButton_##_num##_toggled(bool checked) \
+{   \
     if (checked) {  \
-        unsigned int val = 0x1F << 8; \
-        mDevClassVal &= ~val; /* clean 5 bits starting from 8th */  \
-        mDevClassVal |= (_val << 8); \
-        renderDevClassVal_label();  \
-    }}
+        SET_RADIOBOX_VALUE(0x1F, 8, _num, _val) \
+    }   \
+}
 
 
 DECLARE_RADIOBOX(10, 0)
@@ -121,7 +137,29 @@ DECLARE_RADIOBOX(20, 31)
 X	X	X	X	X	X	All other values reserved
 --------------------------------------------------*/
 
+#define DECLARE_MINOR_DEV_CLASS_HNDL(_num, _val) void MainWindow::on_radioButton_##_num##_toggled(bool checked)\
+{   \
+    if (checked) {  \
+        SET_RADIOBOX_VALUE(0x3F, 2, _num, _val) \
+    }   \
+}
 
+DECLARE_MINOR_DEV_CLASS_HNDL(21, 1)
+DECLARE_MINOR_DEV_CLASS_HNDL(22, 2)
+DECLARE_MINOR_DEV_CLASS_HNDL(23, 4)
+DECLARE_MINOR_DEV_CLASS_HNDL(24, 5)
+DECLARE_MINOR_DEV_CLASS_HNDL(25, 6)
+DECLARE_MINOR_DEV_CLASS_HNDL(26, 7)
+DECLARE_MINOR_DEV_CLASS_HNDL(27, 8)
+DECLARE_MINOR_DEV_CLASS_HNDL(28, 9)
+DECLARE_MINOR_DEV_CLASS_HNDL(29, 10)
+DECLARE_MINOR_DEV_CLASS_HNDL(30, 11)
+DECLARE_MINOR_DEV_CLASS_HNDL(31, 12)
+DECLARE_MINOR_DEV_CLASS_HNDL(32, 13)
+DECLARE_MINOR_DEV_CLASS_HNDL(33, 14)
+DECLARE_MINOR_DEV_CLASS_HNDL(34, 15)
+DECLARE_MINOR_DEV_CLASS_HNDL(35, 16)
+DECLARE_MINOR_DEV_CLASS_HNDL(36, 18)
 
 
 

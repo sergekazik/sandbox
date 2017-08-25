@@ -39,6 +39,23 @@ private slots:
     void on_radioButton_19_toggled(bool checked);
     void on_radioButton_20_toggled(bool checked);
 
+    void on_radioButton_21_toggled(bool checked);
+    void on_radioButton_22_toggled(bool checked);
+    void on_radioButton_23_toggled(bool checked);
+    void on_radioButton_24_toggled(bool checked);
+    void on_radioButton_25_toggled(bool checked);
+    void on_radioButton_26_toggled(bool checked);
+    void on_radioButton_27_toggled(bool checked);
+    void on_radioButton_28_toggled(bool checked);
+    void on_radioButton_29_toggled(bool checked);
+    void on_radioButton_30_toggled(bool checked);
+    void on_radioButton_31_toggled(bool checked);
+    void on_radioButton_32_toggled(bool checked);
+    void on_radioButton_33_toggled(bool checked);
+    void on_radioButton_34_toggled(bool checked);
+    void on_radioButton_35_toggled(bool checked);
+    void on_radioButton_36_toggled(bool checked);
+
 private:
     unsigned int mDevClassVal;
 

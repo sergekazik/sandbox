@@ -316,6 +316,12 @@
     <property name="text">
      <string>Imaging (printer, scanner, camera, display, ...)</string>
     </property>
+    <property name="checkable">
+     <bool>true</bool>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
     <attribute name="buttonGroup">
      <string notr="true">buttonGroup_MDC</string>
     </attribute>
@@ -417,7 +423,7 @@
      <string>Set-top box</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_31">
@@ -433,7 +439,7 @@
      <string>Video Camera</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_30">
@@ -449,7 +455,7 @@
      <string>VCR</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_29">
@@ -465,7 +471,7 @@
      <string>HiFi Audio Device</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_25">
@@ -481,7 +487,7 @@
      <string>Headphones</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_22">
@@ -497,7 +503,7 @@
      <string>Hands-free Device</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_27">
@@ -513,7 +519,7 @@
      <string>Car audio</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_26">
@@ -529,7 +535,7 @@
      <string>Portable Audio</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_21">
@@ -545,7 +551,7 @@
      <string>Wearable Headset Device</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QRadioButton" name="radioButton_24">
@@ -561,7 +567,7 @@
      <string>Loudspeaker</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <widget class="QFrame" name="frame_2">
@@ -591,6 +597,9 @@
      <property name="text">
       <string>Display and Loudspeaker</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_38">
      <property name="geometry">
@@ -604,6 +613,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_37">
      <property name="geometry">
@@ -617,6 +629,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_42">
      <property name="geometry">
@@ -630,6 +645,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_41">
      <property name="geometry">
@@ -643,6 +661,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_32">
      <property name="geometry">
@@ -656,6 +677,9 @@
      <property name="text">
       <string>Camcorder</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_40">
      <property name="geometry">
@@ -669,6 +693,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_36">
      <property name="geometry">
@@ -682,6 +709,9 @@
      <property name="text">
       <string>Gaming/Toy</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_39">
      <property name="geometry">
@@ -695,6 +725,9 @@
      <property name="text">
       <string>-</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_33">
      <property name="geometry">
@@ -708,6 +741,9 @@
      <property name="text">
       <string>Video Monitor</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <widget class="QRadioButton" name="radioButton_35">
      <property name="geometry">
@@ -721,6 +757,9 @@
      <property name="text">
       <string>Video Conferencing</string>
      </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
     </widget>
     <zorder>radioButton_34</zorder>
     <zorder>radioButton_38</zorder>
@@ -748,7 +787,7 @@
      <string>Microphone</string>
     </property>
     <attribute name="buttonGroup">
-     <string notr="true">buttonGroup_Minor</string>
+     <string notr="true">buttonGroupMinors</string>
     </attribute>
    </widget>
    <zorder>frame_2</zorder>
@@ -836,6 +875,6 @@
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup_MDC"/>
-  <buttongroup name="buttonGroup_Minor"/>
+  <buttongroup name="buttonGroupMinors"/>
  </buttongroups>
 </ui>
