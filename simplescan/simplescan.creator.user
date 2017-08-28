@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2017-08-23T15:23:12. -->
+<!-- Written by QtCreator 3.4.2, 2017-08-28T13:47:59. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -70,7 +70,7 @@
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.0">
       <valuelist type="QVariantList" key="GenericProjectManager.GenericMakeStep.BuildTargets"/>
       <value type="bool" key="GenericProjectManager.GenericMakeStep.Clean">false</value>
-      <value type="QString" key="GenericProjectManager.GenericMakeStep.MakeArguments">-o simplescan simplescan.c -lbluetooth</value>
+      <value type="QString" key="GenericProjectManager.GenericMakeStep.MakeArguments">-o simplescan simplescan.c hcitools.c csr.c -lbluetooth</value>
       <value type="QString" key="GenericProjectManager.GenericMakeStep.MakeCommand">gcc</value>
       <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Make</value>
@@ -79,7 +79,7 @@
      </valuemap>
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.1">
       <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
-      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">simplescan.c $HOME/workspace/low-powered-doorbell-fw/ambarella/ring/ble/.</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">*.c $HOME/workspace/low-powered-doorbell-fw/ambarella/ring/ble/.</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.Command">cp</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.WorkingDirectory">%{buildDir}</value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Custom Process Step</value>

@@ -12,6 +12,8 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 
+#include "hcitool.h"
+
 #define DEFAULT_TXT "hello ring 123!"
 
 int my_listen(void)
