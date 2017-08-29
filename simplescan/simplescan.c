@@ -299,25 +299,25 @@ static int execute_cmd(eConfig_cmd_t aCmd)
 
     switch (aCmd)
     {
-        case eConfig_UP: hcitool_up(ctl, di.dev_id, NULL); break;
-        case eConfig_DOWN: hcitool_down(ctl, di.dev_id, NULL); break;
+        case eConfig_UP: hcitool_up(ctl, di.dev_id); break;
+        case eConfig_DOWN: hcitool_down(ctl, di.dev_id); break;
         case eConfig_PISCAN: hcitool_scan(ctl, di.dev_id, "piscan"); break;
         case eConfig_NOSCAN: hcitool_scan(ctl, di.dev_id, "noscan"); break;
-        case eConfig_LEADV: hcitool_le_adv(ctl, di.dev_id, NULL); break;
-        case eConfig_NOLEADV: hcitool_no_le_adv(ctl, di.dev_id, NULL); break;
-        case eConfig_CLASS: hcitool_class(ctl, di.dev_id, "0x280430"); break;
+        case eConfig_LEADV: hcitool_le_adv(di.dev_id, NULL); break;
+        case eConfig_NOLEADV: hcitool_no_le_adv(di.dev_id); break;
+        case eConfig_CLASS: hcitool_class(di.dev_id, "0x280430"); break;
 
         case eConfig_ALLUP:
-            hcitool_up(ctl, di.dev_id, NULL);
+            hcitool_up(ctl, di.dev_id);
             hcitool_scan(ctl, di.dev_id, "piscan");
-            hcitool_class(ctl, di.dev_id, "0x280430");
-            hcitool_le_adv(ctl, di.dev_id, NULL);
+            hcitool_class(di.dev_id, "0x280430");
+            hcitool_le_adv(di.dev_id, NULL);
             break;
 
         case eConfig_ALLDOWN:
-            hcitool_no_le_adv(ctl, di.dev_id, NULL);
+            hcitool_no_le_adv(di.dev_id);
             hcitool_scan(ctl, di.dev_id, "noscan");
-            hcitool_down(ctl, di.dev_id, NULL);
+            hcitool_down(ctl, di.dev_id);
             break;
     }
 
