@@ -1,0 +1,880 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>922</width>
+    <height>551</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <widget class="QLabel" name="label_1">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>0</y>
+      <width>311</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Major Service Classes
+</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_1">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Limited Discoverable Mode</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_2">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>40</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Positioning (Location identification)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_3">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>60</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Networking (LAN, Ad hoc, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_4">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>80</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Rendering (Printing, Speakers, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_5">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>100</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Capturing (Scanner, Microphone, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_6">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>120</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Object Transfer (v-Inbox, v-Folder, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_7">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>140</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Audio (Speaker, Microphone, Headset service, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_8">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>160</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Telephony (Cordless telephony, Modem, Headset service, ...)</string>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="checkBox_9">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>180</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Information (WEB-server, WAP-server, ...)</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>630</x>
+      <y>60</y>
+      <width>111</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>16</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+      <underline>true</underline>
+     </font>
+    </property>
+    <property name="text">
+     <string>hciconfig</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>210</y>
+      <width>311</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Major Device Classes
+</string>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_15">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>330</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Peripheral (mouse, joystick, keyboard, ... )</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_14">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>310</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Audio/Video (headset, speaker, stereo, video display, VCR</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_17">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>370</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Wearable</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_18">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>390</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Toy</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_11">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>250</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Computer (desktop, notebook, PDA, organizer, ... )</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_12">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>270</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Phone (cellular, cordless, pay phone, modem, ...)</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_13">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>290</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>LAN /Network Access point</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_16">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>350</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Imaging (printer, scanner, camera, display, ...)</string>
+    </property>
+    <property name="checkable">
+     <bool>true</bool>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_10">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>230</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Miscellaneous</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_19">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>410</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Health</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_20">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>430</y>
+      <width>431</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Uncategorized: device code not specified</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroup_MDC</string>
+    </attribute>
+   </widget>
+   <widget class="QFrame" name="frame">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>206</y>
+      <width>440</width>
+      <height>255</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+    <zorder>radioButton_20</zorder>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>210</y>
+      <width>311</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Minor Device Classes</string>
+    </property>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_28">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>370</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Set-top box</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_31">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>430</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Video Camera</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_30">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>410</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>VCR</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_29">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>390</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>HiFi Audio Device</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_25">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>310</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Headphones</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_22">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>250</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Hands-free Device</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_27">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>350</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Car audio</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_26">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>330</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Portable Audio</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_21">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>230</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Wearable Headset Device</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_24">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>290</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Loudspeaker</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <widget class="QFrame" name="frame_2">
+    <property name="geometry">
+     <rect>
+      <x>460</x>
+      <y>206</y>
+      <width>450</width>
+      <height>255</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+    <widget class="QRadioButton" name="radioButton_34">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>60</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Display and Loudspeaker</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_38">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>140</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_37">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>120</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_42">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>220</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_41">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>200</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_32">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>20</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Camcorder</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_40">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>180</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_36">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>100</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Gaming/Toy</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_39">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>160</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>-</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_33">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>40</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Video Monitor</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <widget class="QRadioButton" name="radioButton_35">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>80</y>
+       <width>211</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Video Conferencing</string>
+     </property>
+     <attribute name="buttonGroup">
+      <string notr="true">buttonGroupMinors</string>
+     </attribute>
+    </widget>
+    <zorder>radioButton_34</zorder>
+    <zorder>radioButton_38</zorder>
+    <zorder>radioButton_37</zorder>
+    <zorder>radioButton_42</zorder>
+    <zorder>radioButton_41</zorder>
+    <zorder>radioButton_32</zorder>
+    <zorder>radioButton_40</zorder>
+    <zorder>radioButton_36</zorder>
+    <zorder>radioButton_39</zorder>
+    <zorder>radioButton_33</zorder>
+    <zorder>radioButton_35</zorder>
+    <zorder>radioButton_29</zorder>
+   </widget>
+   <widget class="QRadioButton" name="radioButton_23">
+    <property name="geometry">
+     <rect>
+      <x>470</x>
+      <y>270</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Microphone</string>
+    </property>
+    <attribute name="buttonGroup">
+     <string notr="true">buttonGroupMinors</string>
+    </attribute>
+   </widget>
+   <zorder>frame_2</zorder>
+   <zorder>frame</zorder>
+   <zorder>label_1</zorder>
+   <zorder>checkBox_1</zorder>
+   <zorder>checkBox_2</zorder>
+   <zorder>checkBox_3</zorder>
+   <zorder>checkBox_4</zorder>
+   <zorder>checkBox_5</zorder>
+   <zorder>checkBox_6</zorder>
+   <zorder>checkBox_7</zorder>
+   <zorder>checkBox_8</zorder>
+   <zorder>checkBox_9</zorder>
+   <zorder>label_2</zorder>
+   <zorder>label_3</zorder>
+   <zorder>radioButton_15</zorder>
+   <zorder>radioButton_14</zorder>
+   <zorder>radioButton_17</zorder>
+   <zorder>radioButton_18</zorder>
+   <zorder>radioButton_11</zorder>
+   <zorder>radioButton_12</zorder>
+   <zorder>radioButton_13</zorder>
+   <zorder>radioButton_16</zorder>
+   <zorder>radioButton_10</zorder>
+   <zorder>radioButton_19</zorder>
+   <zorder>radioButton_20</zorder>
+   <zorder>label_4</zorder>
+   <zorder>radioButton_28</zorder>
+   <zorder>radioButton_31</zorder>
+   <zorder>radioButton_30</zorder>
+   <zorder>radioButton_29</zorder>
+   <zorder>radioButton_25</zorder>
+   <zorder>radioButton_22</zorder>
+   <zorder>radioButton_27</zorder>
+   <zorder>radioButton_26</zorder>
+   <zorder>radioButton_21</zorder>
+   <zorder>radioButton_24</zorder>
+   <zorder>radioButton_23</zorder>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>922</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QToolBar" name="mainToolBar">
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <tabstops>
+  <tabstop>checkBox_1</tabstop>
+  <tabstop>checkBox_2</tabstop>
+  <tabstop>checkBox_3</tabstop>
+  <tabstop>checkBox_4</tabstop>
+  <tabstop>checkBox_5</tabstop>
+  <tabstop>checkBox_6</tabstop>
+  <tabstop>checkBox_7</tabstop>
+  <tabstop>checkBox_8</tabstop>
+  <tabstop>checkBox_9</tabstop>
+  <tabstop>radioButton_10</tabstop>
+  <tabstop>radioButton_11</tabstop>
+  <tabstop>radioButton_12</tabstop>
+  <tabstop>radioButton_13</tabstop>
+  <tabstop>radioButton_14</tabstop>
+  <tabstop>radioButton_15</tabstop>
+  <tabstop>radioButton_16</tabstop>
+  <tabstop>radioButton_17</tabstop>
+  <tabstop>radioButton_18</tabstop>
+  <tabstop>radioButton_19</tabstop>
+  <tabstop>radioButton_20</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup_MDC"/>
+  <buttongroup name="buttonGroupMinors"/>
+ </buttongroups>
+</ui>
