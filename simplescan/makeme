@@ -1,2 +1,0 @@
-gcc -o simplescan simplescan.c hcitools.c csr.c -lbluetooth -I/home/ring-sergie/workspace/low-powered-doorbell-fw/ambarella/prebuild/third-party/armv7-a-hf/bluez5/include/
-

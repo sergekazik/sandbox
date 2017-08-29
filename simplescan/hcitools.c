@@ -46,43 +46,42 @@
 #include "csr.h"
 
 static struct hci_dev_info di;
-static int all;
 
 static void print_dev_hdr(struct hci_dev_info *di);
-static void print_dev_info(int ctl, struct hci_dev_info *di);
+//static void print_dev_info(int ctl, struct hci_dev_info *di);
 
-static void print_dev_list(int ctl, int flags)
-{
-	struct hci_dev_list_req *dl;
-	struct hci_dev_req *dr;
-	int i;
+//static void print_dev_list(int ctl, int flags)
+//{
+//	struct hci_dev_list_req *dl;
+//	struct hci_dev_req *dr;
+//	int i;
 
-	if (!(dl = malloc(HCI_MAX_DEV * sizeof(struct hci_dev_req) +
-		sizeof(uint16_t)))) {
-		perror("Can't allocate memory");
-		exit(1);
-	}
-	dl->dev_num = HCI_MAX_DEV;
-	dr = dl->dev_req;
+//	if (!(dl = malloc(HCI_MAX_DEV * sizeof(struct hci_dev_req) +
+//		sizeof(uint16_t)))) {
+//		perror("Can't allocate memory");
+//		exit(1);
+//	}
+//	dl->dev_num = HCI_MAX_DEV;
+//	dr = dl->dev_req;
 
-	if (ioctl(ctl, HCIGETDEVLIST, (void *) dl) < 0) {
-		perror("Can't get device list");
-		exit(1);
-	}
+//	if (ioctl(ctl, HCIGETDEVLIST, (void *) dl) < 0) {
+//		perror("Can't get device list");
+//		exit(1);
+//	}
 
-	for (i = 0; i< dl->dev_num; i++) {
-		di.dev_id = (dr+i)->dev_id;
-		if (ioctl(ctl, HCIGETDEVINFO, (void *) &di) < 0)
-			continue;
-		if (hci_test_bit(HCI_RAW, &di.flags) &&
-				!bacmp(&di.bdaddr, BDADDR_ANY)) {
-			int dd = hci_open_dev(di.dev_id);
-			hci_read_bd_addr(dd, &di.bdaddr, 1000);
-			hci_close_dev(dd);
-		}
-		print_dev_info(ctl, &di);
-	}
-}
+//	for (i = 0; i< dl->dev_num; i++) {
+//		di.dev_id = (dr+i)->dev_id;
+//		if (ioctl(ctl, HCIGETDEVINFO, (void *) &di) < 0)
+//			continue;
+//		if (hci_test_bit(HCI_RAW, &di.flags) &&
+//				!bacmp(&di.bdaddr, BDADDR_ANY)) {
+//			int dd = hci_open_dev(di.dev_id);
+//			hci_read_bd_addr(dd, &di.bdaddr, 1000);
+//			hci_close_dev(dd);
+//		}
+//		print_dev_info(ctl, &di);
+//	}
+//}
 
 static void print_pkt_type(struct hci_dev_info *di)
 {
@@ -165,8 +164,11 @@ static void print_le_states(uint64_t states)
 	}
 }
 
+#define UNUSED(_var) (void)_var
 void hcitool_rstat(int ctl, int hdev, char *opt)
 {
+    UNUSED(opt);
+
 	/* Reset HCI device stat counters */
 	if (ioctl(ctl, HCIDEVRESTAT, hdev) < 0) {
 		fprintf(stderr, "Can't reset stats counters hci%d: %s (%d)\n",
@@ -197,6 +199,8 @@ void hcitool_scan(int ctl, int hdev, char *opt)
 
 void hcitool_le_addr(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+
 	struct hci_request rq;
 	le_set_random_address_cp cp;
 	uint8_t status;
@@ -240,6 +244,8 @@ void hcitool_le_addr(int ctl, int hdev, char *opt)
 
 void hcitool_le_adv(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+
 	struct hci_request rq;
 	le_set_advertise_enable_cp advertise_cp;
 	le_set_advertising_parameters_cp adv_params_cp;
@@ -306,6 +312,9 @@ done:
 
 void hcitool_no_le_adv(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	struct hci_request rq;
 	le_set_advertise_enable_cp advertise_cp;
 	uint8_t status;
@@ -349,6 +358,9 @@ void hcitool_no_le_adv(int ctl, int hdev, char *opt)
 
 void hcitool_le_states(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	le_read_supported_states_rp rp;
 	struct hci_request rq;
 	int err, dd;
@@ -392,6 +404,7 @@ void hcitool_le_states(int ctl, int hdev, char *opt)
 
 void hcitool_iac(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int s = hci_open_dev(hdev);
 
 	if (s < 0) {
@@ -475,6 +488,7 @@ void hcitool_encrypt(int ctl, int hdev, char *opt)
 
 void hcitool_up(int ctl, int hdev, char *opt)
 {
+    UNUSED(opt);
 	/* Start HCI device */
 	if (ioctl(ctl, HCIDEVUP, hdev) < 0) {
 		if (errno == EALREADY)
@@ -487,6 +501,7 @@ void hcitool_up(int ctl, int hdev, char *opt)
 
 void hcitool_down(int ctl, int hdev, char *opt)
 {
+    UNUSED(opt);
 	/* Stop HCI device */
 	if (ioctl(ctl, HCIDEVDOWN, hdev) < 0) {
 		fprintf(stderr, "Can't down device hci%d: %s (%d)\n",
@@ -497,6 +512,7 @@ void hcitool_down(int ctl, int hdev, char *opt)
 
 void hcitool_reset(int ctl, int hdev, char *opt)
 {
+    UNUSED(opt);
 	/* Reset HCI device */
 #if 0
 	if (ioctl(ctl, HCIDEVRESET, hdev) < 0 ){
@@ -605,6 +621,9 @@ void hcitool_scomtu(int ctl, int hdev, char *opt)
 
 void hcitool_features(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	uint8_t features[8], max_page = 0;
 	char *tmp;
 	int i, dd;
@@ -655,6 +674,7 @@ void hcitool_features(int ctl, int hdev, char *opt)
 
 void hcitool_name(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -894,6 +914,7 @@ static char *get_minor_device_name(int major, int minor)
 
 void hcitool_class(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	static const char *services[] = { "Positioning",
 					"Networking",
 					"Rendering",
@@ -957,6 +978,7 @@ void hcitool_class(int ctl, int hdev, char *opt)
 
 void hcitool_voice(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	static char *icf[] = {	"Linear",
 				"u-Law",
 				"A-Law",
@@ -1017,6 +1039,7 @@ void hcitool_voice(int ctl, int hdev, char *opt)
 
 void hcitool_delkey(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	bdaddr_t bdaddr;
 	uint8_t all;
 	int dd;
@@ -1050,6 +1073,9 @@ void hcitool_delkey(int ctl, int hdev, char *opt)
 
 void hcitool_oob_data(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	uint8_t hash[16], randomizer[16];
 	int i, dd;
 
@@ -1080,6 +1106,9 @@ void hcitool_oob_data(int ctl, int hdev, char *opt)
 
 void hcitool_commands(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	uint8_t cmds[64];
 	char *str;
 	int i, n, dd;
@@ -1119,6 +1148,9 @@ void hcitool_commands(int ctl, int hdev, char *opt)
 
 void hcitool_version(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	struct hci_version ver;
 	char *hciver, *lmpver;
 	int dd;
@@ -1161,6 +1193,7 @@ void hcitool_version(int ctl, int hdev, char *opt)
 
 void hcitool_inq_tpl(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -1196,6 +1229,7 @@ void hcitool_inq_tpl(int ctl, int hdev, char *opt)
 
 void hcitool_inq_mode(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -1245,6 +1279,7 @@ void hcitool_inq_mode(int ctl, int hdev, char *opt)
 
 void hcitool_inq_data(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int i, dd;
 
 	dd = hci_open_dev(hdev);
@@ -1351,6 +1386,7 @@ void hcitool_inq_data(int ctl, int hdev, char *opt)
 
 void hcitool_inq_type(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -1387,6 +1423,7 @@ void hcitool_inq_type(int ctl, int hdev, char *opt)
 
 void hcitool_inq_parms(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	struct hci_request rq;
 	int s;
 
@@ -1456,6 +1493,7 @@ void hcitool_inq_parms(int ctl, int hdev, char *opt)
 
 void hcitool_page_parms(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	struct hci_request rq;
 	int s;
 
@@ -1527,6 +1565,7 @@ void hcitool_page_parms(int ctl, int hdev, char *opt)
 
 void hcitool_page_to(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	struct hci_request rq;
 	int s;
 
@@ -1591,6 +1630,7 @@ void hcitool_page_to(int ctl, int hdev, char *opt)
 
 void hcitool_afh_mode(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -1624,6 +1664,9 @@ void hcitool_afh_mode(int ctl, int hdev, char *opt)
 
 void hcitool_ssp_mode(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	int dd;
 
 	dd = hci_open_dev(hdev);
@@ -1741,6 +1784,9 @@ static void print_rev_avm(uint16_t hci_rev, uint16_t lmp_subver)
 
 void hcitool_revision(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	struct hci_version ver;
 	int dd;
 
@@ -1785,6 +1831,7 @@ void hcitool_revision(int ctl, int hdev, char *opt)
 
 void hcitool_block(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
 	bdaddr_t bdaddr;
 	int dd;
 
@@ -1810,6 +1857,9 @@ void hcitool_block(int ctl, int hdev, char *opt)
 
 void hcitool_unblock(int ctl, int hdev, char *opt)
 {
+    UNUSED(ctl);
+    UNUSED(opt);
+
 	bdaddr_t bdaddr;
 	int dd;
 
@@ -1855,41 +1905,41 @@ static void print_dev_hdr(struct hci_dev_info *di)
 						di->sco_mtu, di->sco_pkts);
 }
 
-static void print_dev_info(int ctl, struct hci_dev_info *di)
-{
-	struct hci_dev_stats *st = &di->stat;
-	char *str;
+//static void print_dev_info(int ctl, struct hci_dev_info *di)
+//{
+//	struct hci_dev_stats *st = &di->stat;
+//	char *str;
 
-	print_dev_hdr(di);
+//	print_dev_hdr(di);
 
-	str = hci_dflagstostr(di->flags);
-	printf("\t%s\n", str);
-	bt_free(str);
+//	str = hci_dflagstostr(di->flags);
+//	printf("\t%s\n", str);
+//	bt_free(str);
 
-	printf("\tRX bytes:%d acl:%d sco:%d events:%d errors:%d\n",
-		st->byte_rx, st->acl_rx, st->sco_rx, st->evt_rx, st->err_rx);
+//	printf("\tRX bytes:%d acl:%d sco:%d events:%d errors:%d\n",
+//		st->byte_rx, st->acl_rx, st->sco_rx, st->evt_rx, st->err_rx);
 
-	printf("\tTX bytes:%d acl:%d sco:%d commands:%d errors:%d\n",
-		st->byte_tx, st->acl_tx, st->sco_tx, st->cmd_tx, st->err_tx);
+//	printf("\tTX bytes:%d acl:%d sco:%d commands:%d errors:%d\n",
+//		st->byte_tx, st->acl_tx, st->sco_tx, st->cmd_tx, st->err_tx);
 
-	if (all && !hci_test_bit(HCI_RAW, &di->flags)) {
-		print_dev_features(di, 0);
+//	if (all && !hci_test_bit(HCI_RAW, &di->flags)) {
+//		print_dev_features(di, 0);
 
-		if (((di->type & 0x30) >> 4) == HCI_BREDR) {
-			print_pkt_type(di);
-			print_link_policy(di);
-			print_link_mode(di);
+//		if (((di->type & 0x30) >> 4) == HCI_BREDR) {
+//			print_pkt_type(di);
+//			print_link_policy(di);
+//			print_link_mode(di);
 
-			if (hci_test_bit(HCI_UP, &di->flags)) {
-				hcitool_name(ctl, di->dev_id, NULL);
-				hcitool_class(ctl, di->dev_id, NULL);
-			}
-		}
+//			if (hci_test_bit(HCI_UP, &di->flags)) {
+//				hcitool_name(ctl, di->dev_id, NULL);
+//				hcitool_class(ctl, di->dev_id, NULL);
+//			}
+//		}
 
-		if (hci_test_bit(HCI_UP, &di->flags))
-			hcitool_version(ctl, di->dev_id, NULL);
-	}
+//		if (hci_test_bit(HCI_UP, &di->flags))
+//			hcitool_version(ctl, di->dev_id, NULL);
+//	}
 
-	printf("\n");
-}
+//	printf("\n");
+//}
 

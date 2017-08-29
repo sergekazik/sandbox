@@ -3,4 +3,4 @@ hcitools.c
 csr.c
 csr.h
 hcitool.h
-../../bluez/tools/hciconfig.c
+Makefile

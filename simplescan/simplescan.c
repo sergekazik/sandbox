@@ -32,7 +32,7 @@ typedef enum
 } eConfig_cmd_t;
 
 static struct hci_dev_info di;
-static int execute_cmd(eConfig_cmd_t aCmd, char *info);
+static int execute_cmd(eConfig_cmd_t aCmd);
 
 #define DEFAULT_TXT "hello ring 123!"
 
@@ -110,8 +110,6 @@ int my_connect(char *dest, const char *data)
     close(s);
     return status >= 0 ? 0 : status;
 }
-
-
 
 int my_scan(void)
 {
@@ -229,39 +227,39 @@ int main(int argc, char **argv)
         //------------------------------------------------
         else if (!strcmp(argv[arg_idx], "--up"))
         {
-            execute_cmd(eConfig_UP, argv[arg_idx]); break;
+            execute_cmd(eConfig_UP); break;
         }
         else if (!strcmp(argv[arg_idx], "--down"))
         {
-            execute_cmd(eConfig_DOWN, argv[arg_idx]); break;
+            execute_cmd(eConfig_DOWN); break;
         }
         else if (!strcmp(argv[arg_idx], "--piscan"))
         {
-            execute_cmd(eConfig_PISCAN, argv[arg_idx]); break;
+            execute_cmd(eConfig_PISCAN); break;
         }
         else if (!strcmp(argv[arg_idx], "--noscan"))
         {
-            execute_cmd(eConfig_NOSCAN, argv[arg_idx]); break;
+            execute_cmd(eConfig_NOSCAN); break;
         }
         else if (!strcmp(argv[arg_idx], "--leadv"))
         {
-            execute_cmd(eConfig_LEADV, argv[arg_idx]); break;
+            execute_cmd(eConfig_LEADV); break;
         }
         else if (!strcmp(argv[arg_idx], "--noleadv"))
         {
-            execute_cmd(eConfig_NOLEADV, argv[arg_idx]); break;
+            execute_cmd(eConfig_NOLEADV); break;
         }
         else if (!strcmp(argv[arg_idx], "--class"))
         {
-            execute_cmd(eConfig_CLASS, argv[arg_idx]); break;
+            execute_cmd(eConfig_CLASS); break;
         }
         else if (!strcmp(argv[arg_idx], "--hciinit"))
         {
-            execute_cmd(eConfig_ALLUP, argv[arg_idx]); break;
+            execute_cmd(eConfig_ALLUP); break;
         }
         else if (!strcmp(argv[arg_idx], "--hcishutdown"))
         {
-            execute_cmd(eConfig_ALLDOWN, argv[arg_idx]); break;
+            execute_cmd(eConfig_ALLDOWN); break;
         }
 
     }
@@ -275,7 +273,7 @@ int main(int argc, char **argv)
     return ret;
 }
 
-static int execute_cmd(eConfig_cmd_t aCmd, char *info)
+static int execute_cmd(eConfig_cmd_t aCmd)
 {
 	int ctl;
 

@@ -1,5 +1,9 @@
 // HCI tools protoypes
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void hcitool_rstat(int ctl, int hdev, char *opt);
 void hcitool_scan(int ctl, int hdev, char *opt);
 void hcitool_le_addr(int ctl, int hdev, char *opt);
@@ -37,3 +41,9 @@ void hcitool_ssp_mode(int ctl, int hdev, char *opt);
 void hcitool_revision(int ctl, int hdev, char *opt);
 void hcitool_block(int ctl, int hdev, char *opt);
 void hcitool_unblock(int ctl, int hdev, char *opt);
+
+
+#ifdef __cplusplus
+}
+#endif
+
