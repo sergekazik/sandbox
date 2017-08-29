@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/param.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
@@ -13,6 +15,24 @@
 #include <bluetooth/rfcomm.h>
 
 #include "hcitool.h"
+
+typedef enum
+{
+    eConfig_UP,
+    eConfig_DOWN,
+    eConfig_PISCAN,
+    eConfig_NOSCAN,
+    eConfig_LEADV,
+    eConfig_NOLEADV,
+    eConfig_CLASS,
+
+    // ------- combos
+    eConfig_ALLUP,
+    eConfig_ALLDOWN,
+} eConfig_cmd_t;
+
+static struct hci_dev_info di;
+static int execute_cmd(eConfig_cmd_t aCmd, char *info);
 
 #define DEFAULT_TXT "hello ring 123!"
 
@@ -139,13 +159,23 @@ void print_help(void)
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
     printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
     printf("------------------------------------------------\n");
+    printf("--up                    hciconfig hci0 up\n");
+    printf("--down                  hciconfig hci0 down\n");
+    printf("--piscan                hciconfig hci0 piscan\n");
+    printf("--noscan                hciconfig hci0 noscan\n");
+    printf("--leadv                 hciconfig hci0 leadv\n");
+    printf("--noleadv               hciconfig hci0 leadv\n");
+    printf("--class                 hciconfig hci0 class 0x280430\n");
+    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
+    printf("--hcishutdown           noleadv, noscan, down\n");
+    printf("------------------------------------------------\n");
+
 }
 
 int main(int argc, char **argv)
 {
     int arg_idx, ret = 0;
     char *dev_addr = NULL;
-
 
     for (arg_idx = argc-1; arg_idx > 0; arg_idx--)
     {
@@ -196,13 +226,104 @@ int main(int argc, char **argv)
             }
             break;
         }
+        //------------------------------------------------
+        else if (!strcmp(argv[arg_idx], "--up"))
+        {
+            execute_cmd(eConfig_UP, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--down"))
+        {
+            execute_cmd(eConfig_DOWN, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--piscan"))
+        {
+            execute_cmd(eConfig_PISCAN, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--noscan"))
+        {
+            execute_cmd(eConfig_NOSCAN, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--leadv"))
+        {
+            execute_cmd(eConfig_LEADV, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--noleadv"))
+        {
+            execute_cmd(eConfig_NOLEADV, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--class"))
+        {
+            execute_cmd(eConfig_CLASS, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--hciinit"))
+        {
+            execute_cmd(eConfig_ALLUP, argv[arg_idx]); break;
+        }
+        else if (!strcmp(argv[arg_idx], "--hcishutdown"))
+        {
+            execute_cmd(eConfig_ALLDOWN, argv[arg_idx]); break;
+        }
+
     }
 
     if (!arg_idx)
     {
-	print_help();
+        print_help();
     }
 
     printf("%s ----- done; ret val=%d\n", argv[0], ret);
     return ret;
 }
+
+static int execute_cmd(eConfig_cmd_t aCmd, char *info)
+{
+	int ctl;
+
+	/* Open HCI socket  */
+	if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
+		perror("Can't open HCI socket.");
+		exit(1);
+	}
+
+	if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
+    {
+		perror("Can't get device info");
+		exit(1);
+	}
+
+    di.dev_id = 0;
+
+	if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, BDADDR_ANY)) {
+		int dd = hci_open_dev(di.dev_id);
+		hci_read_bd_addr(dd, &di.bdaddr, 1000);
+		hci_close_dev(dd);
+	}
+
+    switch (aCmd)
+    {
+        case eConfig_UP: hcitool_up(ctl, di.dev_id, NULL); break;
+        case eConfig_DOWN: hcitool_down(ctl, di.dev_id, NULL); break;
+        case eConfig_PISCAN: hcitool_scan(ctl, di.dev_id, "piscan"); break;
+        case eConfig_NOSCAN: hcitool_scan(ctl, di.dev_id, "noscan"); break;
+        case eConfig_LEADV: hcitool_le_adv(ctl, di.dev_id, NULL); break;
+        case eConfig_NOLEADV: hcitool_no_le_adv(ctl, di.dev_id, NULL); break;
+        case eConfig_CLASS: hcitool_class(ctl, di.dev_id, "0x280430"); break;
+
+        case eConfig_ALLUP:
+            hcitool_up(ctl, di.dev_id, NULL);
+            hcitool_scan(ctl, di.dev_id, "piscan");
+            hcitool_class(ctl, di.dev_id, "0x280430");
+            hcitool_le_adv(ctl, di.dev_id, NULL);
+            break;
+
+        case eConfig_ALLDOWN:
+            hcitool_no_le_adv(ctl, di.dev_id, NULL);
+            hcitool_scan(ctl, di.dev_id, "noscan");
+            hcitool_down(ctl, di.dev_id, NULL);
+            break;
+    }
+
+	close(ctl);
+	return 0;
+}
+
