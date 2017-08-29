@@ -11,7 +11,7 @@ RM = rm -f
 TARGET_LIB = libbleconfig.so
 TARGET_APP = simplescan
 
-SRCS_LIB = hcitools.c csr.c
+SRCS_LIB = hcitools.c
 SRCS_APP = simplescan.c
 
 OBJS_LIB = $(SRCS_LIB:.c=.o)
@@ -34,7 +34,6 @@ $(SRCS_APP:.c=.d):%.d:%.c
 
 #include $(SRCS_LIB:.c=.d)
 #include $(SRCS_APP:.c=.d)
-
 
 .PHONY: clean
 clean_obj:

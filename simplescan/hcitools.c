@@ -1,32 +1,3 @@
-/*
- *
- *  BlueZ - Bluetooth protocol stack for Linux
- *
- *  Copyright (C) 2000-2001  Qualcomm Incorporated
- *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
- *  Copyright (C) 2002-2010  Marcel Holtmann <marcel@holtmann.org>
- *
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
- */
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
@@ -42,46 +13,8 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
-//#include "textfile.h"
-#include "csr.h"
-
 static struct hci_dev_info di;
-
 static void print_dev_hdr(struct hci_dev_info *di);
-//static void print_dev_info(int ctl, struct hci_dev_info *di);
-
-//static void print_dev_list(int ctl, int flags)
-//{
-//	struct hci_dev_list_req *dl;
-//	struct hci_dev_req *dr;
-//	int i;
-
-//	if (!(dl = malloc(HCI_MAX_DEV * sizeof(struct hci_dev_req) +
-//		sizeof(uint16_t)))) {
-//		perror("Can't allocate memory");
-//		exit(1);
-//	}
-//	dl->dev_num = HCI_MAX_DEV;
-//	dr = dl->dev_req;
-
-//	if (ioctl(ctl, HCIGETDEVLIST, (void *) dl) < 0) {
-//		perror("Can't get device list");
-//		exit(1);
-//	}
-
-//	for (i = 0; i< dl->dev_num; i++) {
-//		di.dev_id = (dr+i)->dev_id;
-//		if (ioctl(ctl, HCIGETDEVINFO, (void *) &di) < 0)
-//			continue;
-//		if (hci_test_bit(HCI_RAW, &di.flags) &&
-//				!bacmp(&di.bdaddr, BDADDR_ANY)) {
-//			int dd = hci_open_dev(di.dev_id);
-//			hci_read_bd_addr(dd, &di.bdaddr, 1000);
-//			hci_close_dev(dd);
-//		}
-//		print_dev_info(ctl, &di);
-//	}
-//}
 
 static void print_pkt_type(struct hci_dev_info *di)
 {
@@ -158,7 +91,6 @@ static void print_le_states(uint64_t states)
 	printf("Supported link layer states:\n");
 	for (i = 0; le_states[i]; i++) {
 		const char *status;
-
 		status = states & (1 << i) ? "YES" : "NO ";
 		printf("\t%s %s\n", status, le_states[i]);
 	}
@@ -180,7 +112,6 @@ void hcitool_rstat(int ctl, int hdev, char *opt)
 void hcitool_scan(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id  = hdev;
 	dr.dev_opt = SCAN_DISABLED;
 	if (!strcmp(opt, "iscan"))
@@ -189,7 +120,6 @@ void hcitool_scan(int ctl, int hdev, char *opt)
 		dr.dev_opt = SCAN_PAGE;
 	else if (!strcmp(opt, "piscan"))
 		dr.dev_opt = SCAN_PAGE | SCAN_INQUIRY;
-
 	if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0) {
 		fprintf(stderr, "Can't set scan mode on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -200,18 +130,14 @@ void hcitool_scan(int ctl, int hdev, char *opt)
 void hcitool_le_addr(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
-
 	struct hci_request rq;
 	le_set_random_address_cp cp;
 	uint8_t status;
 	int dd, err, ret;
-
 	if (!opt)
 		return;
-
 	if (hdev < 0)
 		hdev = hci_get_route(NULL);
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		err = -errno;
@@ -219,11 +145,8 @@ void hcitool_le_addr(int ctl, int hdev, char *opt)
 							strerror(-err), -err);
 		exit(1);
 	}
-
 	memset(&cp, 0, sizeof(cp));
-
 	str2ba(opt, &cp.bdaddr);
-
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
 	rq.ocf = OCF_LE_SET_RANDOM_ADDRESS;
@@ -231,43 +154,36 @@ void hcitool_le_addr(int ctl, int hdev, char *opt)
 	rq.clen = LE_SET_RANDOM_ADDRESS_CP_SIZE;
 	rq.rparam = &status;
 	rq.rlen = 1;
-
 	ret = hci_send_req(dd, &rq, 1000);
 	if (status || ret < 0) {
 		err = -errno;
 		fprintf(stderr, "Can't set random address for hci%d: "
 				"%s (%d)\n", hdev, strerror(-err), -err);
 	}
-
 	hci_close_dev(dd);
 }
 
 void hcitool_le_adv(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
-
 	struct hci_request rq;
 	le_set_advertise_enable_cp advertise_cp;
 	le_set_advertising_parameters_cp adv_params_cp;
 	uint8_t status;
 	int dd, ret;
-
 	if (hdev < 0)
 		hdev = hci_get_route(NULL);
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		perror("Could not open device");
 		exit(1);
 	}
-
 	memset(&adv_params_cp, 0, sizeof(adv_params_cp));
 	adv_params_cp.min_interval = htobs(0x0800);
 	adv_params_cp.max_interval = htobs(0x0800);
 	if (opt)
 		adv_params_cp.advtype = atoi(opt);
 	adv_params_cp.chan_map = 7;
-
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
 	rq.ocf = OCF_LE_SET_ADVERTISING_PARAMETERS;
@@ -275,14 +191,11 @@ void hcitool_le_adv(int ctl, int hdev, char *opt)
 	rq.clen = LE_SET_ADVERTISING_PARAMETERS_CP_SIZE;
 	rq.rparam = &status;
 	rq.rlen = 1;
-
 	ret = hci_send_req(dd, &rq, 1000);
 	if (ret < 0)
 		goto done;
-
 	memset(&advertise_cp, 0, sizeof(advertise_cp));
 	advertise_cp.enable = 0x01;
-
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
 	rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
@@ -290,18 +203,14 @@ void hcitool_le_adv(int ctl, int hdev, char *opt)
 	rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
 	rq.rparam = &status;
 	rq.rlen = 1;
-
 	ret = hci_send_req(dd, &rq, 1000);
-
 done:
 	hci_close_dev(dd);
-
 	if (ret < 0) {
 		fprintf(stderr, "Can't set advertise mode on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (status) {
 		fprintf(stderr,
 			"LE set advertise enable on hci%d returned status %d\n",
@@ -314,23 +223,18 @@ void hcitool_no_le_adv(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	struct hci_request rq;
 	le_set_advertise_enable_cp advertise_cp;
 	uint8_t status;
 	int dd, ret;
-
 	if (hdev < 0)
 		hdev = hci_get_route(NULL);
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		perror("Could not open device");
 		exit(1);
 	}
-
 	memset(&advertise_cp, 0, sizeof(advertise_cp));
-
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
 	rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
@@ -338,17 +242,13 @@ void hcitool_no_le_adv(int ctl, int hdev, char *opt)
 	rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
 	rq.rparam = &status;
 	rq.rlen = 1;
-
 	ret = hci_send_req(dd, &rq, 1000);
-
 	hci_close_dev(dd);
-
 	if (ret < 0) {
 		fprintf(stderr, "Can't set advertise mode on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (status) {
 		fprintf(stderr, "LE set advertise enable on hci%d returned status %d\n",
 						hdev, status);
@@ -360,45 +260,35 @@ void hcitool_le_states(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	le_read_supported_states_rp rp;
 	struct hci_request rq;
 	int err, dd;
-
 	if (hdev < 0)
 		hdev = hci_get_route(NULL);
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	memset(&rp, 0, sizeof(rp));
 	memset(&rq, 0, sizeof(rq));
-
 	rq.ogf    = OGF_LE_CTL;
 	rq.ocf    = OCF_LE_READ_SUPPORTED_STATES;
 	rq.rparam = &rp;
 	rq.rlen   = LE_READ_SUPPORTED_STATES_RP_SIZE;
-
 	err = hci_send_req(dd, &rq, 1000);
-
 	hci_close_dev(dd);
-
 	if (err < 0) {
 		fprintf(stderr, "Can't read LE supported states on hci%d:"
 				" %s(%d)\n", hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (rp.status) {
 		fprintf(stderr, "Read LE supported states on hci%d"
 				" returned status %d\n", hdev, rp.status);
 		exit(1);
 	}
-
 	print_le_states(rp.states);
 }
 
@@ -406,7 +296,6 @@ void hcitool_iac(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int s = hci_open_dev(hdev);
-
 	if (s < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -455,13 +344,11 @@ void hcitool_iac(int ctl, int hdev, char *opt)
 void hcitool_auth(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id = hdev;
 	if (!strcmp(opt, "auth"))
 		dr.dev_opt = AUTH_ENABLED;
 	else
 		dr.dev_opt = AUTH_DISABLED;
-
 	if (ioctl(ctl, HCISETAUTH, (unsigned long) &dr) < 0) {
 		fprintf(stderr, "Can't set auth on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -472,13 +359,11 @@ void hcitool_auth(int ctl, int hdev, char *opt)
 void hcitool_encrypt(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id = hdev;
 	if (!strcmp(opt, "encrypt"))
 		dr.dev_opt = ENCRYPT_P2P;
 	else
 		dr.dev_opt = ENCRYPT_DISABLED;
-
 	if (ioctl(ctl, HCISETENCRYPT, (unsigned long) &dr) < 0) {
 		fprintf(stderr, "Can't set encrypt on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -528,9 +413,7 @@ void hcitool_reset(int ctl, int hdev, char *opt)
 void hcitool_ptype(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id = hdev;
-
 	if (hci_strtoptype(opt, &dr.dev_opt)) {
 		if (ioctl(ctl, HCISETPTYPE, (unsigned long) &dr) < 0) {
 			fprintf(stderr, "Can't set pkttype on hci%d: %s (%d)\n",
@@ -546,9 +429,7 @@ void hcitool_ptype(int ctl, int hdev, char *opt)
 void hcitool_lp(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id = hdev;
-
 	if (hci_strtolp(opt, &dr.dev_opt)) {
 		if (ioctl(ctl, HCISETLINKPOL, (unsigned long) &dr) < 0) {
 			fprintf(stderr, "Can't set link policy on hci%d: %s (%d)\n",
@@ -564,9 +445,7 @@ void hcitool_lp(int ctl, int hdev, char *opt)
 void hcitool_lm(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr;
-
 	dr.dev_id = hdev;
-
 	if (hci_strtolm(opt, &dr.dev_opt)) {
 		if (ioctl(ctl, HCISETLINKMODE, (unsigned long) &dr) < 0) {
 			fprintf(stderr, "Can't set default link mode on hci%d: %s (%d)\n",
@@ -583,15 +462,11 @@ void hcitool_aclmtu(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr = { .dev_id = hdev };
 	uint16_t mtu, mpkt;
-
 	if (!opt)
 		return;
-
 	if (sscanf(opt, "%4hu:%4hu", &mtu, &mpkt) != 2)
 		return;
-
 	dr.dev_opt = htobl(htobs(mpkt) | (htobs(mtu) << 16));
-
 	if (ioctl(ctl, HCISETACLMTU, (unsigned long) &dr) < 0) {
 		fprintf(stderr, "Can't set ACL mtu on hci%d: %s(%d)\n",
 						hdev, strerror(errno), errno);
@@ -603,15 +478,11 @@ void hcitool_scomtu(int ctl, int hdev, char *opt)
 {
 	struct hci_dev_req dr = { .dev_id = hdev };
 	uint16_t mtu, mpkt;
-
 	if (!opt)
 		return;
-
 	if (sscanf(opt, "%4hu:%4hu", &mtu, &mpkt) != 2)
 		return;
-
 	dr.dev_opt = htobl(htobs(mpkt) | (htobs(mtu) << 16));
-
 	if (ioctl(ctl, HCISETSCOMTU, (unsigned long) &dr) < 0) {
 		fprintf(stderr, "Can't set SCO mtu on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -623,52 +494,43 @@ void hcitool_features(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	uint8_t features[8], max_page = 0;
 	char *tmp;
 	int i, dd;
-
 	if (!(di.features[7] & LMP_EXT_FEAT)) {
 		print_dev_hdr(&di);
 		print_dev_features(&di, 1);
 		return;
 	}
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (hci_read_local_ext_features(dd, 0, &max_page, features, 1000) < 0) {
 		fprintf(stderr, "Can't read extended features hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	print_dev_hdr(&di);
 	printf("\tFeatures%s: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
 				"0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n",
 		(max_page > 0) ? " page 0" : "",
 		features[0], features[1], features[2], features[3],
 		features[4], features[5], features[6], features[7]);
-
 	tmp = lmp_featurestostr(di.features, "\t\t", 63);
 	printf("%s\n", tmp);
 	bt_free(tmp);
-
 	for (i = 1; i <= max_page; i++) {
 		if (hci_read_local_ext_features(dd, i, NULL,
 							features, 1000) < 0)
 			continue;
-
 		printf("\tFeatures page %d: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
 					"0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n", i,
 			features[0], features[1], features[2], features[3],
 			features[4], features[5], features[6], features[7]);
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -676,14 +538,12 @@ void hcitool_name(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		if (hci_write_local_name(dd, opt, 2000) < 0) {
 			fprintf(stderr, "Can't change local name on hci%d: %s (%d)\n",
@@ -693,31 +553,22 @@ void hcitool_name(int ctl, int hdev, char *opt)
 	} else {
 		char name[249];
 		int i;
-
 		if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0) {
 			fprintf(stderr, "Can't read local name on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		for (i = 0; i < 248 && name[i]; i++) {
 			if ((unsigned char) name[i] < 32 || name[i] == 127)
 				name[i] = '.';
 		}
-
 		name[248] = '\0';
-
 		print_dev_hdr(&di);
 		printf("\tName: '%s'\n", name);
 	}
-
 	hci_close_dev(dd);
 }
 
-/*
- * see http://www.bluetooth.org/assigned-numbers/baseband.htm --- all
- * strings are reproduced verbatim
- */
 static char *get_minor_device_name(int major, int minor)
 {
 	switch (major) {
@@ -823,9 +674,7 @@ static char *get_minor_device_name(int major, int minor)
 		break;
 	case 5:	/* peripheral */ {
 		static char cls_str[48];
-
 		cls_str[0] = '\0';
-
 		switch (minor & 48) {
 		case 16:
 			strncpy(cls_str, "Keyboard", sizeof(cls_str));
@@ -839,7 +688,6 @@ static char *get_minor_device_name(int major, int minor)
 		}
 		if ((minor & 15) && (strlen(cls_str) > 0))
 			strcat(cls_str, "/");
-
 		switch (minor & 15) {
 		case 0:
 			break;
@@ -911,7 +759,6 @@ static char *get_minor_device_name(int major, int minor)
 	}
 	return "Unknown (reserved) minor device class";
 }
-
 void hcitool_class(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
@@ -932,7 +779,6 @@ void hcitool_class(int ctl, int hdev, char *opt)
 					"Imaging",
 					"Uncategorized" };
 	int s = hci_open_dev(hdev);
-
 	if (s < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -983,22 +829,17 @@ void hcitool_voice(int ctl, int hdev, char *opt)
 				"u-Law",
 				"A-Law",
 				"Reserved" };
-
 	static char *idf[] = {	"1's complement",
 				"2's complement",
 				"Sign-Magnitude",
 				"Reserved" };
-
 	static char *iss[] = {	"8 bit",
 				"16 bit" };
-
 	static char *acf[] = {	"CVSD",
 				"u-Law",
 				"A-Law",
 				"Reserved" };
-
 	int s = hci_open_dev(hdev);
-
 	if (s < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1026,7 +867,6 @@ void hcitool_voice(int ctl, int hdev, char *opt)
 			((vs & 0x03fc) == 0x0060) ? " (Default Condition)" : "");
 		printf("\tInput Coding: %s\n", icf[ic]);
 		printf("\tInput Data Format: %s\n", idf[(vs & 0xc0) >> 6]);
-
 		if (!ic) {
 			printf("\tInput Sample Size: %s\n",
 				iss[(vs & 0x20) >> 5]);
@@ -1043,17 +883,14 @@ void hcitool_delkey(int ctl, int hdev, char *opt)
 	bdaddr_t bdaddr;
 	uint8_t all;
 	int dd;
-
 	if (!opt)
 		return;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (!strcasecmp(opt, "all")) {
 		bacpy(&bdaddr, BDADDR_ANY);
 		all = 1;
@@ -1061,13 +898,11 @@ void hcitool_delkey(int ctl, int hdev, char *opt)
 		str2ba(opt, &bdaddr);
 		all = 0;
 	}
-
 	if (hci_delete_stored_link_key(dd, &bdaddr, all, 1000) < 0) {
 		fprintf(stderr, "Can't delete stored link key on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1075,23 +910,19 @@ void hcitool_oob_data(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	uint8_t hash[16], randomizer[16];
 	int i, dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (hci_read_local_oob_data(dd, hash, randomizer, 1000) < 0) {
 		fprintf(stderr, "Can't read local OOB data on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	print_dev_hdr(&di);
 	printf("\tOOB Hash:  ");
 	for (i = 0; i < 16; i++)
@@ -1100,7 +931,6 @@ void hcitool_oob_data(int ctl, int hdev, char *opt)
 	for (i = 0; i < 16; i++)
 		printf(" %02x", randomizer[i]);
 	printf("\n");
-
 	hci_close_dev(dd);
 }
 
@@ -1108,29 +938,24 @@ void hcitool_commands(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	uint8_t cmds[64];
 	char *str;
 	int i, n, dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (hci_read_local_commands(dd, cmds, 1000) < 0) {
 		fprintf(stderr, "Can't read support commands on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	print_dev_hdr(&di);
 	for (i = 0; i < 64; i++) {
 		if (!cmds[i])
 			continue;
-
 		printf("%s Octet %-2d = 0x%02x (Bit",
 			i ? "\t\t ": "\tCommands:", i, cmds[i]);
 		for (n = 0; n < 8; n++)
@@ -1138,11 +963,9 @@ void hcitool_commands(int ctl, int hdev, char *opt)
 				printf(" %d", n);
 		printf(")\n");
 	}
-
 	str = hci_commandstostr(cmds, "\t", 71);
 	printf("%s\n", str);
 	bt_free(str);
-
 	hci_close_dev(dd);
 }
 
@@ -1150,30 +973,25 @@ void hcitool_version(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	struct hci_version ver;
 	char *hciver, *lmpver;
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (hci_read_local_version(dd, &ver, 1000) < 0) {
 		fprintf(stderr, "Can't read version info hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	hciver = hci_vertostr(ver.hci_ver);
 	if (((di.type & 0x30) >> 4) == HCI_BREDR)
 		lmpver = lmp_vertostr(ver.lmp_ver);
 	else
 		lmpver = pal_vertostr(ver.lmp_ver);
-
 	print_dev_hdr(&di);
 	printf("\tHCI Version: %s (0x%x)  Revision: 0x%x\n"
 		"\t%s Version: %s (0x%x)  Subversion: 0x%x\n"
@@ -1182,12 +1000,10 @@ void hcitool_version(int ctl, int hdev, char *opt)
 		(((di.type & 0x30) >> 4) == HCI_BREDR) ? "LMP" : "PAL",
 		lmpver ? lmpver : "n/a", ver.lmp_ver, ver.lmp_subver,
 		bt_compidtostr(ver.manufacturer), ver.manufacturer);
-
 	if (hciver)
 		bt_free(hciver);
 	if (lmpver)
 		bt_free(lmpver);
-
 	hci_close_dev(dd);
 }
 
@@ -1195,17 +1011,14 @@ void hcitool_inq_tpl(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		int8_t level = atoi(opt);
-
 		if (hci_write_inquiry_transmit_power_level(dd, level, 2000) < 0) {
 			fprintf(stderr, "Can't set inquiry transmit power level on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1213,17 +1026,14 @@ void hcitool_inq_tpl(int ctl, int hdev, char *opt)
 		}
 	} else {
 		int8_t level;
-
 		if (hci_read_inq_response_tx_power_level(dd, &level, 1000) < 0) {
 			fprintf(stderr, "Can't read inquiry transmit power level on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tInquiry transmit power level: %d\n", level);
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1231,17 +1041,14 @@ void hcitool_inq_mode(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		uint8_t mode = atoi(opt);
-
 		if (hci_write_inquiry_mode(dd, mode, 2000) < 0) {
 			fprintf(stderr, "Can't set inquiry mode on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1249,13 +1056,11 @@ void hcitool_inq_mode(int ctl, int hdev, char *opt)
 		}
 	} else {
 		uint8_t mode;
-
 		if (hci_read_inquiry_mode(dd, &mode, 1000) < 0) {
 			fprintf(stderr, "Can't read inquiry mode on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tInquiry mode: ");
 		switch (mode) {
@@ -1273,7 +1078,6 @@ void hcitool_inq_mode(int ctl, int hdev, char *opt)
 			break;
 		}
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1281,31 +1085,25 @@ void hcitool_inq_data(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int i, dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		uint8_t fec = 0, data[HCI_MAX_EIR_LENGTH];
 		char tmp[3];
 		int i, size;
-
 		memset(data, 0, sizeof(data));
-
 		memset(tmp, 0, sizeof(tmp));
 		size = (strlen(opt) + 1) / 2;
 		if (size > HCI_MAX_EIR_LENGTH)
 			size = HCI_MAX_EIR_LENGTH;
-
 		for (i = 0; i < size; i++) {
 			memcpy(tmp, opt + (i * 2), 2);
 			data[i] = strtol(tmp, NULL, 16);
 		}
-
 		if (hci_write_ext_inquiry_response(dd, fec, data, 2000) < 0) {
 			fprintf(stderr, "Can't set extended inquiry response on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1314,19 +1112,16 @@ void hcitool_inq_data(int ctl, int hdev, char *opt)
 	} else {
 		uint8_t fec, data[HCI_MAX_EIR_LENGTH], len, type, *ptr;
 		char *str;
-
 		if (hci_read_ext_inquiry_response(dd, &fec, data, 1000) < 0) {
 			fprintf(stderr, "Can't read extended inquiry response on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tFEC %s\n\t\t", fec ? "enabled" : "disabled");
 		for (i = 0; i < HCI_MAX_EIR_LENGTH; i++)
 			printf("%02x%s%s", data[i], (i + 1) % 8 ? "" : " ",
 				(i + 1) % 16 ? " " : (i < 239 ? "\n\t\t" : "\n"));
-
 		ptr = data;
 		while (*ptr) {
 			len = *ptr++;
@@ -1374,13 +1169,10 @@ void hcitool_inq_data(int ctl, int hdev, char *opt)
 								type, len - 1);
 				break;
 			}
-
 			ptr += (len - 1);
 		}
-
 		printf("\n");
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1388,17 +1180,14 @@ void hcitool_inq_type(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		uint8_t type = atoi(opt);
-
 		if (hci_write_inquiry_scan_type(dd, type, 2000) < 0) {
 			fprintf(stderr, "Can't set inquiry scan type on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1406,18 +1195,15 @@ void hcitool_inq_type(int ctl, int hdev, char *opt)
 		}
 	} else {
 		uint8_t type;
-
 		if (hci_read_inquiry_scan_type(dd, &type, 1000) < 0) {
 			fprintf(stderr, "Can't read inquiry scan type on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tInquiry scan type: %s\n",
 			type == 1 ? "Interlaced Inquiry Scan" : "Standard Inquiry Scan");
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1426,38 +1212,29 @@ void hcitool_inq_parms(int ctl, int hdev, char *opt)
     UNUSED(ctl);
 	struct hci_request rq;
 	int s;
-
 	if ((s = hci_open_dev(hdev)) < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	memset(&rq, 0, sizeof(rq));
-
 	if (opt) {
 		unsigned int window, interval;
 		write_inq_activity_cp cp;
-
 		if (sscanf(opt,"%4u:%4u", &window, &interval) != 2) {
 			printf("Invalid argument format\n");
 			exit(1);
 		}
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_WRITE_INQ_ACTIVITY;
 		rq.cparam = &cp;
 		rq.clen = WRITE_INQ_ACTIVITY_CP_SIZE;
-
 		cp.window = htobs((uint16_t) window);
 		cp.interval = htobs((uint16_t) interval);
-
 		if (window < 0x12 || window > 0x1000)
 			printf("Warning: inquiry window out of range!\n");
-
 		if (interval < 0x12 || interval > 0x1000)
 			printf("Warning: inquiry interval out of range!\n");
-
 		if (hci_send_req(s, &rq, 2000) < 0) {
 			fprintf(stderr, "Can't set inquiry parameters name on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1466,12 +1243,10 @@ void hcitool_inq_parms(int ctl, int hdev, char *opt)
 	} else {
 		uint16_t window, interval;
 		read_inq_activity_rp rp;
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_READ_INQ_ACTIVITY;
 		rq.rparam = &rp;
 		rq.rlen = READ_INQ_ACTIVITY_RP_SIZE;
-
 		if (hci_send_req(s, &rq, 1000) < 0) {
 			fprintf(stderr, "Can't read inquiry parameters on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1483,7 +1258,6 @@ void hcitool_inq_parms(int ctl, int hdev, char *opt)
 			exit(1);
 		}
 		print_dev_hdr(&di);
-
 		window   = btohs(rp.window);
 		interval = btohs(rp.interval);
 		printf("\tInquiry interval: %u slots (%.2f ms), window: %u slots (%.2f ms)\n",
@@ -1496,38 +1270,29 @@ void hcitool_page_parms(int ctl, int hdev, char *opt)
     UNUSED(ctl);
 	struct hci_request rq;
 	int s;
-
 	if ((s = hci_open_dev(hdev)) < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	memset(&rq, 0, sizeof(rq));
-
 	if (opt) {
 		unsigned int window, interval;
 		write_page_activity_cp cp;
-
 		if (sscanf(opt,"%4u:%4u", &window, &interval) != 2) {
 			printf("Invalid argument format\n");
 			exit(1);
 		}
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_WRITE_PAGE_ACTIVITY;
 		rq.cparam = &cp;
 		rq.clen = WRITE_PAGE_ACTIVITY_CP_SIZE;
-
 		cp.window = htobs((uint16_t) window);
 		cp.interval = htobs((uint16_t) interval);
-
 		if (window < 0x12 || window > 0x1000)
 			printf("Warning: page window out of range!\n");
-
 		if (interval < 0x12 || interval > 0x1000)
 			printf("Warning: page interval out of range!\n");
-
 		if (hci_send_req(s, &rq, 2000) < 0) {
 			fprintf(stderr, "Can't set page parameters name on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1536,12 +1301,10 @@ void hcitool_page_parms(int ctl, int hdev, char *opt)
 	} else {
 		uint16_t window, interval;
 		read_page_activity_rp rp;
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_READ_PAGE_ACTIVITY;
 		rq.rparam = &rp;
 		rq.rlen = READ_PAGE_ACTIVITY_RP_SIZE;
-
 		if (hci_send_req(s, &rq, 1000) < 0) {
 			fprintf(stderr, "Can't read page parameters on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1553,7 +1316,6 @@ void hcitool_page_parms(int ctl, int hdev, char *opt)
 			exit(1);
 		}
 		print_dev_hdr(&di);
-
 		window   = btohs(rp.window);
 		interval = btohs(rp.interval);
 		printf("\tPage interval: %u slots (%.2f ms), "
@@ -1568,34 +1330,26 @@ void hcitool_page_to(int ctl, int hdev, char *opt)
     UNUSED(ctl);
 	struct hci_request rq;
 	int s;
-
 	if ((s = hci_open_dev(hdev)) < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	memset(&rq, 0, sizeof(rq));
-
 	if (opt) {
 		unsigned int timeout;
 		write_page_timeout_cp cp;
-
 		if (sscanf(opt,"%5u", &timeout) != 1) {
 			printf("Invalid argument format\n");
 			exit(1);
 		}
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_WRITE_PAGE_TIMEOUT;
 		rq.cparam = &cp;
 		rq.clen = WRITE_PAGE_TIMEOUT_CP_SIZE;
-
 		cp.timeout = htobs((uint16_t) timeout);
-
 		if (timeout < 0x01 || timeout > 0xFFFF)
 			printf("Warning: page timeout out of range!\n");
-
 		if (hci_send_req(s, &rq, 2000) < 0) {
 			fprintf(stderr, "Can't set page timeout on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1604,12 +1358,10 @@ void hcitool_page_to(int ctl, int hdev, char *opt)
 	} else {
 		uint16_t timeout;
 		read_page_timeout_rp rp;
-
 		rq.ogf = OGF_HOST_CTL;
 		rq.ocf = OCF_READ_PAGE_TIMEOUT;
 		rq.rparam = &rp;
 		rq.rlen = READ_PAGE_TIMEOUT_RP_SIZE;
-
 		if (hci_send_req(s, &rq, 1000) < 0) {
 			fprintf(stderr, "Can't read page timeout on hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
@@ -1621,7 +1373,6 @@ void hcitool_page_to(int ctl, int hdev, char *opt)
 			exit(1);
 		}
 		print_dev_hdr(&di);
-
 		timeout = btohs(rp.timeout);
 		printf("\tPage timeout: %u slots (%.2f ms)\n",
 				timeout, (float)timeout * 0.625);
@@ -1632,17 +1383,14 @@ void hcitool_afh_mode(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		uint8_t mode = atoi(opt);
-
 		if (hci_write_afh_mode(dd, mode, 2000) < 0) {
 			fprintf(stderr, "Can't set AFH mode on hci%d: %s (%d)\n",
 					hdev, strerror(errno), errno);
@@ -1650,13 +1398,11 @@ void hcitool_afh_mode(int ctl, int hdev, char *opt)
 		}
 	} else {
 		uint8_t mode;
-
 		if (hci_read_afh_mode(dd, &mode, 1000) < 0) {
 			fprintf(stderr, "Can't read AFH mode on hci%d: %s (%d)\n",
 					hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tAFH mode: %s\n", mode == 1 ? "Enabled" : "Disabled");
 	}
@@ -1666,19 +1412,15 @@ void hcitool_ssp_mode(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (opt) {
 		uint8_t mode = atoi(opt);
-
 		if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
 			fprintf(stderr, "Can't set Simple Pairing mode on hci%d: %s (%d)\n",
 					hdev, strerror(errno), errno);
@@ -1686,145 +1428,33 @@ void hcitool_ssp_mode(int ctl, int hdev, char *opt)
 		}
 	} else {
 		uint8_t mode;
-
 		if (hci_read_simple_pairing_mode(dd, &mode, 1000) < 0) {
 			fprintf(stderr, "Can't read Simple Pairing mode on hci%d: %s (%d)\n",
 					hdev, strerror(errno), errno);
 			exit(1);
 		}
-
 		print_dev_hdr(&di);
 		printf("\tSimple Pairing mode: %s\n",
 			mode == 1 ? "Enabled" : "Disabled");
 	}
 }
 
-static void print_rev_ericsson(int dd)
-{
-	struct hci_request rq;
-	unsigned char buf[102];
-
-	memset(&rq, 0, sizeof(rq));
-	rq.ogf    = OGF_VENDOR_CMD;
-	rq.ocf    = 0x000f;
-	rq.cparam = NULL;
-	rq.clen   = 0;
-	rq.rparam = &buf;
-	rq.rlen   = sizeof(buf);
-
-	if (hci_send_req(dd, &rq, 1000) < 0) {
-		printf("\nCan't read revision info: %s (%d)\n",
-			strerror(errno), errno);
-		return;
-	}
-
-	printf("\t%s\n", buf + 1);
-}
-
-static void print_rev_csr(int dd, uint16_t rev)
-{
-	uint16_t buildid, chipver, chiprev, maxkeylen, mapsco;
-
-	if (csr_read_varid_uint16(dd, 0, CSR_VARID_BUILDID, &buildid) < 0) {
-		printf("\t%s\n", csr_buildidtostr(rev));
-		return;
-	}
-
-	printf("\t%s\n", csr_buildidtostr(buildid));
-
-	if (!csr_read_varid_uint16(dd, 1, CSR_VARID_CHIPVER, &chipver)) {
-		if (csr_read_varid_uint16(dd, 2, CSR_VARID_CHIPREV, &chiprev) < 0)
-			chiprev = 0;
-		printf("\tChip version: %s\n", csr_chipvertostr(chipver, chiprev));
-	}
-
-	if (!csr_read_varid_uint16(dd, 3, CSR_VARID_MAX_CRYPT_KEY_LENGTH, &maxkeylen))
-		printf("\tMax key size: %d bit\n", maxkeylen * 8);
-
-	if (!csr_read_pskey_uint16(dd, 4, CSR_PSKEY_HOSTIO_MAP_SCO_PCM, 0x0000, &mapsco))
-		printf("\tSCO mapping:  %s\n", mapsco ? "PCM" : "HCI");
-}
-
-static void print_rev_digianswer(int dd)
-{
-	struct hci_request rq;
-	unsigned char req[] = { 0x07 };
-	unsigned char buf[102];
-
-	memset(&rq, 0, sizeof(rq));
-	rq.ogf    = OGF_VENDOR_CMD;
-	rq.ocf    = 0x000e;
-	rq.cparam = req;
-	rq.clen   = sizeof(req);
-	rq.rparam = &buf;
-	rq.rlen   = sizeof(buf);
-
-	if (hci_send_req(dd, &rq, 1000) < 0) {
-		printf("\nCan't read revision info: %s (%d)\n",
-			strerror(errno), errno);
-		return;
-	}
-
-	printf("\t%s\n", buf + 1);
-}
-
-static void print_rev_broadcom(uint16_t hci_rev, uint16_t lmp_subver)
-{
-	printf("\tFirmware %d.%d / %d\n",
-		hci_rev & 0xff, lmp_subver >> 8, lmp_subver & 0xff);
-}
-
-static void print_rev_avm(uint16_t hci_rev, uint16_t lmp_subver)
-{
-	if (lmp_subver == 0x01)
-		printf("\tFirmware 03.%d.%d\n", hci_rev >> 8, hci_rev & 0xff);
-	else
-		printf("\tUnknown type\n");
-}
-
 void hcitool_revision(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	struct hci_version ver;
 	int dd;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		return;
 	}
-
 	if (hci_read_local_version(dd, &ver, 1000) < 0) {
 		fprintf(stderr, "Can't read version info for hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		return;
-	}
-
-	print_dev_hdr(&di);
-	switch (ver.manufacturer) {
-	case 0:
-	case 37:
-	case 48:
-		print_rev_ericsson(dd);
-		break;
-	case 10:
-		print_rev_csr(dd, ver.hci_rev);
-		break;
-	case 12:
-		print_rev_digianswer(dd);
-		break;
-	case 15:
-		print_rev_broadcom(ver.hci_rev, ver.lmp_subver);
-		break;
-	case 31:
-		print_rev_avm(ver.hci_rev, ver.lmp_subver);
-		break;
-	default:
-		printf("\tUnsupported manufacturer\n");
-		break;
 	}
 	return;
 }
@@ -1834,24 +1464,19 @@ void hcitool_block(int ctl, int hdev, char *opt)
     UNUSED(ctl);
 	bdaddr_t bdaddr;
 	int dd;
-
 	if (!opt)
 		return;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	str2ba(opt, &bdaddr);
-
 	if (ioctl(dd, HCIBLOCKADDR, &bdaddr) < 0) {
 		perror("ioctl(HCIBLOCKADDR)");
 		exit(1);
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1859,30 +1484,24 @@ void hcitool_unblock(int ctl, int hdev, char *opt)
 {
     UNUSED(ctl);
     UNUSED(opt);
-
 	bdaddr_t bdaddr;
 	int dd;
-
 	if (!opt)
 		return;
-
 	dd = hci_open_dev(hdev);
 	if (dd < 0) {
 		fprintf(stderr, "Can't open device hci%d: %s (%d)\n",
 						hdev, strerror(errno), errno);
 		exit(1);
 	}
-
 	if (!strcasecmp(opt, "all"))
 		bacpy(&bdaddr, BDADDR_ANY);
 	else
 		str2ba(opt, &bdaddr);
-
 	if (ioctl(dd, HCIUNBLOCKADDR, &bdaddr) < 0) {
 		perror("ioctl(HCIUNBLOCKADDR)");
 		exit(1);
 	}
-
 	hci_close_dev(dd);
 }
 
@@ -1890,13 +1509,10 @@ static void print_dev_hdr(struct hci_dev_info *di)
 {
 	static int hdr = -1;
 	char addr[18];
-
 	if (hdr == di->dev_id)
 		return;
 	hdr = di->dev_id;
-
 	ba2str(&di->bdaddr, addr);
-
 	printf("%s:\tType: %s  Bus: %s\n", di->name,
 					hci_typetostr((di->type & 0x30) >> 4),
 					hci_bustostr(di->type & 0x0f));
@@ -1904,42 +1520,3 @@ static void print_dev_hdr(struct hci_dev_info *di)
 					addr, di->acl_mtu, di->acl_pkts,
 						di->sco_mtu, di->sco_pkts);
 }
-
-//static void print_dev_info(int ctl, struct hci_dev_info *di)
-//{
-//	struct hci_dev_stats *st = &di->stat;
-//	char *str;
-
-//	print_dev_hdr(di);
-
-//	str = hci_dflagstostr(di->flags);
-//	printf("\t%s\n", str);
-//	bt_free(str);
-
-//	printf("\tRX bytes:%d acl:%d sco:%d events:%d errors:%d\n",
-//		st->byte_rx, st->acl_rx, st->sco_rx, st->evt_rx, st->err_rx);
-
-//	printf("\tTX bytes:%d acl:%d sco:%d commands:%d errors:%d\n",
-//		st->byte_tx, st->acl_tx, st->sco_tx, st->cmd_tx, st->err_tx);
-
-//	if (all && !hci_test_bit(HCI_RAW, &di->flags)) {
-//		print_dev_features(di, 0);
-
-//		if (((di->type & 0x30) >> 4) == HCI_BREDR) {
-//			print_pkt_type(di);
-//			print_link_policy(di);
-//			print_link_mode(di);
-
-//			if (hci_test_bit(HCI_UP, &di->flags)) {
-//				hcitool_name(ctl, di->dev_id, NULL);
-//				hcitool_class(ctl, di->dev_id, NULL);
-//			}
-//		}
-
-//		if (hci_test_bit(HCI_UP, &di->flags))
-//			hcitool_version(ctl, di->dev_id, NULL);
-//	}
-
-//	printf("\n");
-//}
-

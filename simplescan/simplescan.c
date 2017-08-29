@@ -14,7 +14,7 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 
-#include "hcitool.h"
+#include "hcitools.h"
 
 typedef enum
 {

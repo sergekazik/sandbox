@@ -1,6 +1,5 @@
 simplescan.c
 hcitools.c
-csr.c
-csr.h
 hcitool.h
 Makefile
+hcitools.h
