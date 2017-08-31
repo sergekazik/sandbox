@@ -9,3 +9,7 @@ LOCAL_LDLIBS := -L$(SYSROOT)/usr/lib -llog -fPIE -pie   # whatever ld flags you 
 
 include $(BUILD_EXECUTABLE)    # <-- Use this to build an executable.
 
+cls:
+	rm -rf libs
+	rm -rf obj
+
