@@ -35,11 +35,12 @@ static struct hci_dev_info di;
 static int execute_cmd(eConfig_cmd_t aCmd);
 
 #define DEFAULT_TXT "hello ring 123!"
+#define COMM_BUF_LEN    1024
 
 int my_listen(void)
 {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
-    char buf[1024] = { 0 };
+    char buf[COMM_BUF_LEN] = { 0 };
     int s, client, bytes_read;
     socklen_t opt = sizeof(rem_addr);
 
@@ -68,6 +69,13 @@ int my_listen(void)
     bytes_read = read(client, buf, sizeof(buf));
     if( bytes_read > 0 ) {
         printf("received [%s]\n", buf);
+
+        // ACK
+        sprintf(&buf[strlen(buf)], " - acknowledged");
+        int len = strlen(buf);
+        printf("sending ACK \"%s\"\n", buf);
+        int status = write(client, buf, len);
+        printf("sent %d byte, status %d\n", len, status);
     }
 
     // close connection
@@ -99,12 +107,21 @@ int my_connect(char *dest, const char *data)
         int len = strlen(data);
         printf("sending \"%s\" to %s\n", data, dest);
         status = write(s, data, len);
-        printf("send %d byte, status %d\n", len, status);
+        printf("sent %d byte, status %d\n", len, status);
     }
 
     if ( status < 0 )
     {
         perror("uh oh");
+    }
+    else
+    {
+        // read ACK data from the server
+        char buf[COMM_BUF_LEN] = { 0 };
+        int bytes_read = read(s, buf, sizeof(buf));
+        if( bytes_read > 0 ) {
+            printf("received [%s]\n", buf);
+        }
     }
 
     close(s);
