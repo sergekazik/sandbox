@@ -3,3 +3,5 @@ hcitools.c
 hcitool.h
 Makefile
 hcitools.h
+vergen.sh
+version.h
