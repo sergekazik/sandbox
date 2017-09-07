@@ -14,8 +14,8 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 
-#include "hcitools.h"
 #include "version.h"
+#include "hcitools.h"
 
 typedef enum
 {
@@ -169,9 +169,9 @@ int my_scan(void)
 
 void print_help(void)
 {
-    printf("------------------------------------------------\n");
-    printf("BT/LE test tool (date %s)\n", version_date);
-    printf("------------------------------------------------\n");
+    printf("********************************************************\n");
+    printf("* BT/LE test tool (date %s)\n", version_date);
+    printf("********************************************************\n");
     printf("--scan                  scan for bluetooth device\n");
     printf("--listen                listen for incoming connection, read once\n");
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
