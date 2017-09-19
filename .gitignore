@@ -4,7 +4,12 @@ Ring1.config
 Ring1.creator
 Ring1.files
 Ring1.includes
+<<<<<<< HEAD
+build*
+downloads/*
+=======
 build-*
 *.pro.user
 _saved
 
+>>>>>>> b566acee02b1cc8c8f65d1a4b4fe90c8ffc8437b
