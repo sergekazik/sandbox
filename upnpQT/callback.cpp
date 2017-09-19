@@ -45,8 +45,7 @@ static const char* gUpnp_EventType_Str[] =
 };
 #define GET_EVENT_TYPE_STRING(_ev) (_ev <=  UPNP_EVENT_SUBSCRIPTION_EXPIRED ? gUpnp_EventType_Str[_ev] : "unknown")
 
-#if 0
-int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
+int default_handling( Upnp_EventType EventType, void *Event, void *Cookie )
 {
     printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
 
@@ -85,7 +84,7 @@ int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
                 if( DescDoc )
                     ixmlDocument_free( DescDoc );
 
-                TvCtrlPointPrintList(  );
+                TvCtrlPointPrintList(FALSE);
                 break;
             }
 
@@ -111,7 +110,7 @@ int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
                 TvCtrlPointRemoveDevice( d_event->DeviceId );
 
                 SampleUtil_Print( "After byebye:" );
-                TvCtrlPointPrintList(  );
+                TvCtrlPointPrintList(FALSE);
 
                 break;
             }
@@ -226,18 +225,11 @@ int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
     }
     return 0;
 }
-#endif
-
-//#define TvCtrlPointAddDevice(_a, _location, _b) printf("\t\t\t\t\t\t\t\t\t==> %s\n", _location)
-//#define TvCtrlPointPrintList()
-//#define TvCtrlPointRemoveDevice(_id)
 
 int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
 {
     (void) Cookie;
     int bNewDeviceFound = FALSE;
-
-    // printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
 
     switch ( EventType ) {
         case UPNP_DISCOVERY_ADVERTISEMENT_ALIVE:
@@ -271,23 +263,29 @@ int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
 
                     ixmlDocument_free( DescDoc );
                 }
-                TvCtrlPointPrintList();
+                TvCtrlPointPrintList(FALSE);
             }
 
             break;
         }
         case UPNP_DISCOVERY_SEARCH_TIMEOUT:
             /* Nothing to do here... */
+            printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
             break;
+
         case UPNP_DISCOVERY_ADVERTISEMENT_BYEBYE:
         {
+            printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
             struct Upnp_Discovery *d_event =
                     (struct Upnp_Discovery * ) Event;
                     TvCtrlPointRemoveDevice(d_event->DeviceId);
-                    TvCtrlPointPrintList();
+                    TvCtrlPointPrintList(FALSE);
+
             break;
         }
         default:
+            default_handling( EventType, Event, Cookie);
+            printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
             break;
     }
     return 0;

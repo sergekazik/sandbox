@@ -64,6 +64,27 @@ int main()
     }
     sleep(5);
 
+    printf("------------------------------------------\n");
+    for (int ch = 'l'; ch != 'q'; ch = getchar())
+    {
+        switch (ch) {
+        case 10: // LF (Line feed, 0x0A, 10 in decimal)
+        case 13: // CR (Carriage return, 0x0D, 13 in decimal)
+            break;
+
+        case 'l':
+            TvCtrlPointPrintList(TRUE);
+            printf("\n");
+        default:
+            printf("waiting for client notifications.....\n");
+            printf("\"q\"\t- to quit\n");
+            printf("\"l\"\t- to print device list\n");
+            printf(">");
+            break;
+        }
+    }
+
+
     // release all
 quit:
     printf("finished with rc = %d\n", rc);
