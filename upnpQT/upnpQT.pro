@@ -9,7 +9,8 @@ SOURCES += main.cpp \
     ../libupnp-1.3.1/ixml/src/node.c \
     ../libupnp-1.3.1/upnp/sample/tvctrlpt/upnp_tv_ctrlpt.c \
     ../libupnp-1.3.1/upnp/sample/common/sample_util.c \
-    ../libupnp-1.3.1/upnp/sample/tvdevice/upnp_tv_device.c
+    ../libupnp-1.3.1/upnp/sample/tvdevice/upnp_tv_device.c \
+    ../libupnp-1.3.1/upnp/sample/tvctrlpt/linux/upnp_tv_ctrlpt_main.c
 
 include(deployment.pri)
 qtcAddDeployment()
@@ -75,3 +76,8 @@ UPNP_QT_TEST_FLAGS = -DUPNP_QT_TEST=1 \
 
 QMAKE_CXXFLAGS += $${UPNP_QT_TEST_FLAGS}
 QMAKE_CFLAGS += $${UPNP_QT_TEST_FLAGS}
+
+SOURCES -= ../libupnp-1.3.1/upnp/sample/tvdevice/upnp_tv_device.c \
+	../libupnp-1.3.1/upnp/sample/tvctrlpt/linux/upnp_tv_ctrlpt_main.c   \
+
+
