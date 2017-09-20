@@ -8,7 +8,8 @@ SOURCES += main.cpp \
     ../libupnp-1.3.1/ixml/src/ixmlparser.c \
     ../libupnp-1.3.1/ixml/src/node.c \
     ../libupnp-1.3.1/upnp/sample/tvctrlpt/upnp_tv_ctrlpt.c \
-    ../libupnp-1.3.1/upnp/sample/common/sample_util.c
+    ../libupnp-1.3.1/upnp/sample/common/sample_util.c \
+    ../libupnp-1.3.1/upnp/sample/tvdevice/upnp_tv_device.c
 
 include(deployment.pri)
 qtcAddDeployment()
@@ -58,24 +59,19 @@ HEADERS += \
     ../libupnp-1.3.1/ixml/src/inc/ixmlmembuf.h \
     ../libupnp-1.3.1/ixml/src/inc/ixmlparser.h \
     ../libupnp-1.3.1/upnp/sample/tvctrlpt/upnp_tv_ctrlpt.h \
-    ../libupnp-1.3.1/upnp/sample/common/sample_util.h
+    ../libupnp-1.3.1/upnp/sample/common/sample_util.h \
+    ../libupnp-1.3.1/upnp/sample/tvdevice/upnp_tv_device.h
 
 unix:!macx: LIBS += -lupnp -lixml -lpthread
 
-QMAKE_CXXFLAGS += -I../libupnp-1.3.1/upnp/sample/common \
-		  -I../libupnp-1.3.1/upnp/inc	\
-		  -I../libupnp-1.3.1/threadutil/inc/ \
-		  -I../libupnp-1.3.1/ixml/inc/ \
-		  -I../libupnp-1.3.1/ixml/src/inc/ \
-		  -I../libupnp-1.3.1/upnp/sample/common/ \
-		  -I../libupnp-1.3.1/upnp/sample/tvctrlpt/	\
+UPNP_QT_TEST_FLAGS = -DUPNP_QT_TEST=1 \
+		    -I../libupnp-1.3.1/upnp/sample/common \
+		    -I../libupnp-1.3.1/upnp/inc	\
+		    -I../libupnp-1.3.1/threadutil/inc/ \
+		    -I../libupnp-1.3.1/ixml/inc/ \
+		    -I../libupnp-1.3.1/ixml/src/inc/ \
+		    -I../libupnp-1.3.1/upnp/sample/common/ \
+		    -I../libupnp-1.3.1/upnp/sample/tvctrlpt/	\
 
-QMAKE_CFLAGS += -I../libupnp-1.3.1/upnp/sample/common \
-		  -I../libupnp-1.3.1/upnp/inc	\
-		  -I../libupnp-1.3.1/threadutil/inc/ \
-		  -I../libupnp-1.3.1/ixml/inc/ \
-		  -I../libupnp-1.3.1/ixml/src/inc/ \
-		  -I../libupnp-1.3.1/upnp/sample/common/ \
-		  -I../libupnp-1.3.1/upnp/sample/tvctrlpt/	\
-
-
+QMAKE_CXXFLAGS += $${UPNP_QT_TEST_FLAGS}
+QMAKE_CFLAGS += $${UPNP_QT_TEST_FLAGS}

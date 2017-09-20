@@ -21,8 +21,8 @@
 #include <upnp/upnp.h>
 
 extern "C" {
-#include "../libupnp-1.3.1/upnp/sample/tvctrlpt/upnp_tv_ctrlpt.h"
-#include "../libupnp-1.3.1/ixml/src/inc/ixmlparser.h"
+    #include "../libupnp-1.3.1/upnp/sample/tvctrlpt/upnp_tv_ctrlpt.h"
+    #include "../libupnp-1.3.1/ixml/src/inc/ixmlparser.h"
 }
 
 static const char* gUpnp_EventType_Str[] =
@@ -43,7 +43,9 @@ static const char* gUpnp_EventType_Str[] =
   "UPNP_EVENT_AUTORENEWAL_FAILED",
   "UPNP_EVENT_SUBSCRIPTION_EXPIRED"
 };
+
 #define GET_EVENT_TYPE_STRING(_ev) (_ev <=  UPNP_EVENT_SUBSCRIPTION_EXPIRED ? gUpnp_EventType_Str[_ev] : "unknown")
+extern int gbTimeout;
 
 int default_handling( Upnp_EventType EventType, void *Event, void *Cookie )
 {
@@ -269,8 +271,8 @@ int CallbackFxn( Upnp_EventType EventType, void *Event, void *Cookie )
             break;
         }
         case UPNP_DISCOVERY_SEARCH_TIMEOUT:
-            /* Nothing to do here... */
             printf("Callback got event type %d [%s]\n", EventType, GET_EVENT_TYPE_STRING(EventType));
+            gbTimeout = TRUE;
             break;
 
         case UPNP_DISCOVERY_ADVERTISEMENT_BYEBYE:
