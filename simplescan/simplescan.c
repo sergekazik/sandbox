@@ -85,11 +85,14 @@ int my_listen(void)
     return 0;
 }
 
-int my_connect(char *dest, const char *data)
+int my_connect(char *dest, const char *data, int nLen, int nRepeat)
 {
+    char buf[COMM_BUF_LEN] = { 0 };
     struct sockaddr_rc addr = { 0 };
     int s, status;
     // e.g. char dest[18] = "01:23:45:67:89:AB";
+    const char *data_stored = data;
+    int nLen_stored = nLen;
 
     printf("connecting to %s\n", dest);
     // allocate a socket
@@ -103,27 +106,56 @@ int my_connect(char *dest, const char *data)
     // connect to server
     status = connect(s, (struct sockaddr *)&addr, sizeof(addr));
 
-    // send a message
-    if( status == 0 ) {
-        int len = strlen(data);
-        printf("sending \"%s\" to %s\n", data, dest);
-        status = write(s, data, len);
-        printf("sent %d byte, status %d\n", len, status);
-    }
-
-    if ( status < 0 )
+    while (nRepeat-- > 0)
     {
-        perror("uh oh");
-    }
-    else
-    {
-        // read ACK data from the server
-        char buf[COMM_BUF_LEN] = { 0 };
-        int bytes_read = read(s, buf, sizeof(buf));
-        if( bytes_read > 0 ) {
-            printf("received [%s]\n", buf);
+        // send a message
+        if( status == 0 ) {
+            int len = nLen ? nLen : (int) strlen(data);
+            printf("sending to %s:\n%s\n", dest, data);
+            status = write(s, data, len);
+            printf("sent %d byte, status %d\n", len, status);
         }
-    }
+
+        if ( status < 0 )
+        {
+            perror("uh oh");
+            break;
+        }
+        else
+        {
+            int bytes_read = read(s, buf, sizeof(buf));
+            printf("// read ACK data from the server = %d bytes\n", bytes_read);
+
+            if( bytes_read > 0 ) {
+                printf("received %d bytes from GATT(?):\n", bytes_read);
+                printf("ASCII: [%s]\n", buf);
+                if ((int) strlen(buf) == bytes_read)
+                {
+                    for (int i = 0; i < bytes_read; i++)
+                    {
+                        printf("%c", (buf[i] >= ' ') ? buf[i] : ' ');
+                    }
+                }
+                printf("\n");
+
+                for (int i = 0; i < bytes_read; i++)
+                {
+                    printf("%02X ", buf[i]);
+                }
+                printf("\n");
+
+                data = buf;
+                nLen = bytes_read;
+            }
+            else
+            {
+                data = data_stored;
+                nLen = nLen_stored;
+            }
+
+        }
+        status = 0;
+    } // rnd of while repeat
 
     close(s);
     return status >= 0 ? 0 : status;
@@ -149,14 +181,14 @@ int my_scan(void)
     max_rsp = 255;
     flags = IREQ_CACHE_FLUSH;
     ii = (inquiry_info*)malloc(max_rsp * sizeof(inquiry_info));
-    
+
     num_rsp = hci_inquiry(dev_id, len, max_rsp, NULL, &ii, flags);
     if( num_rsp < 0 ) perror("hci_inquiry");
 
     for (i = 0; i < num_rsp; i++) {
         ba2str(&(ii+i)->bdaddr, addr);
         memset(name, 0, sizeof(name));
-        if (hci_read_remote_name(sock, &(ii+i)->bdaddr, sizeof(name), 
+        if (hci_read_remote_name(sock, &(ii+i)->bdaddr, sizeof(name),
             name, 0) < 0)
         strcpy(name, "[unknown]");
         printf("%s  %s\n", addr, name);
@@ -182,7 +214,7 @@ void print_help(void)
     printf("--piscan                hciconfig hci0 piscan\n");
     printf("--noscan                hciconfig hci0 noscan\n");
     printf("--leadv                 hciconfig hci0 leadv\n");
-    printf("--noleadv               hciconfig hci0 leadv\n");
+    printf("--noleadv               hciconfig hci0 noleadv\n");
     printf("--class                 hciconfig hci0 class 0x280430\n");
     printf("--hciinit               up, piscan, class 0x280430, leadv\n");
     printf("--hcishutdown           noleadv, noscan, down\n");
@@ -212,7 +244,7 @@ int main(int argc, char **argv)
             if (arg_idx + 1 < argc)
             {
                 dev_addr = argv[arg_idx+1];
-                ret = my_connect(dev_addr, DEFAULT_TXT);
+                ret = my_connect(dev_addr, DEFAULT_TXT, 0, 1);
             }
             else
             {
@@ -225,8 +257,26 @@ int main(int argc, char **argv)
         {
             if (arg_idx + 1 < argc)
             {
-                dev_addr = argv[arg_idx+1];
                 char *dt = DEFAULT_TXT;
+
+                char mac_addr[32];
+                char command[COMM_BUF_LEN];
+                int repeat = 1;
+                int rx = 0;
+                int ll = 0;
+
+                dev_addr = argv[arg_idx+1];
+                if (!strchr(dev_addr, ':')) // if not : separated add it
+                {
+                    memset(mac_addr, 0, sizeof(mac_addr));
+                    for (int a = 0, b = 0; b < (int) strlen(dev_addr); b++)
+                    {
+                        mac_addr[a++] = dev_addr[b];
+                        if ((b % 2) && (b+1 < (int) strlen(dev_addr)))
+                            mac_addr[a++] = ':';
+                    }
+                    dev_addr = mac_addr;
+                }
 
                 if (arg_idx + 2 < argc)
                 {
@@ -234,8 +284,31 @@ int main(int argc, char **argv)
                     {
                         dt = &argv[arg_idx + 2][1];
                     }
+                    else if (argv[arg_idx + 2][0] == '\'')
+                    {
+                        //Frame 4: 7 bytes on wire (56 bits), 7 bytes captured (56 bits) on interface 0
+                        //Bluetooth
+                        //    [Source: controller]
+                        //    [Destination: host]
+                        //Bluetooth HCI H4
+                        //    [Direction: Rcvd (0x01)]
+                        command[0] = 0x04; //    HCI Packet Type: HCI Event (0x04)
+                        // Bluetooth HCI Event - Command Status
+                        command[1] = 0x0f; //     Event Code: Command Status (0x0f)
+                        command[2] = 0x04; //     Parameter Total Length: 4
+                        command[3] = 0x00; //    Status: Pending (0x00)
+                        command[4] = 0x01; //    Number of Allowed Command Packets: 1
+                        command[5] = 0x1b; //    Command Opcode: Read Remote Supported Features (0x041b)
+                        command[6] = 0x04; //    Command Opcode: Read Remote Supported Features (0x041b)
+                        dt = command;
+                        ll = 7;
+                    }
+                    else if (1 == sscanf(argv[arg_idx + 2], "%d", &rx))
+                    {
+                        repeat = rx;
+                    }
                 }
-                ret = my_connect(dev_addr, (const char*) dt);
+                ret = my_connect(dev_addr, (const char*) dt, ll, repeat);
             }
             else
             {
@@ -295,27 +368,27 @@ int main(int argc, char **argv)
 
 static int execute_cmd(eConfig_cmd_t aCmd)
 {
-	int ctl;
+    int ctl;
 
-	/* Open HCI socket  */
-	if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
-		perror("Can't open HCI socket.");
-		exit(1);
-	}
+    /* Open HCI socket  */
+    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
+        perror("Can't open HCI socket.");
+        exit(1);
+    }
 
-	if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
+    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
     {
-		perror("Can't get device info");
-		exit(1);
-	}
+        perror("Can't get device info");
+        exit(1);
+    }
 
     di.dev_id = 0;
 
-	if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, BDADDR_ANY)) {
-		int dd = hci_open_dev(di.dev_id);
-		hci_read_bd_addr(dd, &di.bdaddr, 1000);
-		hci_close_dev(dd);
-	}
+    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, BDADDR_ANY)) {
+        int dd = hci_open_dev(di.dev_id);
+        hci_read_bd_addr(dd, &di.bdaddr, 1000);
+        hci_close_dev(dd);
+    }
 
     switch (aCmd)
     {
@@ -341,7 +414,7 @@ static int execute_cmd(eConfig_cmd_t aCmd)
             break;
     }
 
-	close(ctl);
-	return 0;
+    close(ctl);
+    return 0;
 }
 
