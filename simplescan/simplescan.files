@@ -1,7 +1,9 @@
-simplescan.c
 hcitools.c
 hcitool.h
 Makefile
 hcitools.h
 vergen.sh
 version.h
+../../low-powered-doorbell-fw/ambarella/ring/ble/AmbaConfig
+../../low-powered-doorbell-fw/ambarella/ring/ble/make.inc
+test_ble.c

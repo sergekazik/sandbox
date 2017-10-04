@@ -32,7 +32,6 @@ typedef enum
     eConfig_ALLDOWN,
 } eConfig_cmd_t;
 
-static struct hci_dev_info di;
 static int execute_cmd(eConfig_cmd_t aCmd);
 
 #define DEFAULT_TXT "hello ring 123!"
@@ -111,6 +110,8 @@ int my_connect(char *dest, const char *data, int nLen, int nRepeat)
         // send a message
         if( status == 0 ) {
             int len = nLen ? nLen : (int) strlen(data);
+            sprintf(buf, "%d.%s", nRepeat, data);
+            data = buf;
             printf("sending to %s:\n%s\n", dest, data);
             status = write(s, data, len);
             printf("sent %d byte, status %d\n", len, status);
@@ -144,8 +145,10 @@ int my_connect(char *dest, const char *data, int nLen, int nRepeat)
                 }
                 printf("\n");
 
-                data = buf;
-                nLen = bytes_read;
+//                data = buf;
+//                nLen = bytes_read;
+                data = data_stored;
+                nLen = nLen_stored;
             }
             else
             {
@@ -208,6 +211,7 @@ void print_help(void)
     printf("--listen                listen for incoming connection, read once\n");
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
     printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
+#if defined(s2lm_ironman) || defined(Linux_x86_64)
     printf("------------------------------------------------\n");
     printf("--up                    hciconfig hci0 up\n");
     printf("--down                  hciconfig hci0 down\n");
@@ -218,6 +222,7 @@ void print_help(void)
     printf("--class                 hciconfig hci0 class 0x280430\n");
     printf("--hciinit               up, piscan, class 0x280430, leadv\n");
     printf("--hcishutdown           noleadv, noscan, down\n");
+#endif
     printf("------------------------------------------------\n");
 
 }
@@ -368,7 +373,9 @@ int main(int argc, char **argv)
 
 static int execute_cmd(eConfig_cmd_t aCmd)
 {
+#if defined(s2lm_ironman) || defined(Linux_x86_64)
     int ctl;
+    static struct hci_dev_info di;
 
     /* Open HCI socket  */
     if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
@@ -415,6 +422,9 @@ static int execute_cmd(eConfig_cmd_t aCmd)
     }
 
     close(ctl);
+#else
+    (void) aCmd;
+#endif
     return 0;
 }
 
