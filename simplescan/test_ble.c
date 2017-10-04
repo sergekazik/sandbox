@@ -7,11 +7,6 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
-
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 
 #include "version.h"
@@ -322,6 +317,7 @@ int main(int argc, char **argv)
             }
             break;
         }
+#if defined(s2lm_ironman) || defined(Linux_x86_64)
         //------------------------------------------------
         else if (!strcmp(argv[arg_idx], "--up"))
         {
@@ -359,7 +355,7 @@ int main(int argc, char **argv)
         {
             execute_cmd(eConfig_ALLDOWN); break;
         }
-
+#endif
     }
 
     if (!arg_idx)

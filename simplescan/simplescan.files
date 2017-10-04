@@ -7,3 +7,7 @@ version.h
 ../../low-powered-doorbell-fw/ambarella/ring/ble/AmbaConfig
 ../../low-powered-doorbell-fw/ambarella/ring/ble/make.inc
 test_ble.c
+RingBleApi.cpp
+RingBleApi.hh
+ble_api.h
+ble_api.cpp
