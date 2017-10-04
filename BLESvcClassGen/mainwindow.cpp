@@ -78,10 +78,6 @@ DECLARE_CHECKBOX(9, 23)
 0	1	0	0	1	Health
 1	1	1	1	1	Uncategorized: device code not specified
 --------------------------------------------------*/
-//unsigned int val = 0x1F << 8; \
-//mDevClassVal &= ~val; /* clean 5 bits starting from 8th */  \
-//mDevClassVal |= (_val << 8); \
-
 #define SET_RADIOBOX_VALUE(_clean_bits, _shift, _num, _val)  \
     unsigned int val = _clean_bits << _shift; \
     mDevClassVal &= ~val; /* clean "_clean_bits" bits starting from "_shift"-th bit*/  \
@@ -97,7 +93,6 @@ DECLARE_CHECKBOX(9, 23)
         SET_RADIOBOX_VALUE(0x1F, 8, _num, _val) \
     }   \
 }
-
 
 DECLARE_RADIOBOX(10, 0)
 DECLARE_RADIOBOX(11, 1)
