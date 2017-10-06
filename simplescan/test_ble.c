@@ -4,6 +4,7 @@
 #include <sys/param.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
@@ -11,6 +12,10 @@
 
 #include "version.h"
 #include "hcitools.h"
+
+#if defined(hpcam2)
+#include "gatt_srv_test.h"
+#endif
 
 typedef enum
 {
@@ -38,6 +43,7 @@ int my_listen(void)
     char buf[COMM_BUF_LEN] = { 0 };
     int s, client, bytes_read;
     socklen_t opt = sizeof(rem_addr);
+    bdaddr_t bdaddr_any = {{0, 0, 0, 0, 0, 0}};
 
     // allocate socket
     s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
@@ -45,7 +51,7 @@ int my_listen(void)
     // bind socket to port 1 of the first available
     // local bluetooth adapter
     loc_addr.rc_family = AF_BLUETOOTH;
-    loc_addr.rc_bdaddr = *BDADDR_ANY;
+    loc_addr.rc_bdaddr = bdaddr_any;
     loc_addr.rc_channel = (uint8_t) 1;
 
     bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
@@ -217,6 +223,9 @@ void print_help(void)
     printf("--class                 hciconfig hci0 class 0x280430\n");
     printf("--hciinit               up, piscan, class 0x280430, leadv\n");
     printf("--hcishutdown           noleadv, noscan, down\n");
+#elif defined(hpcam2) || defined(Linux_x86_64)
+    printf("------------------------------------------------\n");
+    printf("--gatt                  start Bluetopia GATT Server sample\n");
 #endif
     printf("------------------------------------------------\n");
 
@@ -317,7 +326,12 @@ int main(int argc, char **argv)
             }
             break;
         }
-#if defined(s2lm_ironman) || defined(Linux_x86_64)
+#if defined(hpcam2) // || defined(Linux_x86_64)
+        else if (!strcmp(argv[arg_idx], "--gatt"))
+        {
+            ret = gatt_server_start("--autoinit");
+        }
+#endif
         //------------------------------------------------
         else if (!strcmp(argv[arg_idx], "--up"))
         {
@@ -355,7 +369,6 @@ int main(int argc, char **argv)
         {
             execute_cmd(eConfig_ALLDOWN); break;
         }
-#endif
     }
 
     if (!arg_idx)
@@ -367,22 +380,22 @@ int main(int argc, char **argv)
     return ret;
 }
 
-static int execute_cmd(eConfig_cmd_t aCmd)
+static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 {
-#if defined(s2lm_ironman) || defined(Linux_x86_64)
+#if defined(s2lm_ironman) // || defined(Linux_x86_64)
     int ctl;
     static struct hci_dev_info di;
 
     /* Open HCI socket  */
     if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
         perror("Can't open HCI socket.");
-        exit(1);
+        return errno;
     }
 
     if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
     {
         perror("Can't get device info");
-        exit(1);
+        return errno;
     }
 
     di.dev_id = 0;
@@ -419,7 +432,7 @@ static int execute_cmd(eConfig_cmd_t aCmd)
 
     close(ctl);
 #else
-    (void) aCmd;
+    printf("hci commands are not available with this target. Abort\n");
 #endif
     return 0;
 }
