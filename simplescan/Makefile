@@ -17,11 +17,11 @@ RM = rm -f
 TARGET_LIB = libRingBle.so
 TARGET_APP = test_ble
 
-SRCS_LIB = RingBleApi.cpp $(TIBLE_PATH)/gattt_server.c
-SRCS_APP = test_ble.c ble_api.cpp hcitools.c
+SRCS_LIB = RingBleApi.cpp hcitools.c	    # $(TIBLE_PATH)/gatt_api.cpp
+SRCS_APP = test_ble.c
 
-OBJS_LIB = RingBleApi.o
-OBJS_APP = test_ble.o ble_api.o hcitools.o
+OBJS_LIB = RingBleApi.o hcitools.o	    # $(TIBLE_PATH)/gatt_api.o
+OBJS_APP = test_ble.o
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP)

@@ -7,10 +7,6 @@ version.h
 test_ble.c
 RingBleApi.cpp
 RingBleApi.hh
-ble_api.h
-ble_api.cpp
-ble_api.cpp
-ble_api.h
 hcitools.c
 hcitools.h
 Makefile
