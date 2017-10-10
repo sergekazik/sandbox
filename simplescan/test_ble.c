@@ -1,3 +1,22 @@
+/*-----------------------------------------------------------------------
+ *      ------------------     ----------------------                   *
+ *      | gatt_srv_test.c|     | Ring App Setup.cpp |                   *
+ *      ------------------     ----------------------                   *
+ *                  |                     |                             *
+ *                  |       ------------------------------              *
+ *                  |       |   RingBleApi.cpp abstract  |              *
+ *                  |       ------------------------------              *
+ *                  |       | TI Impl.cpp | BCM Impl.cpp |              *
+ *                  |       ------------------------------              *
+ *                  |             |                                     *
+ *               ------------------------    ---------------            *
+ *               |      gatt_api.c      |    | hcitools.c  |            *
+ *               ------------------------    ---------------            *
+ *                          |                       |                   *
+ *               ------------------------    ---------------            *
+ *               | TI WiLink18xx BlueTP |    |   BlueZ     |            *
+ *               ------------------------    ---------------            *
+ *----------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,7 +32,7 @@
 #include "version.h"
 #include "hcitools.h"
 
-#if defined(hpcam2)
+#if defined(hpcam2) || defined(Linux_x86_64)
 #include "gatt_srv_test.h"
 #endif
 
@@ -326,7 +345,7 @@ int main(int argc, char **argv)
             }
             break;
         }
-#if defined(hpcam2) // || defined(Linux_x86_64)
+#if defined(hpcam2) || defined(Linux_x86_64)
         else if (!strcmp(argv[arg_idx], "--gatt"))
         {
             ret = gatt_server_start("--autoinit");

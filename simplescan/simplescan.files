@@ -26,3 +26,7 @@ RingBleApi.hh
 test_ble.c
 vergen.sh
 version.h
+RingGattApi.cpp
+RingGattApi.hh
+gatt_srv_test.cpp
+gatt_srv_test.h

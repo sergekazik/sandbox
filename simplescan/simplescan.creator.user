@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2017-10-06T12:56:52. -->
+<!-- Written by QtCreator 3.4.2, 2017-10-09T13:44:47. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -88,7 +88,7 @@
      </valuemap>
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.2">
       <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
-      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">*.cpp *.c *.h *.hh -v $HOME/workspace/low-powered-doorbell-fw/ambarella/ring/ble/.</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">*.cpp *.c *.h *.hh -v $HOME/workspace/low-powered-doorbell-fw/ambarella/ring/ble/</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.Command">cp</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.WorkingDirectory">%{buildDir}</value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Custom Process Step</value>

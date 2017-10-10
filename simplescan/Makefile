@@ -1,14 +1,37 @@
+RING_NAME = Linux_x86_64
+$(info RING_NAME = [${RING_NAME}])
+
 # Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
 CC = gcc
-TIBLE_PATH = $(HOME)/workspace/low-powered-doorbell-fw/ambarella/ring/ble
-CFLAGS = -fPIC -Wall -Wextra -O2 -g \
-	-I$(TIBLE_PATH)
 
-RING_NAME = Linux_x86_64
-$(info RING_NAME = [${RING_NAME}])
-CFLAGS += -D$(RING_NAME)
+################################################################################
+## Third party path/defs/stabs
+################################################################################
+AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
+BLUEZ_INC = -I$(PREBUILD_3RD_PARTY_DIR)/bluez5/include
+
+RING_BLE = $(AMB_TOPDIR)/ring/ble
+TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
+BTPIA_SDK = $(TIBLE_3PARTY)/BluetopiaPM
+
+BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
+		-I$(BTPIA_SDK)/include/client		    \
+		-I$(BTPIA_SDK)/include/server		    \
+		-I$(BTPIA_SDK)/btpmerr			    \
+		-I$(BTPIA_SDK)/btpmvs/wl18xx/		    \
+		-I$(BTPIA_SDK)/Bluetopia/include	    \
+		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
+		-I$(BTPIA_SDK)/Bluetopia/btpscfg
+
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g	\
+	    -D$(RING_NAME)		\
+	    -I$(RING_BLE)		\
+	    -I$(BTPIA_SDK_INC)		\
+	    -I$(HOME)/workspace/low-powered-doorbell-fw/ambarella/prebuild/third-party/TIBle/BluetopiaPM/include
+
+CXXFLAGS = $(CFLAGS)
 
 LDFLAGS_LIB = -shared -lbluetooth
 LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
@@ -17,11 +40,11 @@ RM = rm -f
 TARGET_LIB = libRingBle.so
 TARGET_APP = test_ble
 
-SRCS_LIB = RingBleApi.cpp hcitools.c	    # $(TIBLE_PATH)/gatt_api.cpp
-SRCS_APP = test_ble.c
+SRCS_LIB = RingBleApi.cpp RingGattApi.cpp hcitools.c
+SRCS_APP = test_ble.c gatt_srv_test.cpp
 
-OBJS_LIB = RingBleApi.o hcitools.o	    # $(TIBLE_PATH)/gatt_api.o
-OBJS_APP = test_ble.o
+OBJS_LIB = RingBleApi.o RingGattApi.o hcitools.o
+OBJS_APP = test_ble.o gatt_srv_test.o
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP)
