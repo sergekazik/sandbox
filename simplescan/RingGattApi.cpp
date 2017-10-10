@@ -184,7 +184,7 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -239,7 +239,7 @@ int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unus
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -284,7 +284,7 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -375,7 +375,7 @@ int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -577,7 +577,7 @@ int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -620,7 +620,7 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -669,7 +669,7 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -715,7 +715,7 @@ int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((u
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -773,7 +773,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -842,7 +842,7 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -906,7 +906,7 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -970,7 +970,7 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1048,7 +1048,7 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1124,7 +1124,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1229,7 +1229,7 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1300,7 +1300,7 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1381,7 +1381,7 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1437,7 +1437,7 @@ int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1516,7 +1516,7 @@ int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attrib
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1568,7 +1568,7 @@ int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1633,7 +1633,7 @@ int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unuse
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1690,7 +1690,7 @@ int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ (
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1752,7 +1752,7 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1833,7 +1833,7 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1875,7 +1875,7 @@ int GattSrv::RegenerateP256LocalKeys(ParameterList_t *aParams __attribute__ ((un
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -1924,7 +1924,7 @@ int GattSrv::OOBGenerateParameters(ParameterList_t *aParams __attribute__ ((unus
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2089,7 +2089,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2163,7 +2163,7 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2268,7 +2268,7 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2374,7 +2374,7 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2437,7 +2437,7 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2500,7 +2500,7 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2571,7 +2571,7 @@ int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((un
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2638,7 +2638,7 @@ int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unu
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2694,7 +2694,7 @@ int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2845,7 +2845,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2900,7 +2900,7 @@ int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -2967,7 +2967,7 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3023,7 +3023,7 @@ int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3172,7 +3172,7 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3206,7 +3206,7 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3302,7 +3302,7 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3393,7 +3393,7 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3487,7 +3487,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3548,7 +3548,7 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3718,7 +3718,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3774,7 +3774,7 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3827,7 +3827,7 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3908,7 +3908,7 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4008,7 +4008,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4057,7 +4057,7 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4112,7 +4112,7 @@ int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4163,7 +4163,7 @@ int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribu
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4212,7 +4212,7 @@ int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unu
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4293,7 +4293,7 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
         /* Not mInitialized, flag an error.                              */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4755,7 +4755,7 @@ int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4792,7 +4792,7 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -4920,7 +4920,7 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -5044,7 +5044,7 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -5210,7 +5210,7 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -5327,7 +5327,7 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -5473,7 +5473,7 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
         /* Not mInitialized, flag an error.                                */
         printf("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = PLATFORM_MANAGER_NOT_INITIALIZED_ERROR;
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;

@@ -150,7 +150,7 @@ public:
         FUNCTION_ERROR                            = -4, // Denotes that an error occurred in execution of the Command Function.
         TO_MANY_PARAMS                            = -5, // Denotes that there are more parameters then will fit in the UserCommand.
         INVALID_PARAMETERS_ERROR                  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
-        PLATFORM_MANAGER_NOT_INITIALIZED_ERROR    = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
+        NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
     };
 
     BleApi();

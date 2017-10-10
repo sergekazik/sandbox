@@ -30,3 +30,4 @@ RingGattApi.cpp
 RingGattApi.hh
 gatt_srv_test.cpp
 gatt_srv_test.h
+gatt_srv_defs.h

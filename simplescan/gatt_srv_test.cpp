@@ -32,6 +32,8 @@ extern "C" {
 #include "RingGattApi.hh"
 #include "gatt_srv_test.h"    /* Main Application Prototypes and Constants.   */
 
+using namespace Ring::Ble;
+
 /* Internal Variables to this Module (Remember that all variables   */
 /* declared static are initialized to 0 automatically by the        */
 /* compiler as part of standard C/C++).                             */
@@ -55,11 +57,15 @@ static int AddCommand(char *CommandName, CommandFunction_t CommandFunction);
 static CommandFunction_t FindCommand(char *Command);
 static void ClearCommands(void);
 
-static int DisplayHelp(ParameterList_t *TempParam);
+static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
+
+static GattSrv* gGattSrvInst = NULL;
+#define RING_BLE_DEF_CPP_WRAPPER
+#include "gatt_srv_defs.h"
 
 /*********************************************************************
  * Temp. "HARDCODED" Services Declaration.
-/*********************************************************************/
+ *********************************************************************/
 
 static CharacteristicInfo_t Srv1Attr1=
 {
@@ -1136,7 +1142,11 @@ static int ReadLine(char *Buffer, unsigned int BufferSize)
                 /* foreground.                                              */
                 while(getpgrp() != tcgetpgrp(STDOUT_FILENO))
                 {
+#ifdef Linux_x86_64
+                    sleep(1);
+#else
                     BTPS_Delay(500);
+#endif
                 }
             }
             else
@@ -1164,7 +1174,7 @@ static unsigned int StringToUnsignedInteger(char *StringInteger)
 {
     int          IsHex;
     unsigned int Index;
-    unsigned int ret_val = NO_ERROR;
+    unsigned int ret_val = BleApi::BleApi::NO_ERROR;
 
     /* Before proceeding make sure that the parameter that was passed as */
     /* an input appears to be at least semi-valid.                       */
@@ -1280,7 +1290,7 @@ static char *StringParser(char *String)
         /* The string appears to be at least semi-valid.  Search for the  */
         /* first space character and replace it with a NULL terminating   */
         /* character.                                                     */
-        for(Index=0,ret_val=String;Index < strlen(String);Index++)
+        for(Index=0,ret_val=String;Index < (int) strlen(String);Index++)
         {
             /* Is this the space character.                                */
             if((String[Index] == ' ') || (String[Index] == '\r') || (String[Index] == '\n'))
@@ -1330,7 +1340,7 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
         {
             /* Initialize the return value to zero to indicate success on  */
             /* commands with no parameters.                                */
-            ret_val = NO_ERROR;
+            ret_val = BleApi::NO_ERROR;
 
             /* Adjust the UserInput pointer and StringLength to remove     */
             /* the Command from the data passed in before parsing the      */
@@ -1356,14 +1366,14 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
                     UserInput    += strlen(LastParameter)+1;
                     StringLength -= strlen(LastParameter)+1;
 
-                    ret_val = NO_ERROR;
+                    ret_val = BleApi::NO_ERROR;
                 }
                 else
                 {
                     /* Be sure we exit out of the Loop.                      */
                     StringLength = 0;
 
-                    ret_val      = TO_MANY_PARAMS;
+                    ret_val = BleApi::TO_MANY_PARAMS;
                 }
             }
 
@@ -1374,13 +1384,13 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
         else
         {
             /* No command was specified                                    */
-            ret_val = NO_COMMAND_ERROR;
+            ret_val = BleApi::PARSER_ERROR;
         }
     }
     else
     {
         /* One or more of the passed parameters appear to be invalid.     */
-        ret_val = INVALID_PARAMETERS_ERROR;
+        ret_val = BleApi::INVALID_PARAMETERS_ERROR;
     }
 
     return(ret_val);
@@ -1403,14 +1413,14 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
 
     /* If the command is not found in the table return with an invalid   */
     /* command error                                                     */
-    ret_val = INVALID_COMMAND_ERROR;
+    ret_val = BleApi::INVALID_COMMAND_ERROR;
 
     /* Let's make sure that the data passed to us appears semi-valid.    */
     if((TempCommand) && (TempCommand->Command))
     {
         /* Now, let's make the Command string all upper case so that we   */
         /* compare against it.                                            */
-        for(i=0;i<strlen(TempCommand->Command);i++)
+        for(i=0; i < (int) strlen(TempCommand->Command);i++)
         {
             if((TempCommand->Command[i] >= 'a') && (TempCommand->Command[i] <= 'z'))
                 TempCommand->Command[i] -= ('a' - 'A');
@@ -1433,21 +1443,21 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
                 if(!((*CommandFunction)(&TempCommand->Parameters)))
                 {
                     /* Return success to the caller.                         */
-                    ret_val = NO_ERROR;
+                    ret_val = BleApi::NO_ERROR;
                 }
                 else
-                    ret_val = FUNCTION_ERROR;
+                    ret_val = BleApi::FUNCTION_ERROR;
             }
         }
         else
         {
-            /* The command entered is exit, set return value to EXIT_CODE  */
+            /* The command entered is exit, set return value to BleApi::EXIT_CODE  */
             /* and return.                                                 */
-            ret_val = EXIT_CODE;
+            ret_val = BleApi::EXIT_CODE;
         }
     }
     else
-        ret_val = INVALID_PARAMETERS_ERROR;
+        ret_val = BleApi::INVALID_PARAMETERS_ERROR;
 
     return(ret_val);
 }
@@ -1554,7 +1564,7 @@ static void ClearCommands(void)
 /* the Prompt pass in the parsed information.  This function displays*/
 /* the current Command Options that are available and always returns */
 /* zero.                                                             */
-static int DisplayHelp(ParameterList_t *TempParam)
+static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)))
 {
     /* Note the order they are listed here *MUST* match the order in     */
     /* which then are added to the Command Table.                        */
@@ -1653,77 +1663,10 @@ static void GATM_Init(void)
     DisplayHelp(NULL);
 
     ClearCommands();
+    #define RING_BLE_DEF_ADD_COMMAND
+    #include "gatt_srv_defs.h"
 
-    AddCommand("INITIALIZE", Initialize);
-    AddCommand("CLEANUP", Cleanup);
-    AddCommand("QUERYDEBUGZONEMASK", QueryLocalRemoteDebugZoneMask);
-    AddCommand("SETDEBUGZONEMASK", SetLocalRemoteDebugZoneMask);
-    AddCommand("SETDEBUGZONEMASKPID", SetDebugZoneMaskPID);
-    AddCommand("SHUTDOWNSERVICE", ShutdownService);
-    AddCommand("REGISTEREVENTCALLBACK", RegisterEventCallback);
-    AddCommand("UNREGISTEREVENTCALLBACK", UnRegisterEventCallback);
-    AddCommand("QUERYDEVICEPOWER", QueryDevicePower);
-    AddCommand("SETDEVICEPOWER", SetDevicePower);
-    AddCommand("QUERYLOCALDEVICEPROPERTIES", QueryLocalDeviceProperties);
-    AddCommand("SETLOCALDEVICENAME", SetLocalDeviceName);
-    AddCommand("SETLOCALCLASSOFDEVICE", SetLocalClassOfDevice);
-    AddCommand("SETDISCOVERABLE", SetDiscoverable);
-    AddCommand("SETCONNECTABLE", SetConnectable);
-    AddCommand("SETPAIRABLE", SetPairable);
-    AddCommand("STARTDEVICEDISCOVERY", StartDeviceDiscovery);
-    AddCommand("STOPDEVICEDISCOVERY", StopDeviceDiscovery);
-    AddCommand("QUERYREMOTEDEVICELIST", QueryRemoteDeviceList);
-    AddCommand("QUERYREMOTEDEVICEPROPERTIES", QueryRemoteDeviceProperties);
-    AddCommand("ADDREMOTEDEVICE", AddRemoteDevice);
-    AddCommand("DELETEREMOTEDEVICE", DeleteRemoteDevice);
-    AddCommand("UPDATEREMOTEDEVICEAPPDATA", UpdateRemoteDeviceApplicationData);
-    AddCommand("DELETEREMOTEDEVICES", DeleteRemoteDevices);
-    AddCommand("PAIRWITHREMOTEDEVICE", PairWithRemoteDevice);
-    AddCommand("CANCELPAIRWITHREMOTEDEVICE", CancelPairWithRemoteDevice);
-    AddCommand("UNPAIRREMOTEDEVICE", UnPairRemoteDevice);
-    AddCommand("QUERYREMOTEDEVICESERVICES", QueryRemoteDeviceServices);
-    AddCommand("QUERYREMOTEDEVICESERVICESUPPORTED", QueryRemoteDeviceServiceSupported);
-    AddCommand("QUERYREMOTEDEVICESFORSERVICE", QueryRemoteDevicesForService);
-    AddCommand("QUERYREMOTEDEVICESERVICECLASSES", QueryRemoteDeviceServiceClasses);
-    AddCommand("AUTHENTICATEREMOTEDEVICE", AuthenticateRemoteDevice);
-    AddCommand("ENCRYPTREMOTEDEVICE", EncryptRemoteDevice);
-    AddCommand("CONNECTWITHREMOTEDEVICE", ConnectWithRemoteDevice);
-    AddCommand("DISCONNECTREMOTEDEVICE", DisconnectRemoteDevice);
-    AddCommand("SETREMOTEDEVICELINKACTIVE", SetRemoteDeviceLinkActive);
-    AddCommand("CREATESDPRECORD", CreateSDPRecord);
-    AddCommand("DELETESDPRECORD", DeleteSDPRecord);
-    AddCommand("ADDSDPATTRIBUTE", AddSDPAttribute);
-    AddCommand("DELETESDPATTRIBUTE", DeleteSDPAttribute);
-    AddCommand("ENABLEBLUETOOTHDEBUG", EnableBluetoothDebug);
-    AddCommand("REGISTERAUTHENTICATION", RegisterAuthentication);
-    AddCommand("UNREGISTERAUTHENTICATION", UnRegisterAuthentication);
-    AddCommand("PINCODERESPONSE", PINCodeResponse);
-    AddCommand("PASSKEYRESPONSE", PassKeyResponse);
-    AddCommand("USERCONFIRMATIONRESPONSE", UserConfirmationResponse);
-    AddCommand("CHANGESIMPLEPAIRINGPARAMETERS", ChangeSimplePairingParameters);
-    AddCommand("REGISTERGATTCALLBACK", RegisterGATMEventCallback);
-    AddCommand("UNREGISTERGATTCALLBACK", UnRegisterGATMEventCallback);
-    AddCommand("QUERYGATTCONNECTIONS", GATTQueryConnectedDevices);
-    AddCommand("SETLOCALDEVICEAPPEARANCE", SetLocalDeviceAppearance);
-    AddCommand("STARTADVERTISING", StartAdvertising);
-    AddCommand("STOPADVERTISING", StopAdvertising);
-    AddCommand("REGISTERSERVICE", GATTRegisterService);
-    AddCommand("UNREGISTERSERVICE", GATTUnRegisterService);
-    AddCommand("INDICATECHARACTERISTIC", GATTIndicateCharacteristic);
-    AddCommand("NOTIFYCHARACTERISTIC", GATTNotifyCharacteristic);
-    AddCommand("LISTCHARACTERISTICS", ListCharacteristics);
-    AddCommand("LISTDESCRIPTORS", ListDescriptors);
-    AddCommand("QUERYPUBLISHEDSERVICES", GATTQueryPublishedServices);
-    AddCommand("SETADVERTISINGINTERVAL", SetAdvertisingInterval);
-    AddCommand("SETANDUPDATECONNECTIONANDSCANBLEPARAMETERS", SetAndUpdateConnectionAndScanBLEParameters);
-    AddCommand("SETAUTHENTICATEDPAYLOADTIMEOUT", SetAuthenticatedPayloadTimeout);
-    AddCommand("QUERYAUTHENTICATEDPAYLOADTIMEOUT", QueryAuthenticatedPayloadTimeout);
-    AddCommand("ENABLESCONLY", EnableSCOnly);
-    AddCommand("REGENERATEP256LOCALKEYS", RegenerateP256LocalKeys);
-    AddCommand("OOBGENERATEPARAMETERS", OOBGenerateParameters);
-    AddCommand("CHANGELEPAIRINGPARAMETERS", ChangeLEPairingParameters);
-
-    AddCommand("HELP", DisplayHelp);
+    AddCommand((char*) "HELP", DisplayHelp);
 
     /* Configure the SIGTTIN signal so that this application can run in  */
     /* the background.                                                   */
@@ -1755,7 +1698,7 @@ static void GATM_Init(void)
 static void UserInterface(void)
 {
     UserCommand_t TempCommand;
-    int  Result = !EXIT_CODE;
+    int  Result = !BleApi::EXIT_CODE;
     char UserInput[MAX_COMMAND_LENGTH];
 
     GATM_Init();
@@ -1764,9 +1707,9 @@ static void UserInterface(void)
     /* command window, make a call to the command parser, and command    */
     /* interpreter.  After the function has been ran it then check the   */
     /* return value and displays an error message when appropriate. If   */
-    /* the result returned is ever the EXIT_CODE the loop will exit      */
+    /* the result returned is ever the BleApi::EXIT_CODE the loop will exit      */
     /* leading the the exit of the program.                              */
-    while(Result != EXIT_CODE)
+    while(Result != BleApi::EXIT_CODE)
     {
         /* Initialize the value of the variable used to store the users   */
         /* input and output "Input: " to the command window to inform the */
@@ -1796,10 +1739,10 @@ static void UserInterface(void)
 
                     switch(Result)
                     {
-                    case INVALID_COMMAND_ERROR:
+                    case BleApi::INVALID_COMMAND_ERROR:
                         printf("Invalid Command.\r\n");
                         break;
-                    case FUNCTION_ERROR:
+                    case BleApi::FUNCTION_ERROR:
                         printf("Function Error.\r\n");
                         break;
                     }
@@ -1809,13 +1752,13 @@ static void UserInterface(void)
             }
         }
         else
-            Result = EXIT_CODE;
+            Result = BleApi::EXIT_CODE;
     }
 }
 
 static int ValidateAndExecCommand(char *UserInput)
 {
-    int  Result = !EXIT_CODE;
+    int  Result = !BleApi::EXIT_CODE;
     UserCommand_t TempCommand;
 
     /* The string input by the user contains a value, now run   */
@@ -1827,10 +1770,10 @@ static int ValidateAndExecCommand(char *UserInput)
 
         switch(Result)
         {
-        case INVALID_COMMAND_ERROR:
+        case BleApi::INVALID_COMMAND_ERROR:
             printf("Invalid Command.\r\n");
             break;
-        case FUNCTION_ERROR:
+        case BleApi::FUNCTION_ERROR:
             printf("Function Error.\r\n");
             break;
         default:
