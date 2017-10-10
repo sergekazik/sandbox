@@ -22,11 +22,9 @@
 #include "RingBleApi.hh"
 using namespace Ring::Ble;
 
-Ring::Ble::BleApi* instance = NULL;
-
-BleApi::BleApi()
+BleApi::BleApi() :
+    mInitialized(false)
 {
-    mInitialized = false;      // initialization state
 }
 
 /********************************************************************************

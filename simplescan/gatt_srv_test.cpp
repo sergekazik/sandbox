@@ -1792,7 +1792,7 @@ static int ValidateAndExecCommand(char *UserInput)
 /// \param arguments - expected NULL or "--autoinit"
 /// \return errno
 ///
-extern "C" int gatt_server_start(char* arguments)
+extern "C" int gatt_server_start(const char* arguments)
 {
     static const StartUpCommands_t gStartUpCommandList[] =
     {
@@ -1812,6 +1812,15 @@ extern "C" int gatt_server_start(char* arguments)
         {"QueryLocalDeviceProperties",          1},
     };
 
+#ifndef Linux_x86_64
+    gGattSrvInst = (GattSrv*) GattSrv::getInstance();
+    if (gGattSrvInst == NULL)
+    {
+        printf("error creating gGattSrvInst!! Abort. \n");
+        return -666;
+    }
+#endif
+
     GATM_Init();
 
     if (arguments != NULL)
@@ -1829,9 +1838,10 @@ extern "C" int gatt_server_start(char* arguments)
             for (int i = 0; i < nCmds; i++)
             {
                 sprintf(UserInput, "%s", gStartUpCommandList[i].mCmd);
-                printf("cmd[%d]: %s\n", i+1, UserInput);
+                printf("cmd[%d]: [%s]\n", i+1, UserInput);
 
                 int ret = ValidateAndExecCommand(UserInput);
+                printf("cmd[%d]: [%s] ret = %d\n", i+1, UserInput, ret);
                 sleep(gStartUpCommandList[i].mDelay);
 
                 if (ret != 0)

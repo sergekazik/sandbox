@@ -153,13 +153,10 @@ public:
         NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
     };
 
-    BleApi();
-    static BleApi* getInstance();
-
     ~BleApi();
 
 protected:
-    static BleApi* instance;
+    BleApi();
     bool          mInitialized;      // initialization state
 
 public:

@@ -16,15 +16,6 @@ extern "C" {
 
 namespace Ring { namespace Ble {
 
-const char *IOCapabilitiesStrings[] =
-{
-   "Display Only",
-   "Display Yes/No",
-   "Keyboard Only",
-   "No Input/Output",
-   "Keyboard/Display"
-};
-
 /* The following type defintion represents the structure which holds */
 /* information on a pending prepare write queue entry.               */
 typedef struct _tagPrepareWriteEntry_t
@@ -148,14 +139,11 @@ typedef struct _tagServiceInfo_t
 class GattSrv : BleApi
 {
 public:
-    static BleApi* getInstance( ) {
-       if (instance == NULL)
-           instance = (BleApi*) new GattSrv();
-       return instance;
-    }
+    static BleApi* getInstance();
     static void BTPSAPI ServerUnRegistrationCallback(void *CallbackParameter __attribute__ ((unused)));
 
 private:
+    static GattSrv* instance;
     GattSrv();
 
 public:

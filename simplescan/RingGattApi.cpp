@@ -10,12 +10,14 @@
 
 using namespace Ring::Ble;
 
-/* BTPM Local Device Manager Callback function prototype.            */
-static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
-/* BTPM Local Device Manager Authentication Callback function prototype  */
-static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information_t *AuthenticationRequestInformation, void *CallbackParameter __attribute__ ((unused)));
-/* GATM Manager Callback Function prototype.                         */
-static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
+GattSrv* GattSrv::instance = NULL;
+
+BleApi* GattSrv::getInstance()
+{
+    if (instance == NULL)
+        instance = new GattSrv();
+    return (BleApi* )instance;
+}
 
 GattSrv::GattSrv()
 {
@@ -34,6 +36,22 @@ GattSrv::GattSrv()
     mP256DebugMode   = DEFAULT_P256_DEBUG_ENABLE;
     mBondingType     = DEFAULT_LE_BONDING_TYPE;
 }
+
+const char *IOCapabilitiesStrings[] =
+{
+   "Display Only",
+   "Display Yes/No",
+   "Keyboard Only",
+   "No Input/Output",
+   "Keyboard/Display"
+};
+
+/* BTPM Local Device Manager Callback function prototype.            */
+static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
+/* BTPM Local Device Manager Authentication Callback function prototype  */
+static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information_t *AuthenticationRequestInformation, void *CallbackParameter __attribute__ ((unused)));
+/* GATM Manager Callback Function prototype.                         */
+static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
 
 /* Initialization.                 */
 

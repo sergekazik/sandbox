@@ -12,7 +12,7 @@ extern "C" {
 /// \param char* arguments, NULL or "--autoinit"
 /// \return errno
 ///
-int gatt_server_start(char* arguments);
+int gatt_server_start(const char* arguments);
 
 #ifdef __cplusplus
 }
