@@ -1,22 +1,26 @@
-/*-----------------------------------------------------------------------
- *      ===================    ----------------------                   *
- *      # gatt_srv_test.c #    | Ring App Setup.cpp |                   *
- *      ===================    ----------------------                   *
- *                  |                     |                             *
- *                  |       ------------------------------              *
- *                  |       |   RingBleApi.cpp abstract  |              *
- *                  |       ------------------------------              *
- *                  |       | TI Impl.cpp | BCM Impl.cpp |              *
- *                  |       ------------------------------              *
- *                  |             |                                     *
- *               ------------------------    ---------------            *
- *               |      gatt_api.c      |    | hcitools.c  |            *
- *               ------------------------    ---------------            *
- *                          |                       |                   *
- *               ------------------------    ---------------            *
- *               | TI WiLink18xx BlueTP |    |   BlueZ     |            *
- *               ------------------------    ---------------            *
- *----------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------
+ *                     ------------------      -----------------            *
+ *                     | Ring App Setup |      |   test_ble    |            *
+ *                     ------------------      -----------------            *
+ *                                |                |        |               *
+ *                                |   --------------------  |               *
+ *                                |   |gatt_src_test.cpp |  |               *
+ *                                |   --------------------  |               *
+ *                                |          |              |               *
+ *                  --------------------------------        |               *
+ *                  |   RingBleApi.cpp abstract    |        |               *
+ *                  --------------------------------        |               *
+ *                  | RingGattSrv.cpp | ?(BCM).cpp |        |               *
+ *                  --------------------------------        |               *
+ *                        |                                 |               *
+ *       ------------------------                    ---------------        *
+ *       |      TIBT lib        |                    | hcitools.c  |        *
+ *       ------------------------                    ---------------        *
+ *                  |                                       |               *
+ *       ------------------------                    ---------------        *
+ *       | TI WiLink18xx BlueTP |                    |   BlueZ     |        *
+ *       ------------------------                    ---------------        *
+ *--------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -40,11 +44,6 @@ using namespace Ring::Ble;
 
 static unsigned int        NumberCommands;
 static CommandTable_t      CommandTable[MAX_SUPPORTED_COMMANDS];
-
-/* TODO: (skazik) - orginize passing data it as parameter
- *                - verify notifications with a gatt clinet
- */
-static char DataString[] = "Hello World from gatt_srv_test";
 
 /* Internal function prototypes.                                    */
 static void UserInterface(void);
@@ -1094,7 +1093,7 @@ static ServiceInfo_t ServiceTable[] =
         SrvTable6
     }
 };
-
+#define PREDEFINED_SERVICES_COUNT                                     (sizeof(ServiceTable)/sizeof(ServiceInfo_t))
 
 /* The following function reads a line from standard input into the  */
 /* specified buffer.  This function returns the string length of the */
@@ -1436,8 +1435,9 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
                 /* Check if the command is Initialize and requires special handling */
                 if(memcmp(TempCommand->Command, "INITIALIZE", strlen("INITIALIZE")) == 0)
                 {
-                    TempCommand->Parameters.Params[1].intParam = NUMBER_OF_SERVICES_MAX;
-                    TempCommand->Parameters.Params[2].strParam =(char*) &ServiceTable;
+                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].intParam = PREDEFINED_SERVICES_COUNT;
+                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam =(char*) ServiceTable;
+                    TempCommand->Parameters.NumberofParameters++;
                 }
                 /* The command was found in the table so call the command.  */
                 if(!((*CommandFunction)(&TempCommand->Parameters)))

@@ -140,6 +140,8 @@ class GattSrv : BleApi
 {
 public:
     static BleApi* getInstance();
+    static const int IOCAPABILITIESSTRINGS_SIZE;
+    static const char *IOCapabilitiesStrings[];
     static void BTPSAPI ServerUnRegistrationCallback(void *CallbackParameter __attribute__ ((unused)));
 
 private:
@@ -297,6 +299,7 @@ private:
     bool           mLEMITMProtection;          // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Simple Pairing procedure.
     bool           mP256DebugMode;             // Variable which flags whether or not to use P-256 debug key during a SC Pairing procedure.
     Mutex_t        mServiceMutex = NULL;       // Mutex which guards access to theService List.
+
     PrepareWriteEntry_t *mPrepareWriteList = NULL;   // Pointer to head of list containing all currently pendingprepared writes.
 
     // private helper functions

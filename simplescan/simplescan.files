@@ -31,3 +31,17 @@ RingGattApi.hh
 gatt_srv_test.cpp
 gatt_srv_test.h
 gatt_srv_defs.h
+gatt_srv_defs.h
+gatt_srv_test.cpp
+gatt_srv_test.h
+hcitools.c
+hcitools.h
+Makefile
+RingBleApi.cpp
+RingBleApi.hh
+RingGattApi.cpp
+RingGattApi.hh
+simplescan.config
+test_ble.c
+version.h
+test_stubs.cpp

@@ -1,4 +1,26 @@
-// #include <ring/console/Logger.hh>
+/*---------------------------------------------------------------------------
+ *                     ------------------      -----------------            *
+ *                     | Ring App Setup |      |   test_ble    |            *
+ *                     ------------------      -----------------            *
+ *                                |                |        |               *
+ *                                |   --------------------  |               *
+ *                                |   |gatt_src_test.cpp |  |               *
+ *                                |   --------------------  |               *
+ *                                |          |              |               *
+ *                  --------------------------------        |               *
+ *                  |   RingBleApi.cpp abstract    |        |               *
+ *                  --------------------------------        |               *
+ *                  | RingGattSrv.cpp | ?(BCM).cpp |        |               *
+ *                  --------------------------------        |               *
+ *                        |                                 |               *
+ *       ------------------------                    ---------------        *
+ *       |      TIBT lib        |                    | hcitools.c  |        *
+ *       ------------------------                    ---------------        *
+ *                  |                                       |               *
+ *       ------------------------                    ---------------        *
+ *       | TI WiLink18xx BlueTP |                    |   BlueZ     |        *
+ *       ------------------------                    ---------------        *
+ *--------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,17 +28,28 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "ipc/Bot_Notifier.h"
 #include "RingGattApi.hh"
 
 using namespace Ring::Ble;
 
 GattSrv* GattSrv::instance = NULL;
 
+const char * GattSrv::IOCapabilitiesStrings[] =
+{
+   "Display Only",
+   "Display Yes/No",
+   "Keyboard Only",
+   "No Input/Output",
+   "Keyboard/Display"
+};
+const int GattSrv::IOCAPABILITIESSTRINGS_SIZE = sizeof(GattSrv::IOCapabilitiesStrings)/sizeof(char *);
+
 BleApi* GattSrv::getInstance()
 {
     if (instance == NULL)
         instance = new GattSrv();
-    return (BleApi* )instance;
+    return (BleApi*) instance;
 }
 
 GattSrv::GattSrv()
@@ -37,15 +70,6 @@ GattSrv::GattSrv()
     mBondingType     = DEFAULT_LE_BONDING_TYPE;
 }
 
-const char *IOCapabilitiesStrings[] =
-{
-   "Display Only",
-   "Display Yes/No",
-   "Keyboard Only",
-   "No Input/Output",
-   "Keyboard/Display"
-};
-
 /* BTPM Local Device Manager Callback function prototype.            */
 static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
 /* BTPM Local Device Manager Authentication Callback function prototype  */
@@ -61,11 +85,17 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we are not already mInitialized.    */
     if (!mInitialized)
     {
+        BOT_NOTIFY_DEBUG("GattSrv::Initialize, %d params\n", aParams->NumberofParameters);
+        for (int i = 0; i < aParams->NumberofParameters; i++)
+        {
+            BOT_NOTIFY_TRACE("aParams[%d] = {0x%08X, 0x%08X [%s]}\n", i, aParams->Params[i].intParam, (unsigned long) aParams->Params[i].strParam, aParams->Params[i].strParam);
+        }
+
         /* Determine if the user would like to Register an Event Callback */
         /* with the calling of this command.                              */
         if ((aParams) && (aParams->NumberofParameters >= 1))
@@ -78,7 +108,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                 /* Initialization successful, go ahead and inform the user  */
                 /* that it was successful and flag that the Platform Manager*/
                 /* has been mInitialized.                                    */
-                printf("BTPM_Initialize() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("BTPM_Initialize() Success: %d.\r\n", Result);
 
                 mInitialized = true;
                 ret_val = NO_ERROR;
@@ -95,7 +125,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                 {
                     if ((Result = DEVM_RegisterEventCallback(DEVM_Event_Callback, NULL)) > 0)
                     {
-                        printf("DEVM_RegisterEventCallback() Success: %d.\r\n", Result);
+                        BOT_NOTIFY_INFO("DEVM_RegisterEventCallback() Success: %d.\r\n", Result);
                         /* Note the Callback ID and flag success.             */
                         mDEVMCallbackID = (unsigned int)Result;
                     }
@@ -103,7 +133,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                     {
                         /* Error registering the Callback, inform user and    */
                         /* flag an error.                                     */
-                        printf("DEVM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                        BOT_NOTIFY_ERROR("DEVM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
 
                         mInitialized = false;
                         ret_val = FUNCTION_ERROR;
@@ -113,37 +143,38 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                     }
                 }
 
-                /* If the caller want to register Services on Init: *
+                /* If the caller want to initialize Service Table *
                  * Params[1] = number of services                   *
                  * Params[2] = pointer to the Service Table         */
-                if ((ret_val = NO_ERROR) &&
-                        (aParams->NumberofParameters >= 3) &&
-                        (aParams->Params[2].strParam != NULL))
+                if ((ret_val == NO_ERROR) && (aParams->NumberofParameters > 1) && (aParams->Params[1].strParam != NULL))
                 {
                     mServiceCount = aParams->Params[1].intParam;
-                    mServiceTable = (ServiceInfo_t *) aParams->Params[2].strParam;
+                    mServiceTable = (ServiceInfo_t *) aParams->Params[1].strParam;
+                }
+                else
+                {
+                    BOT_NOTIFY_ERROR("Failed to initialize Service Table, ret=%d\r\n", ret_val);
                 }
             }
             else
             {
                 /* Error initializing Platform Manager, inform the user.    */
-                printf("BTPM_Initialize() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_ERROR("BTPM_Initialize() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
 
         }
         else
         {
-            printf("Usage: Initialize [0/1 - Register for Events].\r\n");
-
             /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: Initialize [0/1 - Register for Events].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Already mInitialized, flag an error.                            */
-        printf("Initialization Failure: Already mInitialized.\r\n");
+        BOT_NOTIFY_ERROR("Initialization Failure: Already mInitialized.\r\n");
 
         ret_val = NO_ERROR;
     }
@@ -157,7 +188,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
 /* occurred.                                                         */
 int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribute__ ((unused)) )
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -194,15 +225,16 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
 
         mServiceMutex = NULL;
 
-
         ret_val = NO_ERROR;
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
+        BOT_NOTIFY_WARNING("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = NOT_INITIALIZED_ERROR;
+        // setting NO_ERROR since it doesn't really affect anything
+        // ret_val = NOT_INITIALIZED_ERROR;
+        ret_val = NO_ERROR;
     }
 
     return ret_val;
@@ -215,7 +247,7 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
 int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -228,35 +260,34 @@ int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unus
             /* register it.                                                */
             if ((Result = DEVM_RegisterEventCallback(DEVM_Event_Callback, NULL)) > 0)
             {
-                printf("DEVM_RegisterEventCallback() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_RegisterEventCallback() Success: %d.\r\n", Result);
 
                 /* Note the Callback ID and flag success.                   */
                 mDEVMCallbackID = (unsigned int)Result;
-
                 ret_val = NO_ERROR;
             }
             else
             {
                 /* Error registering the Callback, inform user and flag an  */
                 /* error.                                                   */
-                printf("DEVM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* Callback already registered, go ahead and notify the user.  */
-            printf("Device Manager Event Callback already registered.\r\n");
+            BOT_NOTIFY_WARNING("Device Manager Event Callback already registered.\r\n");
 
-            ret_val = FUNCTION_ERROR;
+            // setting NO_ERROR since it doesn't really do anything bad
+            // ret_val = FUNCTION_ERROR;
+            ret_val = NO_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -269,7 +300,7 @@ int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unus
 /* zero if successful and a negative value if an error occurred.     */
 int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -282,7 +313,7 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
             /* un-register it.                                             */
             DEVM_UnRegisterEventCallback(mDEVMCallbackID);
 
-            printf("DEVM_UnRegisterEventCallback() Success.\r\n");
+            BOT_NOTIFY_INFO("DEVM_UnRegisterEventCallback() Success.\r\n");
 
             /* Flag that there is no longer a Callback registered.         */
             mDEVMCallbackID = 0;
@@ -292,17 +323,18 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
         else
         {
             /* Callback already registered, go ahead and notify the user.  */
-            printf("Device Manager Event Callback is not registered.\r\n");
-
-            ret_val = FUNCTION_ERROR;
+            BOT_NOTIFY_WARNING("Device Manager Event Callback is not registered.\r\n");
+            ret_val = NO_ERROR; // FUNCTION_ERROR; - no harm
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
+        BOT_NOTIFY_WARNING("Platform Manager has not been mInitialized.\r\n");
 
-        ret_val = NOT_INITIALIZED_ERROR;
+        // setting NO_ERROR since it doesn't really do anything bad
+        // ret_val = NOT_INITIALIZED_ERROR;
+        ret_val = NO_ERROR;
     }
 
     return ret_val;
@@ -314,7 +346,7 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
 int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we are not already mInitialized.    */
     if (mInitialized)
@@ -333,33 +365,29 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
             {
                 /* Device Power request was successful, go ahead and inform */
                 /* the User.                                                */
-                printf("DEVM_Power%sDevice() Success: %d.\r\n", aParams->Params[0].intParam?"On":"Off", Result);
+                BOT_NOTIFY_INFO("DEVM_Power%sDevice() Success: %d.\r\n", aParams->Params[0].intParam?"On":"Off", Result);
 
                 /* Return success to the caller.                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Powering On/Off the device, inform the user.       */
-                printf("DEVM_Power%sDevice() Failure: %d, %s.\r\n", aParams->Params[0].intParam?"On":"Off", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_Power%sDevice() Failure: %d, %s.\r\n", aParams->Params[0].intParam?"On":"Off", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
-            printf("Usage: SetDevicePower [0/1 - Power Off/Power On].\r\n");
-
-            /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: SetDevicePower [0/1 - Power Off/Power On].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
-        ret_val = FUNCTION_ERROR;
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -370,8 +398,8 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
 /* successful and a negative value if an error occurred.             */
 int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int       ret_val;
-    bool Result;
+    int ret_val = UNDEFINED_ERROR;
+    int Result;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -381,18 +409,17 @@ int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
         Result = DEVM_QueryDevicePowerState();
 
         if (Result >= 0)
-            printf("DEVM_QueryDevicePowerState() Success: %s.\r\n", Result?"On":"Off");
+            BOT_NOTIFY_INFO("DEVM_QueryDevicePowerState() Success: %s.\r\n", Result?"On":"Off");
         else
-            printf("DEVM_QueryDevicePowerState() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+            BOT_NOTIFY_ERROR("DEVM_QueryDevicePowerState() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
 
         /* Flag success to the caller.                                    */
-        ret_val = 0;
+        ret_val = NO_ERROR;
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -405,7 +432,7 @@ int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we are not already mInitialized.    */
     if (mInitialized)
@@ -421,33 +448,29 @@ int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ 
             {
                 /* Set Debug Zone Mask request was successful, go ahead and */
                 /* inform the User.                                         */
-                printf("BTPM_SetDebugZoneMask(%s) Success: 0x%08lX.\r\n", aParams->Params[0].intParam?"Remote":"Local", (unsigned long)aParams->Params[1].intParam);
+                BOT_NOTIFY_INFO("BTPM_SetDebugZoneMask(%s) Success: 0x%08lX.\r\n", aParams->Params[0].intParam?"Remote":"Local", (unsigned long)aParams->Params[1].intParam);
 
                 /* Return success to the caller.                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Querying Debug Zone Mask, inform the user.         */
-                printf("BTPM_SetDebugZoneMask(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"Remote":"Local", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("BTPM_SetDebugZoneMask(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"Remote":"Local", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
-            printf("Usage: SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
-
-            /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
-        ret_val = FUNCTION_ERROR;
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -459,7 +482,7 @@ int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ 
 int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     unsigned long DebugZoneMask;
 
     /* First, check to make sure that we are not already mInitialized.    */
@@ -476,33 +499,29 @@ int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute_
             {
                 /* Query Debug Zone Mask request was successful, go ahead   */
                 /* and inform the User.                                     */
-                printf("BTPM_QueryDebugZoneMask(%s) Success: 0x%08lX.\r\n", aParams->Params[0].intParam?"Remote":"Local", DebugZoneMask);
+                BOT_NOTIFY_INFO("BTPM_QueryDebugZoneMask(%s) Success: 0x%08lX.\r\n", aParams->Params[0].intParam?"Remote":"Local", DebugZoneMask);
 
                 /* Return success to the caller.                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Querying Debug Zone Mask, inform the user.         */
-                printf("BTPM_QueryDebugZoneMask(%s, %d) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"Remote":"Local", (aParams->NumberofParameters > 1)?aParams->Params[1].intParam:0, Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("BTPM_QueryDebugZoneMask(%s, %d) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"Remote":"Local", (aParams->NumberofParameters > 1)?aParams->Params[1].intParam:0, Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
-            printf("Usage: QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
-
-            /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
-        ret_val = FUNCTION_ERROR;
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -515,7 +534,7 @@ int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute_
 int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we are not already mInitialized.    */
     if (mInitialized)
@@ -530,33 +549,29 @@ int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused
             {
                 /* Set Debug Zone Mask request was successful, go ahead and */
                 /* inform the User.                                         */
-                printf("BTPM_SetDebugZoneMaskPID(%lu) Success: 0x%08lX.\r\n", (unsigned long)aParams->Params[0].intParam, (unsigned long)aParams->Params[1].intParam);
+                BOT_NOTIFY_INFO("BTPM_SetDebugZoneMaskPID(%lu) Success: 0x%08lX.\r\n", (unsigned long)aParams->Params[0].intParam, (unsigned long)aParams->Params[1].intParam);
 
                 /* Return success to the caller.                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Setting Debug Zone Mask, inform the user.          */
-                printf("BTPM_SetDebugZoneMaskPID(%lu) Failure: %d, %s.\r\n", (unsigned long)(aParams->Params[0].intParam), Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("BTPM_SetDebugZoneMaskPID(%lu) Failure: %d, %s.\r\n", (unsigned long)(aParams->Params[0].intParam), Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
-            printf("Usage: SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");
-
-            /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
-        ret_val = FUNCTION_ERROR;
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -568,7 +583,7 @@ int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused
 int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -576,25 +591,23 @@ int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
         /* mInitialized, go ahead and attempt to shutdown the server.      */
         if ((Result = BTPM_ShutdownService()) == 0)
         {
-            printf("BTPM_ShutdownService() Success: %d.\r\n", Result);
+            BOT_NOTIFY_INFO("BTPM_ShutdownService() Success: %d.\r\n", Result);
 
             /* Flag success.                                               */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Error shutting down the service, inform the user and flag an*/
             /* error.                                                      */
-            printf("BTPM_ShutdownService() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("BTPM_ShutdownService() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -607,7 +620,7 @@ int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -616,28 +629,26 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
         /* mInitialized, go ahead and query the Local Device Properties.   */
         if ((Result = DEVM_QueryLocalDeviceProperties(&LocalDeviceProperties)) >= 0)
         {
-            printf("DEVM_QueryLocalDeviceProperties() Success: %d.\r\n", Result);
+            BOT_NOTIFY_INFO("DEVM_QueryLocalDeviceProperties() Success: %d.\r\n", Result);
 
             /* Next, go ahead and display the properties.                  */
             DisplayLocalDeviceProperties(0, &LocalDeviceProperties);
 
             /* Flag success.                                               */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Error querying the Local Device Properties, inform the user */
             /* and flag an error.                                          */
-            printf("DEVM_QueryLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("DEVM_QueryLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -650,7 +661,7 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
 int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -664,29 +675,27 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
             strcpy(LocalDeviceProperties.DeviceName, aParams->Params[0].strParam);
         }
 
-        printf("Attempting to set Device Name to: \"%s\".\r\n", LocalDeviceProperties.DeviceName);
+        BOT_NOTIFY_DEBUG("Attempting to set Device Name to: \"%s\".\r\n", LocalDeviceProperties.DeviceName);
 
         if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_DEVICE_NAME, &LocalDeviceProperties)) >= 0)
         {
-            printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+            BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
             /* Flag success.                                               */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Error updating the Local Device Properties, inform the user */
             /* and flag an error.                                          */
-            printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -699,7 +708,7 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
 int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -710,29 +719,27 @@ int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((u
         if ((aParams) && (aParams->NumberofParameters))
             LocalDeviceProperties.DeviceAppearance = (Word_t)aParams->Params[0].intParam;
 
-        printf("Attempting to set Device Appearance to: %u.\r\n", (unsigned int)LocalDeviceProperties.DeviceAppearance);
+        BOT_NOTIFY_DEBUG("Attempting to set Device Appearance to: %u.\r\n", (unsigned int)LocalDeviceProperties.DeviceAppearance);
 
         if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_DEVICE_APPEARANCE, &LocalDeviceProperties)) >= 0)
         {
-            printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+            BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
             /* Flag success.                                               */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Error updating the Local Device Properties, inform the user */
             /* and flag an error.                                          */
-            printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -746,7 +753,7 @@ int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((u
 int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -760,37 +767,34 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
         {
             ASSIGN_CLASS_OF_DEVICE(LocalDeviceProperties.ClassOfDevice, (Byte_t)((aParams->Params[0].intParam) & 0xFF), (Byte_t)(((aParams->Params[0].intParam) >> 8) & 0xFF), (Byte_t)(((aParams->Params[0].intParam) >> 16) & 0xFF));
 
-            printf("Attempting to set Class Of Device to: 0x%02X%02X%02X.\r\n", LocalDeviceProperties.ClassOfDevice.Class_of_Device0, LocalDeviceProperties.ClassOfDevice.Class_of_Device1, LocalDeviceProperties.ClassOfDevice.Class_of_Device2);
+            BOT_NOTIFY_DEBUG("Attempting to set Class Of Device to: 0x%02X%02X%02X.\r\n", LocalDeviceProperties.ClassOfDevice.Class_of_Device0, LocalDeviceProperties.ClassOfDevice.Class_of_Device1, LocalDeviceProperties.ClassOfDevice.Class_of_Device2);
 
             if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_CLASS_OF_DEVICE, &LocalDeviceProperties)) >= 0)
             {
-                printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error updating the Local Device Properties, inform the   */
                 /* user and flag an error.                                  */
-                printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetLocalClassOfDevice [Class of Device].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetLocalClassOfDevice [Class of Device].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -804,7 +808,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -824,42 +828,39 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
             if (aParams->Params[0].intParam)
             {
                 if (LocalDeviceProperties.DiscoverableModeTimeout)
-                    printf("Attempting to set Discoverability Mode: General.\r\n");
+                    BOT_NOTIFY_DEBUG("Attempting to set Discoverability Mode: General.\r\n");
                 else
-                    printf("Attempting to set Discoverability Mode: Limited (%d Seconds).\r\n", LocalDeviceProperties.DiscoverableModeTimeout);
+                    BOT_NOTIFY_DEBUG("Attempting to set Discoverability Mode: Limited (%d Seconds).\r\n", LocalDeviceProperties.DiscoverableModeTimeout);
             }
             else
-                printf("Attempting to set Discoverability Mode: None.\r\n");
+                BOT_NOTIFY_DEBUG("Attempting to set Discoverability Mode: None.\r\n");
 
             if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_DISCOVERABLE_MODE, &LocalDeviceProperties)) >= 0)
             {
-                printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error updating the Local Device Properties, inform the   */
                 /* user and flag an error.                                  */
-                printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetDiscoverable [Enable/Disable] [Timeout (Enable only)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetDiscoverable [Enable/Disable] [Timeout (Enable only)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -873,7 +874,7 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -891,39 +892,36 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
                 LocalDeviceProperties.ConnectableModeTimeout = aParams->Params[1].intParam;
 
             if (aParams->Params[0].intParam)
-                printf("Attempting to set Connectability Mode: Connectable (%d Seconds).\r\n", LocalDeviceProperties.ConnectableModeTimeout);
+                BOT_NOTIFY_DEBUG("Attempting to set Connectability Mode: Connectable (%d Seconds).\r\n", LocalDeviceProperties.ConnectableModeTimeout);
             else
-                printf("Attempting to set Connectability Mode: Non-Connectable.\r\n");
+                BOT_NOTIFY_DEBUG("Attempting to set Connectability Mode: Non-Connectable.\r\n");
 
             if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_CONNECTABLE_MODE, &LocalDeviceProperties)) >= 0)
             {
-                printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error updating the Local Device Properties, inform the   */
                 /* user and flag an error.                                  */
-                printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetConnectable [Enable/Disable] [Timeout (Enable only)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetConnectable [Enable/Disable] [Timeout (Enable only)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -937,7 +935,7 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -955,39 +953,36 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
                 LocalDeviceProperties.PairableModeTimeout = aParams->Params[1].intParam;
 
             if (aParams->Params[0].intParam)
-                printf("Attempting to set Pairability Mode: Pairable (%d Seconds).\r\n", LocalDeviceProperties.PairableModeTimeout);
+                BOT_NOTIFY_DEBUG("Attempting to set Pairability Mode: Pairable (%d Seconds).\r\n", LocalDeviceProperties.PairableModeTimeout);
             else
-                printf("Attempting to set Pairability Mode: Non-Pairable.\r\n");
+                BOT_NOTIFY_DEBUG("Attempting to set Pairability Mode: Non-Pairable.\r\n");
 
             if ((Result = DEVM_UpdateLocalDeviceProperties(DEVM_UPDATE_LOCAL_DEVICE_PROPERTIES_PAIRABLE_MODE, &LocalDeviceProperties)) >= 0)
             {
-                printf("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_UpdateLocalDeviceProperties() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error updating the Local Device Properties, inform the   */
                 /* user and flag an error.                                  */
-                printf("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_UpdateLocalDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetPairable [Enable/Disable] [Timeout (Enable only)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetPairable [Enable/Disable] [Timeout (Enable only)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1000,7 +995,7 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -1010,9 +1005,9 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
         if ((aParams) && (aParams->NumberofParameters >= 2))
         {
             if (aParams->Params[1].intParam)
-                printf("Attempting to Start Discovery (%d Seconds).\r\n", aParams->Params[1].intParam);
+                BOT_NOTIFY_DEBUG("Attempting to Start Discovery (%d Seconds).\r\n", aParams->Params[1].intParam);
             else
-                printf("Attempting to Start Discovery (INDEFINITE).\r\n");
+                BOT_NOTIFY_DEBUG("Attempting to Start Discovery (INDEFINITE).\r\n");
 
             /* Check to see if we are doing an LE or BR/EDR Discovery      */
             /* Process.                                                    */
@@ -1020,17 +1015,16 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
             {
                 if ((Result = DEVM_StartDeviceScan(aParams->Params[1].intParam)) >= 0)
                 {
-                    printf("DEVM_StartDeviceScan() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_StartDeviceScan() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error attempting to start Device Discovery, inform the*/
                     /* user and flag an error.                               */
-                    printf("DEVM_StartDeviceScan() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_StartDeviceScan() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -1038,17 +1032,16 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
             {
                 if ((Result = DEVM_StartDeviceDiscovery(aParams->Params[1].intParam)) >= 0)
                 {
-                    printf("DEVM_StartDeviceDiscovery() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_StartDeviceDiscovery() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error attempting to start Device Discovery, inform the*/
                     /* user and flag an error.                               */
-                    printf("DEVM_StartDeviceDiscovery() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_StartDeviceDiscovery() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -1056,16 +1049,14 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: StartDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)] [Duration].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: StartDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)] [Duration].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1078,7 +1069,7 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
 int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -1094,17 +1085,16 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
                 /* Discovery.                                               */
                 if ((Result = DEVM_StopDeviceScan()) >= 0)
                 {
-                    printf("DEVM_StopDeviceScan() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_StopDeviceScan() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error stopping Device Discovery, inform the user and  */
                     /* flag an error.                                        */
-                    printf("DEVM_StopDeviceScan() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_StopDeviceScan() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -1114,17 +1104,16 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
                 /* Discovery.                                               */
                 if ((Result = DEVM_StopDeviceDiscovery()) >= 0)
                 {
-                    printf("DEVM_StopDeviceDiscovery() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_StopDeviceDiscovery() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error stopping Device Discovery, inform the user and  */
                     /* flag an error.                                        */
-                    printf("DEVM_StopDeviceDiscovery() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_StopDeviceDiscovery() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -1132,16 +1121,14 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: StopDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: StopDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1154,7 +1141,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
 int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                Result;
-    int                ret_val;
+    int                ret_val = UNDEFINED_ERROR;
     char               Buffer[32];
     BD_ADDR_t         *BD_ADDRList;
     int                Index;
@@ -1169,7 +1156,7 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters))
         {
-            printf("Attempting Query %d Devices.\r\n", aParams->Params[0].intParam);
+            BOT_NOTIFY_DEBUG("Attempting Query %d Devices.\r\n", aParams->Params[0].intParam);
 
             if (aParams->Params[0].intParam)
                 BD_ADDRList = (BD_ADDR_t *)BTPS_AllocateMemory(sizeof(BD_ADDR_t)*aParams->Params[0].intParam);
@@ -1196,29 +1183,28 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
 
                 if ((Result = DEVM_QueryRemoteDeviceList(Filter, ClassOfDevice, aParams->Params[0].intParam, BD_ADDRList, &TotalNumberDevices)) >= 0)
                 {
-                    printf("DEVM_QueryRemoteDeviceList() Success: %d, Total Number Devices: %d.\r\n", Result, TotalNumberDevices);
+                    BOT_NOTIFY_INFO("DEVM_QueryRemoteDeviceList() Success: %d, Total Number Devices: %d.\r\n", Result, TotalNumberDevices);
 
                     if ((Result) && (BD_ADDRList))
                     {
-                        printf("Returned device list (%d Entries):\r\n", Result);
+                        BOT_NOTIFY_DEBUG("Returned device list (%d Entries):\r\n", Result);
 
                         for (Index=0;Index<Result;Index++)
                         {
                             BD_ADDRToStr(BD_ADDRList[Index], Buffer);
 
-                            printf("%2d. %s\r\n", (Index+1), Buffer);
+                            BOT_NOTIFY_DEBUG("%2d. %s\r\n", (Index+1), Buffer);
                         }
                     }
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error attempting to query the Remote Device List,     */
                     /* inform the user and flag an error.                    */
-                    printf("DEVM_QueryRemoteDeviceList() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_QueryRemoteDeviceList() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
 
@@ -1229,24 +1215,21 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
             else
             {
                 /* Unable to allocate memory for List.                      */
-                printf("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
-
+                BOT_NOTIFY_ERROR("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDeviceList [Number of Devices] [Filter (Optional)] [COD Filter (Optional)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceList [Number of Devices] [Filter (Optional)] [COD Filter (Optional)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1260,7 +1243,7 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                             Result;
-    int                             ret_val;
+    int                             ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                       BD_ADDR;
     unsigned long                   QueryFlags;
     DEVM_Remote_Device_Properties_t RemoteDeviceProperties;
@@ -1284,40 +1267,37 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
             if ((aParams->NumberofParameters >= 3) && (aParams->Params[2].intParam))
                 QueryFlags |= DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE;
 
-            printf("Attempting to Query %s Device Properties: %s, ForceUpdate: %s.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE)?"true":"false");
+            BOT_NOTIFY_DEBUG("Attempting to Query %s Device Properties: %s, ForceUpdate: %s.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE)?"true":"false");
 
             if ((Result = DEVM_QueryRemoteDeviceProperties(BD_ADDR, QueryFlags, &RemoteDeviceProperties)) >= 0)
             {
-                printf("DEVM_QueryRemoteDeviceProperties() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_QueryRemoteDeviceProperties() Success: %d.\r\n", Result);
 
                 /* Display the Remote Device Properties.                    */
                 DisplayRemoteDeviceProperties(0, &RemoteDeviceProperties);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Querying Remote Device, inform the user and flag an*/
                 /* error.                                                   */
-                printf("DEVM_QueryRemoteDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_QueryRemoteDeviceProperties() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDeviceProperties [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceProperties [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1330,7 +1310,7 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
 int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                                   Result;
-    int                                   ret_val;
+    int                                   ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                             BD_ADDR;
     Class_of_Device_t                     ClassOfDevice;
     DEVM_Remote_Device_Application_Data_t ApplicationData;
@@ -1355,7 +1335,7 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
                 ASSIGN_CLASS_OF_DEVICE(ClassOfDevice, 0, 0, 0);
             }
 
-            printf("Attempting to Add Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Add Device: %s.\r\n", aParams->Params[0].strParam);
 
             /* Check to see if Application Information was specified.      */
             if (aParams->NumberofParameters > 2)
@@ -1372,33 +1352,30 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 
             if ((Result = DEVM_AddRemoteDevice(BD_ADDR, ClassOfDevice, (aParams->NumberofParameters > 2)?&ApplicationData:NULL)) >= 0)
             {
-                printf("DEVM_AddRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_AddRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Adding Remote Device, inform the user and flag an  */
                 /* error.                                                   */
-                printf("DEVM_AddRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_AddRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: AddRemoteDevice [BD_ADDR] [[COD (Optional)] [Friendly Name (Optional)] [Application Info (Optional)]].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: AddRemoteDevice [BD_ADDR] [[COD (Optional)] [Friendly Name (Optional)] [Application Info (Optional)]].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1411,7 +1388,7 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int       Result;
-    int       ret_val;
+    int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -1424,37 +1401,34 @@ int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to Delete Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Delete Device: %s.\r\n", aParams->Params[0].strParam);
 
             if ((Result = DEVM_DeleteRemoteDevice(BD_ADDR)) >= 0)
             {
-                printf("DEVM_DeleteRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_DeleteRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Deleting Remote Device, inform the user and flag an*/
                 /* error.                                                   */
-                printf("DEVM_DeleteRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_DeleteRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: DeleteRemoteDevice [BD_ADDR].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: DeleteRemoteDevice [BD_ADDR].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1467,7 +1441,7 @@ int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
 int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                                   Result;
-    int                                   ret_val;
+    int                                   ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                             BD_ADDR;
     DEVM_Remote_Device_Application_Data_t ApplicationData;
 
@@ -1495,45 +1469,41 @@ int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attrib
                     ApplicationData.ApplicationInfo = aParams->Params[3].intParam;
                 }
 
-                printf("Attempting to Update Device Application Data: %s.\r\n", aParams->Params[0].strParam);
+                BOT_NOTIFY_DEBUG("Attempting to Update Device Application Data: %s.\r\n", aParams->Params[0].strParam);
 
                 if ((Result = DEVM_UpdateRemoteDeviceApplicationData(BD_ADDR, aParams->Params[1].intParam?&ApplicationData:NULL)) >= 0)
                 {
-                    printf("DEVM_UpdateRemoteDeviceApplicationData() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_UpdateRemoteDeviceApplicationData() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error Deleting Remote Device, inform the user and flag*/
                     /* an error.                                             */
-                    printf("DEVM_UpdateRemoteDeviceApplicationData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_UpdateRemoteDeviceApplicationData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1546,7 +1516,7 @@ int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attrib
 int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -1555,37 +1525,34 @@ int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters))
         {
-            printf("Attempting to Delete Remote Devices, Filter %d.\r\n", aParams->Params[0].intParam);
+            BOT_NOTIFY_DEBUG("Attempting to Delete Remote Devices, Filter %d.\r\n", aParams->Params[0].intParam);
 
             if ((Result = DEVM_DeleteRemoteDevices(aParams->Params[0].intParam)) >= 0)
             {
-                printf("DEVM_DeleteRemoteDevices() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_DeleteRemoteDevices() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Deleting Remote Devices, inform the user and flag  */
                 /* an error.                                                */
-                printf("DEVM_DeleteRemoteDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_DeleteRemoteDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: DeleteRemoteDevices [Device Delete Filter].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: DeleteRemoteDevices [Device Delete Filter].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1598,7 +1565,7 @@ int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused
 int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long Flags;
 
@@ -1620,37 +1587,34 @@ int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unuse
             if (aParams->Params[1].intParam)
                 Flags |= DEVM_PAIR_WITH_REMOTE_DEVICE_FLAGS_LOW_ENERGY;
 
-            printf("Attempting to Pair With Remote %s Device: %s.\r\n", (Flags & DEVM_PAIR_WITH_REMOTE_DEVICE_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Pair With Remote %s Device: %s.\r\n", (Flags & DEVM_PAIR_WITH_REMOTE_DEVICE_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", aParams->Params[0].strParam);
 
             if ((Result = DEVM_PairWithRemoteDevice(BD_ADDR, Flags)) >= 0)
             {
-                printf("DEVM_PairWithRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_PairWithRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Pairing with Remote Device, inform the user and    */
                 /* flag an error.                                           */
-                printf("DEVM_PairWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_PairWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: PairWithRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Pair Flags (optional)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: PairWithRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Pair Flags (optional)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1664,7 +1628,7 @@ int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unuse
 int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int       Result;
-    int       ret_val;
+    int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -1677,37 +1641,34 @@ int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ (
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to Cancel Pair With Remote Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Cancel Pair With Remote Device: %s.\r\n", aParams->Params[0].strParam);
 
             if ((Result = DEVM_CancelPairWithRemoteDevice(BD_ADDR)) >= 0)
             {
-                printf("DEVM_CancelPairWithRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_CancelPairWithRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Cancelling Pairing with Remote Device, inform the  */
                 /* user and flag an error.                                  */
-                printf("DEVM_CancelPairWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_CancelPairWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: CancelPairWithRemoteDevice [BD_ADDR].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: CancelPairWithRemoteDevice [BD_ADDR].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1720,7 +1681,7 @@ int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ (
 int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long UnPairFlags;
 
@@ -1734,7 +1695,7 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to Un-Pair Remote Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Un-Pair Remote Device: %s.\r\n", aParams->Params[0].strParam);
 
             if (aParams->Params[1].intParam)
                 UnPairFlags = DEVM_UNPAIR_REMOTE_DEVICE_FLAGS_LOW_ENERGY;
@@ -1743,33 +1704,30 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
 
             if ((Result = DEVM_UnPairRemoteDevice(BD_ADDR, UnPairFlags)) >= 0)
             {
-                printf("DEVM_UnPairRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_UnPairRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Un-Pairing with Remote Device, inform the user and */
                 /* flag an error.                                           */
-                printf("DEVM_UnPairRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_UnPairRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: UnPairRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] .\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: UnPairRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] .\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1785,7 +1743,7 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
 /* value on all errors.                                              */
 int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int       ret_val;
+    int       ret_val = UNDEFINED_ERROR;
     bool EnableSCOnly;
     char     *mode;
 
@@ -1813,8 +1771,8 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
 
             if (ret_val >= 0)
             {
-                printf("DEVM_EnableSCOnly() Success: %d.\r\n", ret_val);
-                printf("%s.\r\n", mode);
+                BOT_NOTIFY_INFO("DEVM_EnableSCOnly() Success: %d.\r\n", ret_val);
+                BOT_NOTIFY_INFO("%s.\r\n", mode);
 
                 /* If mSC Only mode has been enabled, 	     				*/
                 /* even if the mSC flag is false, set it to true,			*/
@@ -1827,30 +1785,27 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
                 }
 
                 /* Flag success to the caller.                              */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Pairing with Remote Device, inform the user and    */
                 /* flag an error.                                           */
-                printf("DEVM_EnableSCOnly() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                BOT_NOTIFY_ERROR("DEVM_EnableSCOnly() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: EnableSCOnly [mode (0 = mSC Only mode is off, 1 = mSC Only mode is on].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: EnableSCOnly [mode (0 = mSC Only mode is off, 1 = mSC Only mode is on].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1865,7 +1820,7 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
 /* value on all errors.                                              */
 int GattSrv::RegenerateP256LocalKeys(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -1874,25 +1829,23 @@ int GattSrv::RegenerateP256LocalKeys(ParameterList_t *aParams __attribute__ ((un
 
         if ( ret_val >= 0)
         {
-            printf("DEVM_RegenerateP256LocalKeys() Success: %d.\r\n", ret_val);
+            BOT_NOTIFY_INFO("DEVM_RegenerateP256LocalKeys() Success: %d.\r\n", ret_val);
 
             /* Flag success to the caller.                              */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Error Pairing with Remote Device, inform the user and    */
             /* flag an error.                                           */
-            printf("DEVM_RegenerateP256LocalKeys() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+            BOT_NOTIFY_ERROR("DEVM_RegenerateP256LocalKeys() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1920,28 +1873,26 @@ int GattSrv::OOBGenerateParameters(ParameterList_t *aParams __attribute__ ((unus
             ret_val = DEVM_SC_OOB_Generate_Parameters(&mOOBLocalRandom, &mOOBLocalConfirmation);
             if (ret_val >= 0)
             {
-                printf("generated local OOB parameters\n");
-                ret_val = 0;
+                BOT_NOTIFY_INFO("generated local OOB parameters\n");
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Pairing with Remote Device, inform the user        */
                 /* and flag an error.                                       */
-                printf("DEVM_SC_OOB_Generate_Parameters() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                BOT_NOTIFY_ERROR("DEVM_SC_OOB_Generate_Parameters() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
-            printf("This function is relevant only in case we wish to perform\r\n LE mSC pairing using OOB method.\r\n Please, first change the pairing capabilties to support OOB\r\n");
+            BOT_NOTIFY_INFO("This function is relevant only in case we wish to perform\r\n LE mSC pairing using OOB method.\r\n Please, first change the pairing capabilties to support OOB\r\n");
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1955,7 +1906,7 @@ int GattSrv::OOBGenerateParameters(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                          Result;
-    int                          ret_val;
+    int                          ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                    BD_ADDR;
     int                          Index;
     unsigned int                 TotalServiceSize;
@@ -1972,7 +1923,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
         if ((aParams) && (aParams->NumberofParameters > 2))
         {
             /* Initialize success.                                         */
-            ret_val = 0;
+            ret_val = NO_ERROR;
 
             /* Check to see what kind of Services are being requested.     */
             if (aParams->Params[1].intParam)
@@ -1987,7 +1938,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting Query Remote Device %s For %s Services.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_LOW_ENERGY)?"GATT":"SDP");
+            BOT_NOTIFY_DEBUG("Attempting Query Remote Device %s For %s Services.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_LOW_ENERGY)?"GATT":"SDP");
 
             if (!(QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_FORCE_UPDATE))
             {
@@ -2007,18 +1958,18 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
                 {
                     if ((Result = DEVM_QueryRemoteDeviceServices(BD_ADDR, QueryFlags, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_FORCE_UPDATE)?0:aParams->Params[3].intParam, ServiceData, &TotalServiceSize)) >= 0)
                     {
-                        printf("DEVM_QueryRemoteDeviceServices() Success: %d, Total Number Service Bytes: %d.\r\n", Result, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_FORCE_UPDATE)?0:TotalServiceSize);
+                        BOT_NOTIFY_INFO("DEVM_QueryRemoteDeviceServices() Success: %d, Total Number Service Bytes: %d.\r\n", Result, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_FORCE_UPDATE)?0:TotalServiceSize);
 
                         /* Now convert the Raw Data to parsed data.           */
                         if ((Result) && (ServiceData))
                         {
-                            printf("Returned Service Data (%d Bytes):\r\n", Result);
+                            BOT_NOTIFY_DEBUG("Returned Service Data (%d Bytes):\r\n", Result);
 
                             for (Index=0;Index<Result;Index++)
-                                printf("%02X", ServiceData[Index]);
+                                BOT_NOTIFY_DEBUG("%02X", ServiceData[Index]);
 
-                            printf("\r\n");
-                            printf("\r\n");
+                            BOT_NOTIFY_DEBUG("\r\n");
+                            BOT_NOTIFY_DEBUG("\r\n");
 
                             /* Check to see what kind of stream was requested. */
                             if (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_SERVICES_FLAGS_LOW_ENERGY)
@@ -2037,7 +1988,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
                                 }
                                 else
                                 {
-                                    printf("DEVM_ConvertRawServicesStreamToParsedServicesData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                                    BOT_NOTIFY_WARNING("DEVM_ConvertRawServicesStreamToParsedServicesData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                                 }
                             }
                             else
@@ -2057,20 +2008,19 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
                                 }
                                 else
                                 {
-                                    printf("DEVM_ConvertRawSDPStreamToParsedSDPData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                                    BOT_NOTIFY_WARNING("DEVM_ConvertRawSDPStreamToParsedSDPData() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                                 }
                             }
                         }
 
                         /* Flag success.                                      */
-                        ret_val = 0;
+                        ret_val = NO_ERROR;
                     }
                     else
                     {
                         /* Error attempting to query Services, inform the user*/
                         /* and flag an error.                                 */
-                        printf("DEVM_QueryRemoteDeviceServices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                        BOT_NOTIFY_ERROR("DEVM_QueryRemoteDeviceServices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                         ret_val = FUNCTION_ERROR;
                     }
 
@@ -2081,32 +2031,28 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
                 else
                 {
                     /* Unable to allocate memory for List.                   */
-                    printf("Unable to allocate memory for %d Service Bytes.\r\n", aParams->Params[2].intParam);
-
+                    BOT_NOTIFY_ERROR("Unable to allocate memory for %d Service Bytes.\r\n", aParams->Params[2].intParam);
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2120,7 +2066,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
 int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int              Result;
-    int              ret_val;
+    int              ret_val = UNDEFINED_ERROR;
     BD_ADDR_t        BD_ADDR;
     SDP_UUID_Entry_t ServiceUUID;
 
@@ -2132,7 +2078,7 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
         if ((aParams) && (aParams->NumberofParameters >= 2))
         {
             /* Initialize success.                                         */
-            ret_val = 0;
+            ret_val = NO_ERROR;
 
             /* Convert the first parameter to a Bluetooth Device Address.  */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
@@ -2142,45 +2088,41 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
 
             if (ServiceUUID.SDP_Data_Element_Type != deNULL)
             {
-                printf("Attempting Query Remote Device %s Support for Service %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].strParam);
+                BOT_NOTIFY_DEBUG("Attempting Query Remote Device %s Support for Service %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].strParam);
 
                 if ((Result = DEVM_QueryRemoteDeviceServiceSupported(BD_ADDR, ServiceUUID)) >= 0)
                 {
-                    printf("DEVM_QueryRemoteDeviceServiceSupported() Success: %d.\r\n", Result);
+                    BOT_NOTIFY_INFO("DEVM_QueryRemoteDeviceServiceSupported() Success: %d.\r\n", Result);
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error attempting to query Services, inform the user   */
                     /* and flag an error.                                    */
-                    printf("DEVM_QueryRemoteDeviceServiceSupported() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_QueryRemoteDeviceServiceSupported() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2194,7 +2136,7 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
 int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int               Result;
-    int               ret_val;
+    int               ret_val = UNDEFINED_ERROR;
     char              Buffer[32];
     BD_ADDR_t        *BD_ADDRList;
     int               Index;
@@ -2209,14 +2151,14 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
         if ((aParams) && (aParams->NumberofParameters >= 2))
         {
             /* Initialize success.                                         */
-            ret_val = 0;
+            ret_val = NO_ERROR;
 
             /* Convert the parameter to a SDP Service Class UUID.          */
             StrToUUIDEntry(aParams->Params[0].strParam, &ServiceUUID);
 
             if (ServiceUUID.SDP_Data_Element_Type != deNULL)
             {
-                printf("Attempting Query Up To %d Devices For Service %s.\r\n", aParams->Params[1].intParam, aParams->Params[0].strParam);
+                BOT_NOTIFY_DEBUG("Attempting Query Up To %d Devices For Service %s.\r\n", aParams->Params[1].intParam, aParams->Params[0].strParam);
 
                 if (aParams->Params[1].intParam)
                     BD_ADDRList = (BD_ADDR_t *)BTPS_AllocateMemory(sizeof(BD_ADDR_t)*aParams->Params[1].intParam);
@@ -2227,29 +2169,28 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
                 {
                     if ((Result = DEVM_QueryRemoteDevicesForService(ServiceUUID, aParams->Params[1].intParam, BD_ADDRList, &TotalNumberDevices)) >= 0)
                     {
-                        printf("DEVM_QueryRemoteDevicesForService() Success: %d, Total Number Devices: %d.\r\n", Result, TotalNumberDevices);
+                        BOT_NOTIFY_INFO("DEVM_QueryRemoteDevicesForService() Success: %d, Total Number Devices: %d.\r\n", Result, TotalNumberDevices);
 
                         if ((Result) && (BD_ADDRList))
                         {
-                            printf("Returned device list (%d Entries):\r\n", Result);
+                            BOT_NOTIFY_DEBUG("Returned device list (%d Entries):\r\n", Result);
 
                             for (Index=0;Index<Result;Index++)
                             {
                                 BD_ADDRToStr(BD_ADDRList[Index], Buffer);
 
-                                printf("%2d. %s\r\n", (Index+1), Buffer);
+                                BOT_NOTIFY_DEBUG("%2d. %s\r\n", (Index+1), Buffer);
                             }
                         }
 
                         /* Flag success.                                      */
-                        ret_val = 0;
+                        ret_val = NO_ERROR;
                     }
                     else
                     {
                         /* Error attempting to query the Remote Devices,      */
                         /* inform the user and flag an error.                 */
-                        printf("DEVM_QueryRemoteDevicesForService() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                        BOT_NOTIFY_ERROR("DEVM_QueryRemoteDevicesForService() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                         ret_val = FUNCTION_ERROR;
                     }
 
@@ -2260,32 +2201,28 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
                 else
                 {
                     /* Unable to allocate memory for List.                   */
-                    printf("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
-
+                    BOT_NOTIFY_ERROR("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2299,7 +2236,7 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
 int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int               Result;
-    int               ret_val;
+    int               ret_val = UNDEFINED_ERROR;
     BD_ADDR_t         BD_ADDR;
     int               Index;
     unsigned int      TotalNumberServiceClasses;
@@ -2313,12 +2250,12 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
         if ((aParams) && (aParams->NumberofParameters >= 2))
         {
             /* Initialize success.                                         */
-            ret_val = 0;
+            ret_val = NO_ERROR;
 
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting Query Device %s For Up To %d Service Classes.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam);
+            BOT_NOTIFY_DEBUG("Attempting Query Device %s For Up To %d Service Classes.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam);
 
             if (aParams->Params[1].intParam)
                 ServiceClassList = (SDP_UUID_Entry_t *)BTPS_AllocateMemory(sizeof(SDP_UUID_Entry_t)*aParams->Params[1].intParam);
@@ -2329,49 +2266,47 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
             {
                 if ((Result = DEVM_QueryRemoteDeviceServiceClasses(BD_ADDR, aParams->Params[1].intParam, ServiceClassList, &TotalNumberServiceClasses)) >= 0)
                 {
-                    printf("DEVM_QueryRemoteDeviceServiceClasses() Success: %d, Total Number Service Classes: %d.\r\n", Result, TotalNumberServiceClasses);
+                    BOT_NOTIFY_INFO("DEVM_QueryRemoteDeviceServiceClasses() Success: %d, Total Number Service Classes: %d.\r\n", Result, TotalNumberServiceClasses);
 
                     if ((Result) && (ServiceClassList))
                     {
-                        printf("Returned service classes (%d Entries):\r\n", Result);
+                        BOT_NOTIFY_DEBUG("Returned service classes (%d Entries):\r\n", Result);
 
                         for (Index=0;Index<Result;Index++)
                         {
                             switch(ServiceClassList[Index].SDP_Data_Element_Type)
                             {
                             case deUUID_16:
-                                printf("%2d. 0x%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_16.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_16.UUID_Byte1);
+                                BOT_NOTIFY_DEBUG("%2d. 0x%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_16.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_16.UUID_Byte1);
                                 break;
                             case deUUID_32:
-                                printf("%2d. 0x%02X%02X%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte1, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte2, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte3);
+                                BOT_NOTIFY_DEBUG("%2d. 0x%02X%02X%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte1, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte2, ServiceClassList[Index].UUID_Value.UUID_32.UUID_Byte3);
                                 break;
                             case deUUID_128:
-                                printf("%2d. %02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte1, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte2, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte3, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte4, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte5, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte6, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte7, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte8, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte9, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte10, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte11, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte12, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte13, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte14, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte15);
+                                BOT_NOTIFY_DEBUG("%2d. %02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\r\n", (Index+1), ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte0, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte1, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte2, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte3, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte4, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte5, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte6, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte7, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte8, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte9, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte10, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte11, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte12, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte13, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte14, ServiceClassList[Index].UUID_Value.UUID_128.UUID_Byte15);
                                 break;
                             default:
-                                printf("%2d. (invalid: %u)\r\n", (Index+1), ServiceClassList[Index].SDP_Data_Element_Type);
+                                BOT_NOTIFY_DEBUG("%2d. (invalid: %u)\r\n", (Index+1), ServiceClassList[Index].SDP_Data_Element_Type);
                                 break;
                             }
                         }
                     }
 
                     /* Flag success.                                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error attempting to query the Remote Devices, inform  */
                     /* the user and flag an error.                           */
-                    printf("DEVM_QueryRemoteDeviceServiceClasses() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_QueryRemoteDeviceServiceClasses() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
                 /* Unable to allocate memory for List.                      */
-                printf("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
-
+                BOT_NOTIFY_ERROR("Unable to allocate memory for %d Devices.\r\n", aParams->Params[0].intParam);
                 ret_val = FUNCTION_ERROR;
             }
 
@@ -2382,16 +2317,14 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryRemoteDeviceServiceClasses [BD_ADDR] [Number of Service Classes].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryRemoteDeviceServiceClasses [BD_ADDR] [Number of Service Classes].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2404,7 +2337,7 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
 int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long AuthenticateFlags;
 
@@ -2418,7 +2351,7 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to Authenticate Remote Device: %s over %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("Attempting to Authenticate Remote Device: %s over %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam?"LE":"BR/EDR");
 
             /* Check to see what type of encryption operation to perform.  */
             if (aParams->Params[1].intParam)
@@ -2428,33 +2361,30 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
 
             if ((Result = DEVM_AuthenticateRemoteDevice(BD_ADDR, AuthenticateFlags)) >= 0)
             {
-                printf("DEVM_AuthenticateRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_AuthenticateRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Authenticating Remote Device, inform the user and  */
                 /* flag an error.                                           */
-                printf("DEVM_AuthenticateRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_AuthenticateRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: AuthenticateRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: AuthenticateRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2467,7 +2397,7 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
 int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long EncryptFlags;
 
@@ -2481,7 +2411,7 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to Encrypt Remote Device: %s over %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("Attempting to Encrypt Remote Device: %s over %s.\r\n", aParams->Params[0].strParam, aParams->Params[1].intParam?"LE":"BR/EDR");
 
             /* Check to see what type of encryption operation to perform.  */
             if (aParams->Params[1].intParam)
@@ -2491,33 +2421,30 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
 
             if ((Result = DEVM_EncryptRemoteDevice(BD_ADDR, EncryptFlags)) >= 0)
             {
-                printf("DEVM_EncryptRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_EncryptRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Encrypting Remote Device, inform the user and flag */
                 /* an error.                                                */
-                printf("DEVM_EncryptRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_EncryptRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: EncryptRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: EncryptRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2530,7 +2457,7 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
 int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long ConnectFlags;
 
@@ -2553,42 +2480,39 @@ int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((un
             if (aParams->Params[1].intParam)
                 ConnectFlags |= DEVM_CONNECT_WITH_REMOTE_DEVICE_FORCE_LOW_ENERGY;
 
-            printf("Attempting to Connect With (%s) Remote Device: %s (Flags = 0x%08lX).\r\n", (ConnectFlags & DEVM_CONNECT_WITH_REMOTE_DEVICE_FORCE_LOW_ENERGY)?"LE":"BR/EDR", aParams->Params[0].strParam, ConnectFlags);
+            BOT_NOTIFY_DEBUG("Attempting to Connect With (%s) Remote Device: %s (Flags = 0x%08lX).\r\n", (ConnectFlags & DEVM_CONNECT_WITH_REMOTE_DEVICE_FORCE_LOW_ENERGY)?"LE":"BR/EDR", aParams->Params[0].strParam, ConnectFlags);
 
             if ((Result = DEVM_ConnectWithRemoteDevice(BD_ADDR, ConnectFlags)) >= 0)
             {
-                printf("DEVM_ConnectWithRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_ConnectWithRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Connecting With Remote Device, inform the user and */
                 /* flag an error.                                           */
-                printf("DEVM_ConnectWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_ConnectWithRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: ConnectWithRemoteDevice [BD_ADDR] [Connect LE (1 = LE, 0 = BR/EDR)] [ConnectFlags (Optional)].\r\n");
-            printf("where ConnectFlags is a bitmask of\r\n");
-            printf("    0x00000001 = Authenticate\r\n");
-            printf("    0x00000002 = Encrypt\r\n");
-            printf("    0x00000004 = Use Local Random Address\r\n");
-            printf("    0x00000008 = Use Peer Random Address\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: ConnectWithRemoteDevice [BD_ADDR] [Connect LE (1 = LE, 0 = BR/EDR)] [ConnectFlags (Optional)].\r\n");
+            BOT_NOTIFY_ERROR("where ConnectFlags is a bitmask of\r\n");
+            BOT_NOTIFY_ERROR("    0x00000001 = Authenticate\r\n");
+            BOT_NOTIFY_ERROR("    0x00000002 = Encrypt\r\n");
+            BOT_NOTIFY_ERROR("    0x00000004 = Use Local Random Address\r\n");
+            BOT_NOTIFY_ERROR("    0x00000008 = Use Peer Random Address\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2601,7 +2525,7 @@ int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((un
 int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int           Result;
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     unsigned long DisconnectFlags;
 
@@ -2625,37 +2549,34 @@ int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unu
             if (aParams->Params[1].intParam)
                 DisconnectFlags |= DEVM_DISCONNECT_FROM_REMOTE_DEVICE_FLAGS_LOW_ENERGY;
 
-            printf("Attempting to Disconnect Remote Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to Disconnect Remote Device: %s.\r\n", aParams->Params[0].strParam);
 
             if ((Result = DEVM_DisconnectRemoteDevice(BD_ADDR, DisconnectFlags)) >= 0)
             {
-                printf("DEVM_DisconnectRemoteDevice() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_DisconnectRemoteDevice() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error Disconnecting Remote Device, inform the user and   */
                 /* flag an error.                                           */
-                printf("DEVM_DisconnectRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_DisconnectRemoteDevice() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: DisconnectRemoteDevice [BD_ADDR] [LE Device (1= LE, 0 = BR/EDR)] [Force Flag (Optional)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: DisconnectRemoteDevice [BD_ADDR] [LE Device (1= LE, 0 = BR/EDR)] [Force Flag (Optional)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2668,7 +2589,7 @@ int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unu
 int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int       Result;
-    int       ret_val;
+    int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -2681,37 +2602,34 @@ int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((
             /* Convert the parameter to a Bluetooth Device Address.        */
             StrToBD_ADDR(aParams->Params[0].strParam, &BD_ADDR);
 
-            printf("Attempting to set link active for Remote Device: %s.\r\n", aParams->Params[0].strParam);
+            BOT_NOTIFY_DEBUG("Attempting to set link active for Remote Device: %s.\r\n", aParams->Params[0].strParam);
 
             if ((Result = DEVM_SetRemoteDeviceLinkActive(BD_ADDR)) >= 0)
             {
-                printf("DEVM_SetRemoteDeviceLinkActive() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_SetRemoteDeviceLinkActive() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error setting link for Remote Device, inform the user and*/
                 /* flag an error.                                           */
-                printf("DEVM_SetRemoteDeviceLinkActive() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_SetRemoteDeviceLinkActive() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetRemoteDeviceLinkActive [BD_ADDR].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetRemoteDeviceLinkActive [BD_ADDR].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2724,7 +2642,7 @@ int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((
 /* occurred.                                                         */
 int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                ret_val;
+    int                ret_val = UNDEFINED_ERROR;
     int                Result;
     long               RecordHandle;
     char               ServiceName[32];
@@ -2751,7 +2669,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
         else
             Persistent = (bool)false;
 
-        printf("Attempting to Add sample SPP SDP Record (Port %d, Persistent: %s).\r\n", Port, Persistent?"true":"false");
+        BOT_NOTIFY_DEBUG("Attempting to Add sample SPP SDP Record (Port %d, Persistent: %s).\r\n", Port, Persistent?"true":"false");
 
         /* Initialize the Serial Port Profile.                            */
         SDPUUIDEntries.SDP_Data_Element_Type = deUUID_16;
@@ -2759,7 +2677,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 
         if ((RecordHandle = DEVM_CreateServiceRecord(Persistent, 1, &SDPUUIDEntries)) >= 0)
         {
-            printf("DEVM_CreateServiceRecord() Success: %ld (0x%08lX).\r\n", (unsigned long)RecordHandle, (unsigned long)RecordHandle);
+            BOT_NOTIFY_INFO("DEVM_CreateServiceRecord() Success: %ld (0x%08lX).\r\n", (unsigned long)RecordHandle, (unsigned long)RecordHandle);
 
             /* Next, add the Protocol Descriptor List.                     */
             SDP_Data_Element[0].SDP_Data_Element_Type                      = deSequence;
@@ -2819,29 +2737,26 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 
                     if (!(Result = DEVM_AddServiceRecordAttribute((unsigned long)RecordHandle, (SDP_DEFAULT_LANGUAGE_BASE_ATTRIBUTE_ID + SDP_ATTRIBUTE_OFFSET_ID_SERVICE_NAME), SDP_Data_Element)))
                     {
-                        printf("Sample SPP SDP Record successfully created: %ld (%08lX).\r\n", (unsigned long)RecordHandle, (unsigned long)RecordHandle);
+                        BOT_NOTIFY_DEBUG("Sample SPP SDP Record successfully created: %ld (%08lX).\r\n", (unsigned long)RecordHandle, (unsigned long)RecordHandle);
 
                         /* Flag success.                                      */
-                        ret_val = 0;
+                        ret_val = NO_ERROR;
                     }
                     else
                     {
-                        printf("DEVM_AddServiceRecordAttribute() Failure - Service Name: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                        BOT_NOTIFY_ERROR("DEVM_AddServiceRecordAttribute() Failure - Service Name: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                         ret_val = FUNCTION_ERROR;
                     }
                 }
                 else
                 {
-                    printf("DEVM_AddServiceRecordAttribute() Failure - Language Attribute ID: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_AddServiceRecordAttribute() Failure - Language Attribute ID: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
-                printf("DEVM_AddServiceRecordAttribute() Failure - Protocol Desriptor List: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_AddServiceRecordAttribute() Failure - Protocol Desriptor List: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
 
@@ -2853,16 +2768,14 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
         {
             /* Error attempting to create Record, inform the user and flag */
             /* an error.                                                   */
-            printf("DEVM_CreateServiceRecord() Failure: %ld, %s.\r\n", RecordHandle, ERR_ConvertErrorCodeToString(RecordHandle));
-
+            BOT_NOTIFY_ERROR("DEVM_CreateServiceRecord() Failure: %ld, %s.\r\n", RecordHandle, ERR_ConvertErrorCodeToString(RecordHandle));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2874,7 +2787,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 /* zero if successful and a negative value if an error occurred.     */
 int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     int           Result;
     unsigned long RecordHandle;
 
@@ -2887,37 +2800,34 @@ int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
         {
             RecordHandle = (unsigned long)aParams->Params[0].intParam;
 
-            printf("Attempting to Delete SDP Record %ld (0x%08lX).\r\n", RecordHandle, RecordHandle);
+            BOT_NOTIFY_DEBUG("Attempting to Delete SDP Record %ld (0x%08lX).\r\n", RecordHandle, RecordHandle);
 
             if (!(Result = DEVM_DeleteServiceRecord(RecordHandle)))
             {
-                printf("DEVM_DeleteServiceRecord() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("DEVM_DeleteServiceRecord() Success: %d.\r\n", Result);
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error attempting to delete Record, inform the user and   */
                 /* flag an error.                                           */
-                printf("DEVM_DeleteServiceRecord() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_DeleteServiceRecord() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: DeleteSDPRecord [Service Record Handle].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: DeleteSDPRecord [Service Record Handle].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2930,7 +2840,7 @@ int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
 /* error occurred.                                                   */
 int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                ret_val;
+    int                ret_val = UNDEFINED_ERROR;
     int                Result;
     unsigned int       Value;
     unsigned long      RecordHandle;
@@ -2945,7 +2855,7 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
         {
             RecordHandle = (unsigned long)aParams->Params[0].intParam;
 
-            printf("Attempting to Create SDP Attribute %d (0x%08X) for Record %ld (0x%08lX).\r\n", aParams->Params[1].intParam, aParams->Params[1].intParam, RecordHandle, RecordHandle);
+            BOT_NOTIFY_DEBUG("Attempting to Create SDP Attribute %d (0x%08X) for Record %ld (0x%08lX).\r\n", aParams->Params[1].intParam, aParams->Params[1].intParam, RecordHandle, RecordHandle);
 
             if (aParams->NumberofParameters > 2)
                 Value = aParams->Params[2].intParam;
@@ -2958,33 +2868,30 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
 
             if (!(Result = DEVM_AddServiceRecordAttribute(RecordHandle, aParams->Params[1].intParam, &SDP_Data_Element)))
             {
-                printf("DEVM_AddServiceRecordAttribute() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_AddServiceRecordAttribute() Success.\r\n");
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error attempting to delete Record, inform the user and   */
                 /* flag an error.                                           */
-                printf("DEVM_AddServiceRecordAttribute() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_AddServiceRecordAttribute() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: AddSDPAttribute [Service Record Handle] [Attribute ID] [Attribute Value (optional)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: AddSDPAttribute [Service Record Handle] [Attribute ID] [Attribute Value (optional)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2997,7 +2904,7 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
 /* value if an error occurred.                                       */
 int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     int           Result;
     unsigned long RecordHandle;
 
@@ -3010,37 +2917,34 @@ int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)
         {
             RecordHandle = (unsigned long)aParams->Params[0].intParam;
 
-            printf("Attempting to Delete SDP Attribute %d (0x%08X) from Record %ld (0x%08lX).\r\n", aParams->Params[1].intParam, aParams->Params[1].intParam, RecordHandle, RecordHandle);
+            BOT_NOTIFY_DEBUG("Attempting to Delete SDP Attribute %d (0x%08X) from Record %ld (0x%08lX).\r\n", aParams->Params[1].intParam, aParams->Params[1].intParam, RecordHandle, RecordHandle);
 
             if (!(Result = DEVM_DeleteServiceRecordAttribute(RecordHandle, aParams->Params[1].intParam)))
             {
-                printf("DEVM_DeleteServiceRecordAttribute() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_DeleteServiceRecordAttribute() Success.\r\n");
 
                 /* Flag success.                                            */
-                ret_val = 0;
+                ret_val = NO_ERROR;
             }
             else
             {
                 /* Error attempting to delete Record, inform the user and   */
                 /* flag an error.                                           */
-                printf("DEVM_DeleteServiceRecordAttribute() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("DEVM_DeleteServiceRecordAttribute() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: DeleteSDPRecord [Service Record Handle] [Attribute ID].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: DeleteSDPRecord [Service Record Handle] [Attribute ID].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3053,7 +2957,7 @@ int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)
 int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int            Result;
-    int            ret_val;
+    int            ret_val = UNDEFINED_ERROR;
     unsigned long  Flags;
     unsigned int   Type;
     unsigned int   ParameterDataLength;
@@ -3102,7 +3006,7 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
                 }
                 else
                 {
-                    printf("Usage: EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
+                    BOT_NOTIFY_ERROR("Usage: EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
 
                     /* One or more of the necessary parameters is/are        */
                     /* invalid.                                              */
@@ -3119,34 +3023,31 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
                 {
                     /* Enable Bluetooth Debugging request was successful, go */
                     /* ahead and inform the User.                            */
-                    printf("DEVM_EnableBluetoothDebug(%s) Success.\r\n", aParams->Params[0].intParam?"true":"false");
+                    BOT_NOTIFY_INFO("DEVM_EnableBluetoothDebug(%s) Success.\r\n", aParams->Params[0].intParam?"true":"false");
 
                     /* Return success to the caller.                         */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Error Enabling Bluetooth Debugging, inform the user.  */
-                    printf("DEVM_EnableBluetoothDebug(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"true":"false", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_EnableBluetoothDebug(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"true":"false", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
         }
         else
         {
-            printf("Usage: EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
-
             /* One or more of the necessary parameters is/are invalid.     */
+            BOT_NOTIFY_ERROR("Usage: EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
-        ret_val = FUNCTION_ERROR;
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
     }
 
     return ret_val;
@@ -3159,7 +3060,7 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
 int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3168,7 +3069,7 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
         /* Authentication.                                                */
         if ((Result = DEVM_RegisterAuthentication(DEVM_Authentication_Callback, NULL)) >= 0)
         {
-            printf("DEVM_RegisterAuthentication() Success: %d.\r\n", Result);
+            BOT_NOTIFY_INFO("DEVM_RegisterAuthentication() Success: %d.\r\n", Result);
 
             /* Note the Authentication Callback ID.                        */
             mAuthenticationCallbackID = (unsigned int)Result;
@@ -3180,16 +3081,14 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
         {
             /* Error Registering for Authentication, inform the user and   */
             /* flag an error.                                              */
-            printf("DEVM_RegisterAuthentication() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("DEVM_RegisterAuthentication() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3202,7 +3101,7 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
 /* error occurred.                                                   */
 int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3211,7 +3110,7 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
         /* Authentication.                                                */
         DEVM_UnRegisterAuthentication(mAuthenticationCallbackID);
 
-        printf("DEVM_UnRegisterAuthentication() Success.\r\n");
+        BOT_NOTIFY_INFO("DEVM_UnRegisterAuthentication() Success.\r\n");
 
         /* Clear the Authentication Callback ID.                          */
         mAuthenticationCallbackID = 0;
@@ -3222,8 +3121,7 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3237,7 +3135,7 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
 int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                               Result;
-    int                               ret_val;
+    int                               ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                         NullADDR;
     PIN_Code_t                        PINCode;
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
@@ -3280,17 +3178,16 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
                 if (!Result)
                 {
                     /* Operation was successful, inform the user.            */
-                    printf("DEVM_AuthenticationResponse(), Pin Code Response Success.\r\n");
+                    BOT_NOTIFY_INFO("DEVM_AuthenticationResponse(), Pin Code Response Success.\r\n");
 
                     /* Flag success to the caller.                           */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Inform the user that the Authentication Response was  */
                     /* not successful.                                       */
-                    printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
 
@@ -3301,8 +3198,7 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: PINCodeResponse [PIN Code].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: PINCodeResponse [PIN Code].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
@@ -3310,16 +3206,14 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
         {
             /* There is not currently an on-going authentication operation,*/
             /* inform the user of this error condition.                    */
-            printf("Unable to issue PIN Code Authentication Response: Authentication is not currently in progress.\r\n");
-
+            BOT_NOTIFY_ERROR("Unable to issue PIN Code Authentication Response: Authentication is not currently in progress.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3333,7 +3227,7 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                               Result;
-    int                               ret_val;
+    int                               ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                         NullADDR;
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
 
@@ -3371,17 +3265,16 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
                 if (!Result)
                 {
                     /* Operation was successful, inform the user.            */
-                    printf("DEVM_AuthenticationResponse(), Passkey Response Success.\r\n");
+                    BOT_NOTIFY_INFO("DEVM_AuthenticationResponse(), Passkey Response Success.\r\n");
 
                     /* Flag success to the caller.                           */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Inform the user that the Authentication Response was  */
                     /* not successful.                                       */
-                    printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
 
@@ -3392,8 +3285,7 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: PassKeyResponse [Numeric Passkey (0 - 999999)].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: PassKeyResponse [Numeric Passkey (0 - 999999)].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
@@ -3401,16 +3293,14 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
         {
             /* There is not currently an on-going authentication operation,*/
             /* inform the user of this error condition.                    */
-            printf("Unable to issue Pass Key Authentication Response: Authentication is not currently in progress.\r\n");
-
+            BOT_NOTIFY_ERROR("Unable to issue Pass Key Authentication Response: Authentication is not currently in progress.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3424,7 +3314,7 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                               Result;
-    int                               ret_val;
+    int                               ret_val = UNDEFINED_ERROR;
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -3465,17 +3355,16 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
                 if (!Result)
                 {
                     /* Operation was successful, inform the user.            */
-                    printf("DEVM_AuthenticationResponse(), User Confirmation Response Success.\r\n");
+                    BOT_NOTIFY_INFO("DEVM_AuthenticationResponse(), User Confirmation Response Success.\r\n");
 
                     /* Flag success to the caller.                           */
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Inform the user that the Authentication Response was  */
                     /* not successful.                                       */
-                    printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                    BOT_NOTIFY_ERROR("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
 
@@ -3486,8 +3375,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
             else
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: UserConfirmationResponse [Confirmation (0 = No, 1 = Yes)].\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: UserConfirmationResponse [Confirmation (0 = No, 1 = Yes)].\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
             }
         }
@@ -3495,16 +3383,14 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
         {
             /* There is not currently an on-going authentication operation,*/
             /* inform the user of this error condition.                    */
-            printf("Unable to issue User Confirmation Authentication Response: Authentication is not currently in progress.\r\n");
-
+            BOT_NOTIFY_ERROR("Unable to issue User Confirmation Authentication Response: Authentication is not currently in progress.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3518,7 +3404,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
 /* value on all errors.                                              */
 int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3548,24 +3434,22 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
             mMITMProtection = (bool)(aParams->Params[1].intParam?true:false);
 
             /* Inform the user of the New I/O Capablities.                 */
-            printf("Current I/O Capabilities: %s, MITM Protection: %s.\r\n", IOCapabilitiesStrings[(unsigned int)mIOCapability], mMITMProtection?"true":"false");
+            BOT_NOTIFY_INFO("Current I/O Capabilities: %s, MITM Protection: %s.\r\n", IOCapabilitiesStrings[(unsigned int)mIOCapability], mMITMProtection?"true":"false");
 
             /* Flag success to the caller.                                 */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: ChangeSimplePairingParameters [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, 3 = No Input/Output)] [MITM Requirement (0 = No, 1 = Yes)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: ChangeSimplePairingParameters [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, 3 = No Input/Output)] [MITM Requirement (0 = No, 1 = Yes)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3579,7 +3463,7 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
 /* value on all errors.                                              */
 int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val = 0;
+    int ret_val = NO_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3656,51 +3540,20 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
                 /* true,and Secure Connections (SC) set to false. return error.*/
                 if ( (mP256DebugMode == true) && (mSC == false) )
                 {
-                    printf("P256 debug mode is relevant to only in case of SC.\r\n");
+                    BOT_NOTIFY_ERROR("P256 debug mode is relevant to only in case of SC.\r\n");
                     return INVALID_PARAMETERS_ERROR;
                 }
 
                 /* The Mode was changed successfully.                          */
-                printf("Current I/O Capabilities %d: ", mLEIOCapability);
-                switch (mLEIOCapability)
-                {
-                case licDisplayOnly:
-                    printf("Display Only.\r\n");
-                    break;
-                case licDisplayYesNo:
-                    printf("Display Yes No.\r\n");
-                    break;
-                case licKeyboardOnly:
-                    printf("Keyboard Only.\r\n");
-                    break;
-                case licNoInputNoOutput:
-                    printf("No Input No Output.\r\n");
-                    break;
-                case licKeyboardDisplay:
-                    printf("Keyboard Display.\r\n");
-                    break;
-                default:
-                    printf("Wrong Value!!!\r\n");
-                    break;
-                }
+                BOT_NOTIFY_INFO("Current I/O Capabilities %d: %s\r\n", mLEIOCapability,
+                                    ((mLEIOCapability >= 0) && (mLEIOCapability < IOCAPABILITIESSTRINGS_SIZE)) ? IOCapabilitiesStrings[mLEIOCapability] : "Wrong Value!");
 
                 /* The Mode was changed successfully.                          */
-                printf("Bonding Mode %d: ", mBondingType);
-                switch (mBondingType)
-                {
-                case lbtNoBonding:
-                    printf("No Bonding.\r\n");
-                    break;
-                case lbtBonding:
-                    printf("Bonding.\r\n");
-                    break;
-                default:
-                    printf("Wrong Value!!!\r\n");
-                    break;
-                }
+                BOT_NOTIFY_INFO("Bonding Mode %d: %s\r\n", mBondingType,
+                       (lbtNoBonding == mBondingType) ? "No Bonding" : (lbtBonding == mBondingType) ? "Bonding" : "Wrong Value!");
 
                 /* Inform the user of the New I/O Capablities.                  */
-                printf("MITM Protection: %s\r\nSC: %s\r\nmP256DebugMode %s\r\nmOOBSupport %s\r\nmKeypress %s.\r\n",\
+                BOT_NOTIFY_INFO("MITM Protection: %s\r\nSC: %s\r\nmP256DebugMode %s\r\nmOOBSupport %s\r\nmKeypress %s.\r\n",\
                        mLEMITMProtection?"true":"false", mSC?"true":"false",\
                        mP256DebugMode?"true":"false",mOOBSupport?"true":"false", mKeypress?"true":"false");
 
@@ -3708,7 +3561,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
                 {
                     /* In case the user asked to use P256 debug mode,           */
                     /* let him know that this is a security breach              */
-                    printf("\nYou asked for P256 Debug Mode, please be aware that the link is not secured!\r\n");
+                    BOT_NOTIFY_WARNING("\nYou asked for P256 Debug Mode, please be aware that the link is not secured!\r\n");
                 }
             }
         }
@@ -3720,22 +3573,21 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
         if (ret_val)
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: ChangeLEPairingParameters:\r\n");
-            printf("       [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, \r\n");
-            printf("	                     3 = No Input/Output, 4 = Keyboard Display )] \r\n");
-            printf("       [Bonding Type (0 = No Bonding, 1 = Bonding)]\r\n");
-            printf("       [MITM Requirement (0 = No, 1 = Yes)]\r\n");
-            printf("       [mSC Enable (0 = No, 1 = Yes)] \r\n");
-            printf("       [mP256DebugMode (0 = No, 1 = Yes)]\r\n");
-            printf("       [mOOBSupport (0 = No - Default, 1 = Yes)]\r\n");
-            printf("       [mKeypress (0 = No - Default, 1 = Yes)].\r\n");
+            BOT_NOTIFY_ERROR("Usage: ChangeLEPairingParameters:\r\n");
+            BOT_NOTIFY_ERROR("       [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, \r\n");
+            BOT_NOTIFY_ERROR("	                     3 = No Input/Output, 4 = Keyboard Display )] \r\n");
+            BOT_NOTIFY_ERROR("       [Bonding Type (0 = No Bonding, 1 = Bonding)]\r\n");
+            BOT_NOTIFY_ERROR("       [MITM Requirement (0 = No, 1 = Yes)]\r\n");
+            BOT_NOTIFY_ERROR("       [mSC Enable (0 = No, 1 = Yes)] \r\n");
+            BOT_NOTIFY_ERROR("       [mP256DebugMode (0 = No, 1 = Yes)]\r\n");
+            BOT_NOTIFY_ERROR("       [mOOBSupport (0 = No - Default, 1 = Yes)]\r\n");
+            BOT_NOTIFY_ERROR("       [mKeypress (0 = No - Default, 1 = Yes)].\r\n");
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3750,7 +3602,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
 int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3763,7 +3615,7 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
             /* register it.                                                */
             if ((Result = GATM_RegisterEventCallback(GATM_Event_Callback, NULL)) > 0)
             {
-                printf("GATM_RegisterEventCallback() Success: %d.\r\n", Result);
+                BOT_NOTIFY_INFO("GATM_RegisterEventCallback() Success: %d.\r\n", Result);
 
                 /* Note the Callback ID and flag success.                   */
                 mGATMCallbackID = (unsigned int)Result;
@@ -3774,24 +3626,21 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
             {
                 /* Error registering the Callback, inform user and flag an  */
                 /* error.                                                   */
-                printf("GATM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                BOT_NOTIFY_ERROR("GATM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* Callback already registered, go ahead and notify the user.  */
-            printf("Generic Attribute Profile Manager Event Callback already registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback already registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3805,7 +3654,7 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
 /* an error occurred.                                                */
 int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -3818,7 +3667,7 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
             /* un-register it.                                             */
             if (!(ret_val = GATM_UnRegisterEventCallback(mGATMCallbackID)))
             {
-                printf("GATM_UnRegisterEventCallback() Success.\r\n");
+                BOT_NOTIFY_INFO("GATM_UnRegisterEventCallback() Success.\r\n");
 
                 /* Flag that there is no longer a Callback registered.      */
                 mGATMCallbackID = 0;
@@ -3827,24 +3676,21 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
             {
                 /* Error un-registering the Callback, inform user and flag  */
                 /* an error.                                                */
-                printf("GATM_UnRegisterEventCallback() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                BOT_NOTIFY_ERROR("GATM_UnRegisterEventCallback() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* Callback already registered, go ahead and notify the user.  */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3857,7 +3703,7 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
 int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                            Result;
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     char                           Buffer[32];
     int                            Index;
     unsigned int                   TotalConnected;
@@ -3869,8 +3715,8 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
         /* First determine the total number of connected devices.         */
         if (!(Result = GATM_QueryConnectedDevices(0, NULL, &TotalConnected)))
         {
-            printf("Number of GATT Connections: %u.\r\n\r\n", TotalConnected);
-            ret_val = 0;
+            BOT_NOTIFY_DEBUG("Number of GATT Connections: %u.\r\n\r\n", TotalConnected);
+            ret_val = NO_ERROR;
 
             if (TotalConnected)
             {
@@ -3882,22 +3728,21 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
                     {
                         for (Index=0;Index<Result;Index++)
                         {
-                            printf("%u: Connection Type: %s.\r\n", Index+1, ((ConnectionList[Index].ConnectionType == gctLE)?"LE":"BR/EDR"));
+                            BOT_NOTIFY_DEBUG("%u: Connection Type: %s.\r\n", Index+1, ((ConnectionList[Index].ConnectionType == gctLE)?"LE":"BR/EDR"));
                             BD_ADDRToStr(ConnectionList[Index].RemoteDeviceAddress, Buffer);
-                            printf("%u: BD_ADDR:         %s.\r\n", Index+1, Buffer);
+                            BOT_NOTIFY_DEBUG("%u: BD_ADDR:         %s.\r\n", Index+1, Buffer);
                         }
 
-                        printf("\r\n");
+                        BOT_NOTIFY_DEBUG("\r\n");
 
                         /* Finally return success to the caller.              */
-                        ret_val = 0;
+                        ret_val = NO_ERROR;
                     }
                     else
                     {
                         /* Error querying number of connected devices, inform */
                         /* the user and flag an error.                        */
-                        printf("GATM_QueryConnectedDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+                        BOT_NOTIFY_ERROR("GATM_QueryConnectedDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
                         ret_val = FUNCTION_ERROR;
                     }
 
@@ -3906,8 +3751,7 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
                 }
                 else
                 {
-                    printf("Error allocating memory for connection list.\r\n");
-
+                    BOT_NOTIFY_ERROR("Error allocating memory for connection list.\r\n");
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -3916,16 +3760,14 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
         {
             /* Error querying number of connected devices, inform the user */
             /* and flag an error.                                          */
-            printf("GATM_QueryConnectedDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
-
+            BOT_NOTIFY_ERROR("GATM_QueryConnectedDevices() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3937,7 +3779,7 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
 /* value if an error occurred.                                       */
 int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                              ret_val = 0;
+    int                              ret_val = NO_ERROR;
     DEVM_Advertising_Information_t   AdvertisingInfo;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -3983,40 +3825,39 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
                 if ((aParams->Params[0].intParam & DIRECT_CONNECTABLE_MODE) &&
                         (!(aParams->Params[0].intParam & LOW_DUTY_CYCLE_DIRECT_CONNECTABLE)))
                 {
-                    printf("DEVM_StartAdvertising() Success: Duration 1.28 seconds.\r\n");
+                    BOT_NOTIFY_INFO("DEVM_StartAdvertising() Success: Duration 1.28 seconds.\r\n");
                 }
                 else
                 {
-                    printf("DEVM_StartAdvertising() Success: Duration %lu seconds.\r\n", AdvertisingInfo.AdvertisingDuration);
+                    BOT_NOTIFY_INFO("DEVM_StartAdvertising() Success: Duration %lu seconds.\r\n", AdvertisingInfo.AdvertisingDuration);
                 }
             }
             else
             {
                 /* Error Connecting With Remote Device, inform the user and */
                 /* flag an error.                                           */
-                printf("DEVM_StartAdvertising() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                BOT_NOTIFY_ERROR("DEVM_StartAdvertising() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: StartAdvertising [Flags] [Duration] [BD ADDR].\r\n");
-            printf("where Flags is a bitmask in the following table\r\n");
-            printf("Bitmask Number - [Bit is set]           [Bit is off]\r\n");
-            printf("    0x00000001 - [Local Public Address] [Local Random Address]\r\n");
-            printf("    0x00000002 - [Discoverable]         [Non Discoverable]\r\n");
-            printf("    0x00000004 - [Connectable]          [Non Connectable]\r\n");
-            printf("    0x00000010 - [Advertise Name]       [Advertise Name off]\r\n");
-            printf("    0x00000020 - [Advertise Tx Power]   [Advertise Tx Power off]\r\n");
-            printf("    0x00000040 - [Advertise Appearance] [Advertise Appearance off]\r\n");
-            printf("    0x00000100 - [Peer Public Address]  [Peer Random Address]\r\n");
-            printf("\r\nWhen Connectable bit (0x0004) is set:\r\n");
-            printf("    0x00000200 - [Direct Connectable]   [Undirect Connectable]\r\n");
-            printf("\r\nWhen Direct Connectable bit (0x0200) is set:\r\n");
-            printf("    0x00000400 - [Low Duty Cycle]       [High Duty Cycle]\r\n");
-            printf("\r\nNote: BD ADDR is needed only when Direct Connectable flags is in use.\r\n\r\n");
+            BOT_NOTIFY_ERROR("Usage: StartAdvertising [Flags] [Duration] [BD ADDR].\r\n");
+            BOT_NOTIFY_ERROR("where Flags is a bitmask in the following table\r\n");
+            BOT_NOTIFY_ERROR("Bitmask Number - [Bit is set]           [Bit is off]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000001 - [Local Public Address] [Local Random Address]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000002 - [Discoverable]         [Non Discoverable]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000004 - [Connectable]          [Non Connectable]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000010 - [Advertise Name]       [Advertise Name off]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000020 - [Advertise Tx Power]   [Advertise Tx Power off]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000040 - [Advertise Appearance] [Advertise Appearance off]\r\n");
+            BOT_NOTIFY_ERROR("    0x00000100 - [Peer Public Address]  [Peer Random Address]\r\n");
+            BOT_NOTIFY_ERROR("\r\nWhen Connectable bit (0x0004) is set:\r\n");
+            BOT_NOTIFY_ERROR("    0x00000200 - [Direct Connectable]   [Undirect Connectable]\r\n");
+            BOT_NOTIFY_ERROR("\r\nWhen Direct Connectable bit (0x0200) is set:\r\n");
+            BOT_NOTIFY_ERROR("    0x00000400 - [Low Duty Cycle]       [High Duty Cycle]\r\n");
+            BOT_NOTIFY_ERROR("\r\nNote: BD ADDR is needed only when Direct Connectable flags is in use.\r\n\r\n");
 
             ret_val = INVALID_PARAMETERS_ERROR;
         }
@@ -4024,8 +3865,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4037,7 +3877,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 /* value if an error occurred.                                       */
 int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -4049,32 +3889,29 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
             /* Submit the Stop Advertising Command.                        */
             if ((ret_val = DEVM_StopAdvertising(aParams->Params[0].intParam)) == 0)
             {
-                printf("DEVM_StopAdvertising() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_StopAdvertising() Success.\r\n");
             }
             else
             {
                 /* Error Connecting With Remote Device, inform the user and */
                 /* flag an error.                                           */
-                printf("DEVM_StopAdvertising() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                BOT_NOTIFY_ERROR("DEVM_StopAdvertising() Failure: %d, %s.\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: StopAdvertising [Flags].\r\n");
-            printf("where Flags bitmask of\r\n");
-            printf("    0x00000001 = Force advertising stop\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: StopAdvertising [Flags].\r\n");
+            BOT_NOTIFY_ERROR("where Flags bitmask of\r\n");
+            BOT_NOTIFY_ERROR("    0x00000001 = Force advertising stop\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4089,7 +3926,7 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 /* return error code if there was an error.                          */
 int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     Word_t        PayloadTimeout;
 
@@ -4110,26 +3947,25 @@ int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute
 
             if (ret_val >= 0)
             {
-                printf("DEVM_SetAuthenticatedPayloadTimeout() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_SetAuthenticatedPayloadTimeout() Success.\r\n");
+                ret_val = NO_ERROR;
             }
             else
             {
-                printf("DEVM_SetAuthenticatedPayloadTimeout() Error: %d.\r\n",ret_val);
+                BOT_NOTIFY_ERROR("DEVM_SetAuthenticatedPayloadTimeout() Error: %d.\r\n",ret_val);
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetAuthenticatedPayloadTimeout [BD_ADDR] [Authenticated Payload Timout (In ms)].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetAuthenticatedPayloadTimeout [BD_ADDR] [Authenticated Payload Timout (In ms)].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4143,7 +3979,7 @@ int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute
 /* error code if there was an error.                                 */
 int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     BD_ADDR_t     BD_ADDR;
     Word_t        PayloadTimeout;
 
@@ -4161,26 +3997,25 @@ int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribu
 
             if (ret_val >= 0)
             {
-                printf("Authenticated Payload Timeout: %d ms.\r\n", PayloadTimeout);
+                BOT_NOTIFY_DEBUG("Authenticated Payload Timeout: %d ms.\r\n", PayloadTimeout);
+                ret_val = NO_ERROR;
             }
             else
             {
-                printf("DEVM_Query_Authenticated_Payload_Timeout() Error: %d.\r\n",ret_val);
+                BOT_NOTIFY_ERROR("DEVM_Query_Authenticated_Payload_Timeout() Error: %d.\r\n", ret_val);
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: QueryAuthenticatedPayloadTimeout [BD_ADDR].\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: QueryAuthenticatedPayloadTimeout [BD_ADDR].\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4193,7 +4028,7 @@ int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribu
 /* error code if there was an error.                                 */
 int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int           ret_val;
+    int           ret_val = UNDEFINED_ERROR;
     Word_t        Advertising_Interval_Min;
     Word_t        Advertising_Interval_Max;
 
@@ -4210,26 +4045,25 @@ int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unu
 
             if (ret_val >= 0)
             {
-                printf("Set advertising intervals success, Parameters stored.\r\n");
+                BOT_NOTIFY_INFO("Set advertising intervals success, Parameters stored.\r\n");
+                ret_val = NO_ERROR;
             }
             else
             {
-                printf("DEVM_Set_Advertising_Intervals() Error: %d.\r\n",ret_val);
+                BOT_NOTIFY_ERROR("DEVM_Set_Advertising_Intervals() Error: %d.\r\n",ret_val);
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: SetAdvertisingInterval [Advertising Interval Min] [Advertising Interval Max] (Range: 20..10240 in ms).\r\n");
-
+            BOT_NOTIFY_ERROR("Usage: SetAdvertisingInterval [Advertising Interval Min] [Advertising Interval Max] (Range: 20..10240 in ms).\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4242,7 +4076,7 @@ int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unu
 /* negative return error code if there was an error.                 */
 int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     BD_ADDR_t                      BD_ADDR;
     AddressType_t                  AddressType;
     GAP_LE_Connection_Parameters_t ConnectionParameters;
@@ -4280,37 +4114,37 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
 
             if (ret_val == 0)
             {
-                printf("Set and update connection parameters success, Default parameters changed and updated.\r\n");
+                BOT_NOTIFY_INFO("Set and update connection parameters success, Default parameters changed and updated.\r\n");
+                ret_val = NO_ERROR;
             }
             else if ((ret_val == BTPM_ERROR_CODE_UNKNOWN_BLUETOOTH_DEVICE) || (ret_val == BTPM_ERROR_CODE_LOW_ENERGY_NOT_CONNECTED))
             {
-                printf("Only Default parameters stored, Bluetooth Device doesn't exists Error: %d.\r\n",ret_val);
-                ret_val = 0;
+                BOT_NOTIFY_ERROR("Only Default parameters stored, Bluetooth Device doesn't exists Error: %d.\r\n",ret_val);
+                ret_val = FUNCTION_ERROR;
             }
             else
             {
-                printf("DEVM_Set_And_Update_Connection_Parameters() Error: %d.\r\n",ret_val);
+                BOT_NOTIFY_ERROR("DEVM_Set_And_Update_Connection_Parameters() Error: %d.\r\n",ret_val);
             }
         }
         else
         {
             /* One or more of the necessary parameters is/are invalid.  */
-            printf("Usage: SetAndUpdateConnectionAndScanBLEParameters\r\n");
-            printf("       [Remote BD ADDR] [Address Type] (0 - Public, 1 - Static, 2 - Private Resolvable,\r\n");
-            printf("                                        3 - Private NonResolvable)\r\n");
-            printf("       [Connection_Interval_Min] (Range: 10..4000 in ms) [Connection_Interval_Max] (Range: 20..4000 in ms)\r\n");
-            printf("       [Slave_Latency] (Range: 0..500 in ms)[Supervision_Timeout] (Range: 100..32000 in ms)\r\n");
-            printf("       [ConnectionScanInterval] [ConnectionScanWindow] (Range: 3..10240 in ms)\r\n");
-            printf("       [ScanInterval] [ScanWindow] (Range: 3..10240 in ms)\r\n");
-            printf("SetAndUpdateConnectionAndScanBLEParameters default parameters: 20 40 0 5000 100 100 20 60\r\n");
+            BOT_NOTIFY_ERROR("Usage: SetAndUpdateConnectionAndScanBLEParameters\r\n");
+            BOT_NOTIFY_ERROR("       [Remote BD ADDR] [Address Type] (0 - Public, 1 - Static, 2 - Private Resolvable,\r\n");
+            BOT_NOTIFY_ERROR("                                        3 - Private NonResolvable)\r\n");
+            BOT_NOTIFY_ERROR("       [Connection_Interval_Min] (Range: 10..4000 in ms) [Connection_Interval_Max] (Range: 20..4000 in ms)\r\n");
+            BOT_NOTIFY_ERROR("       [Slave_Latency] (Range: 0..500 in ms)[Supervision_Timeout] (Range: 100..32000 in ms)\r\n");
+            BOT_NOTIFY_ERROR("       [ConnectionScanInterval] [ConnectionScanWindow] (Range: 3..10240 in ms)\r\n");
+            BOT_NOTIFY_ERROR("       [ScanInterval] [ScanWindow] (Range: 3..10240 in ms)\r\n");
+            BOT_NOTIFY_ERROR("SetAndUpdateConnectionAndScnBLEParameters default parameters: 20 40 0 5000 100 100 20 60\r\n");
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                              */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4321,7 +4155,7 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
 /* register the specified service.                                   */
 int GattSrv::RegisterService(unsigned int ServiceIndex)
 {
-    int                            ret_val;
+    int                            ret_val = UNDEFINED_ERROR;
     int                            Result;
     bool                      PrimaryService;
     GATT_UUID_t                    UUID;
@@ -4333,7 +4167,13 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
     GATT_Attribute_Handle_Group_t  ServiceHandleRange;
 
     /* Verify that the input parameter is semi-valid.                    */
-    if (mServiceTable && (ServiceIndex < mServiceCount))
+    if (!mServiceTable)
+    {
+        BOT_NOTIFY_ERROR("Error: Service Table was not initialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
+
+    }
+    else if (ServiceIndex < mServiceCount)
     {
         /* Verify that a GATM Event Callback is registered.               */
         if (mGATMCallbackID)
@@ -4352,19 +4192,20 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                     ret_val = GATM_RegisterPersistentUID(NumberOfAttributes, &(mServiceTable[ServiceIndex].PersistentUID), &ServiceHandleRangeResult);
                     if (!ret_val)
                     {
-                        printf("Registered Persistent UID: 0x%08X.\r\n", (unsigned int)mServiceTable[ServiceIndex].PersistentUID);
-                        printf("Start Handle:              0x%04X.\r\n", ServiceHandleRangeResult.Starting_Handle);
-                        printf("End Handle:                0x%04X.\r\n", ServiceHandleRangeResult.Ending_Handle);
+                        BOT_NOTIFY_DEBUG("Registered Persistent UID: 0x%08X.\r\n", (unsigned int)mServiceTable[ServiceIndex].PersistentUID);
+                        BOT_NOTIFY_DEBUG("Start Handle:              0x%04X.\r\n", ServiceHandleRangeResult.Starting_Handle);
+                        BOT_NOTIFY_DEBUG("End Handle:                0x%04X.\r\n", ServiceHandleRangeResult.Ending_Handle);
                     }
                     else
                     {
-                        printf("Error - GATM_RegisterPersistentUID() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                        BOT_NOTIFY_ERROR("Error - GATM_RegisterPersistentUID() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                         ret_val = FUNCTION_ERROR;
                     }
                 }
                 else
-                    ret_val = 0;
+                {
+                    ret_val = NO_ERROR;
+                }
 
                 /* Continue only if no error has occurred.                  */
                 if (!ret_val)
@@ -4384,10 +4225,11 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                     ret_val = GATM_RegisterService(PrimaryService, NumberOfAttributes, &UUID, (mServiceTable[ServiceIndex].PersistentUID?&(mServiceTable[ServiceIndex].PersistentUID):NULL));
                     if (ret_val > 0)
                     {
-                        printf(" Registered Service, Service ID: %u.\r\n", (unsigned int)ret_val);
+                        BOT_NOTIFY_INFO(" Registered Service, Service ID: %u.\r\n", (unsigned int)ret_val);
+                        ret_val = NO_ERROR;
 
                         /* Save the Service ID.                               */
-                        mServiceTable[ServiceIndex].ServiceID = (unsigned int)ret_val;
+                        mServiceTable[ServiceIndex].ServiceID = (unsigned int) ret_val;
 
                         /* Loop through all of the attributes and register    */
                         /* them.                                              */
@@ -4409,11 +4251,14 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                     /* previous service in mServiceTable.      */
                                     ret_val = GATM_AddServiceInclude(0, mServiceTable[ServiceIndex].ServiceID, mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset, mServiceTable[ServiceIndex-1].ServiceID);
                                     if (!ret_val)
-                                        printf(" Registered Include to Service ID %u.\r\n", mServiceTable[ServiceIndex-1].ServiceID);
+                                    {
+                                        BOT_NOTIFY_INFO(" Registered Include to Service ID %u.\r\n", mServiceTable[ServiceIndex-1].ServiceID);
+                                        ret_val = NO_ERROR;
+                                    }
                                     else
                                     {
-                                        printf("Error - GATM_AddServiceInclude() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                                        BOT_NOTIFY_ERROR("Error - GATM_AddServiceInclude() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
+                                        BOT_NOTIFY_ERROR("Error - ServiceIndex %d, attr idx %d\n", ServiceIndex, Index);
                                         ret_val = FUNCTION_ERROR;
                                     }
                                 }
@@ -4433,12 +4278,14 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                     /* Attempt to add this characteristic to  */
                                     /* the table.                             */
                                     ret_val = GATM_AddServiceCharacteristic(mServiceTable[ServiceIndex].ServiceID, mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset, CharacteristicInfo->CharacteristicPropertiesMask, CharacteristicInfo->SecurityPropertiesMask, &UUID);
-                                    if (!ret_val)
+                                    if (ret_val == NO_ERROR)
+                                    {
                                         DisplayGATTUUID(&UUID, "Registered Characteristic, UUID", 0);
+                                    }
                                     else
                                     {
-                                        printf("Error - GATM_AddServiceCharacteristic() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                                        BOT_NOTIFY_ERROR("Error - GATM_AddServiceCharacteristic() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
+                                        BOT_NOTIFY_ERROR("Error - ServiceIndex %d, attr idx %d\n", ServiceIndex, Index);
                                         ret_val = FUNCTION_ERROR;
                                     }
                                 }
@@ -4462,8 +4309,8 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                         DisplayGATTUUID(&UUID, "Registered Descriptor, UUID", 0);
                                     else
                                     {
-                                        printf("Error - GATM_AddServiceDescriptor() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                                        BOT_NOTIFY_ERROR("Error - GATM_AddServiceDescriptor() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
+                                        BOT_NOTIFY_ERROR("Error - ServiceIndex %d, attr idx %d\n", ServiceIndex, Index);
                                         ret_val = FUNCTION_ERROR;
                                     }
                                 }
@@ -4483,10 +4330,10 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                 /* service.                                     */
                                 mServiceTable[ServiceIndex].ServiceHandleRange = ServiceHandleRange;
 
-                                printf(" Service Registered.\r\n");
-                                printf("******************************************************************\r\n");
-                                printf("   Service Start Handle: 0x%04X\r\n", ServiceHandleRange.Starting_Handle);
-                                printf("   Service End Handle:   0x%04X\r\n\r\n", ServiceHandleRange.Ending_Handle);
+                                BOT_NOTIFY_INFO(" Service Registered.\r\n");
+                                BOT_NOTIFY_DEBUG("******************************************************************\r\n");
+                                BOT_NOTIFY_DEBUG("   Service Start Handle: 0x%04X\r\n", ServiceHandleRange.Starting_Handle);
+                                BOT_NOTIFY_DEBUG("   Service End Handle:   0x%04X\r\n\r\n", ServiceHandleRange.Ending_Handle);
 
                                 /* Print the Handles of all of the attributes in*/
                                 /* the table.                                   */
@@ -4495,7 +4342,7 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                     switch(mServiceTable[ServiceIndex].AttributeList[Index].AttributeType)
                                     {
                                     case atInclude:
-                                        printf("Include Attribute @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
+                                        BOT_NOTIFY_DEBUG("Include Attribute @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
                                         break;
                                     case atCharacteristic:
                                         /* Get a pointer to the characteristic */
@@ -4512,8 +4359,8 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                             UUID.UUID.UUID_128 = CharacteristicInfo->CharacteristicUUID;
                                             DisplayGATTUUID(&UUID, "Characteristic: ", 0);
 
-                                            printf("Characteristic Declaration @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
-                                            printf("Characteristic Value       @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset + 1));
+                                            BOT_NOTIFY_DEBUG("Characteristic Declaration @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
+                                            BOT_NOTIFY_DEBUG("Characteristic Value       @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset + 1));
                                         }
                                         break;
                                     case atDescriptor:
@@ -4530,18 +4377,17 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                             UUID.UUID.UUID_128 = DescriptorInfo->CharacteristicUUID;
                                             DisplayGATTUUID(&UUID, "Characteristic Descriptor: ", 0);
 
-                                            printf("Characteristic Descriptor @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
+                                            BOT_NOTIFY_DEBUG("Characteristic Descriptor @ Handle: 0x%04X\r\n", (ServiceHandleRange.Starting_Handle + mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset));
                                         }
                                         break;
                                     }
                                 }
 
-                                printf("******************************************************************\r\n");
+                                BOT_NOTIFY_DEBUG("******************************************************************\r\n");
                             }
                             else
                             {
-                                printf("Error - GATM_PublishService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                                BOT_NOTIFY_ERROR("Error - GATM_PublishService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                                 ret_val = FUNCTION_ERROR;
                             }
                         }
@@ -4554,7 +4400,7 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                             /* service.                                        */
                             Result = GATM_DeleteService(mServiceTable[ServiceIndex].ServiceID);
                             if (Result)
-                                printf("Error - GATM_DeleteService() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                                BOT_NOTIFY_WARNING("Error - GATM_DeleteService() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
 
                             /* Flag that this service is not registered.       */
                             mServiceTable[ServiceIndex].ServiceID = 0;
@@ -4562,32 +4408,27 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                     }
                     else
                     {
-                        printf("Error - GATM_RegisterService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                        BOT_NOTIFY_ERROR("Error - GATM_RegisterService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                         ret_val = FUNCTION_ERROR;
                     }
                 }
             }
             else
             {
-                printf("Service already registered.\r\n");
-
+                BOT_NOTIFY_ERROR("Service already registered.\r\n");
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
-        printf("Invalid Service Index %u, Maximum %u.\r\n", ServiceIndex, (mServiceCount-1));
-
-        /* One or more of the necessary parameters is/are invalid.        */
+        BOT_NOTIFY_ERROR("Invalid Service Index %u, Maximum %u.\r\n", ServiceIndex, (mServiceCount-1));
         ret_val = INVALID_PARAMETERS_ERROR;
     }
 
@@ -4598,7 +4439,7 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
 /* un-register the specified service.                                */
 int GattSrv::UnRegisterService(unsigned int ServiceIndex)
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* Verify that the input parameter is semi-valid.                    */
     if (mServiceTable && (ServiceIndex < mServiceCount))
@@ -4612,37 +4453,32 @@ int GattSrv::UnRegisterService(unsigned int ServiceIndex)
                 /* Go ahead and attempt to delete the service.              */
                 if ((ret_val = GATM_DeleteService(mServiceTable[ServiceIndex].ServiceID)) == 0)
                 {
-                    printf("Service ID %u, successfully un-registered.\r\n", mServiceTable[ServiceIndex].ServiceID);
+                    BOT_NOTIFY_DEBUG("Service ID %u, successfully un-registered.\r\n", mServiceTable[ServiceIndex].ServiceID);
 
                     mServiceTable[ServiceIndex].ServiceID = 0;
                 }
                 else
                 {
-                    printf("Error - GATM_DeleteService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                    BOT_NOTIFY_ERROR("Error - GATM_DeleteService() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                     ret_val = FUNCTION_ERROR;
                 }
             }
             else
             {
-                printf("Service not registered.\r\n");
-
+                BOT_NOTIFY_ERROR("Service not registered.\r\n");
                 ret_val = FUNCTION_ERROR;
             }
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
-        printf("Invalid Service Index %u, Maximum %u.\r\n", ServiceIndex, (mServiceCount-1));
-
-        /* One or more of the necessary parameters is/are invalid.        */
+        BOT_NOTIFY_ERROR("Invalid Service Index %u, Maximum %u.\r\n", ServiceIndex, (mServiceCount-1));
         ret_val = INVALID_PARAMETERS_ERROR;
     }
 
@@ -4711,9 +4547,9 @@ void GattSrv::ProcessReadRequestEvent(GATM_Read_Request_Event_Data_t *ReadReques
 
                     /* Go ahead and respond to the read request.             */
                     if ((Result = GATM_ReadResponse(ReadRequestData->RequestID, ValueLength, Value)) == 0)
-                        printf("GATM_ReadResponse() success.\n");
+                        BOT_NOTIFY_INFO("GATM_ReadResponse() success.\n");
                     else
-                        printf("Error - GATM_ReadResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                        BOT_NOTIFY_WARNING("Error - GATM_ReadResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
                 }
                 else
                     ErrorCode = ATT_PROTOCOL_ERROR_CODE_INVALID_OFFSET;
@@ -4735,9 +4571,9 @@ void GattSrv::ProcessReadRequestEvent(GATM_Read_Request_Event_Data_t *ReadReques
         if (ErrorCode)
         {
             if ((Result = GATM_ErrorResponse(ReadRequestData->RequestID, ErrorCode)) == 0)
-                printf("GATM_ErrorResponse() success.\n");
+                BOT_NOTIFY_INFO("GATM_ErrorResponse() success.\n");
             else
-                printf("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_WARNING("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
         }
     }
 }
@@ -4747,7 +4583,7 @@ void GattSrv::ProcessReadRequestEvent(GATM_Read_Request_Event_Data_t *ReadReques
 /* value if an error occurred.                                       */
 int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -4763,16 +4599,14 @@ int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: RegisterService [Service Index (0 - %u)].\r\n", (mServiceCount-1));
-
+            BOT_NOTIFY_ERROR("Usage: RegisterService [Service Index (0 - %u)].\r\n", (mServiceCount-1));
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4784,7 +4618,7 @@ int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused
 /* negative value if an error occurred.                              */
 int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int ret_val;
+    int ret_val = UNDEFINED_ERROR;
 
     /* First, check to make sure that we have already been mInitialized.  */
     if (mInitialized)
@@ -4800,16 +4634,14 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
         else
         {
             /* One or more of the necessary parameters is/are invalid.     */
-            printf("Usage: UnRegisterService [Service Index (0 - %u)].\r\n", (mServiceCount-1));
-
+            BOT_NOTIFY_ERROR("Usage: UnRegisterService [Service Index (0 - %u)].\r\n", (mServiceCount-1));
             ret_val = INVALID_PARAMETERS_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4821,7 +4653,7 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
 /* if successful and a negative value if an error occurred.          */
 int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                   ret_val;
+    int                   ret_val = UNDEFINED_ERROR;
     bool             DisplayUsage = false;
     BD_ADDR_t             BD_ADDR;
     unsigned int          Index1;
@@ -4862,34 +4694,31 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
 
                         if (ret_val > 0)
                         {
-                            printf("Sent Indication, TransactionID %u.\r\n", (unsigned int)ret_val);
+                            BOT_NOTIFY_INFO("Sent Indication, TransactionID %u.\r\n", (unsigned int)ret_val);
 
-                            ret_val = 0;
+                            ret_val = NO_ERROR;
                         }
                         else
                         {
-                            printf("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                            BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                             ret_val = FUNCTION_ERROR;
                         }
                     }
                     else
                     {
-                        printf("Invalid Attribute Offset.\r\n)");
-
+                        BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
                         DisplayUsage = true;
                     }
                 }
                 else
                 {
-                    printf("Invalid Service Index or Attribute Offset.\r\n)");
-
+                    BOT_NOTIFY_ERROR("Invalid Service Index or Attribute Offset.\r\n)");
                     DisplayUsage = true;
                 }
             }
             else
             {
-                printf("Invalid parameter or number of parameters.\r\n)");
+                BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
 
                 DisplayUsage = true;
             }
@@ -4898,9 +4727,8 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
             if (DisplayUsage)
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: IndicateCharacteristic [Service Index (0 - %u)] [Attribute Offset] [BD_ADDR].\r\n", (mServiceCount-1));
-                printf("Valid usages:\r\n\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: IndicateCharacteristic [Service Index (0 - %u)] [Attribute Offset] [BD_ADDR].\r\n", (mServiceCount-1));
+                BOT_NOTIFY_ERROR("Valid usages:\r\n\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
 
                 for (Index1=0;Index1<mServiceCount;Index1++)
@@ -4915,29 +4743,27 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
                                 {
                                     AttributeHandle = mServiceTable[Index1].ServiceHandleRange.Starting_Handle + mServiceTable[Index1].AttributeList[Index2].AttributeOffset + 1;
 
-                                    printf("   IndicateCharacteristic %u %u [BD_ADDR] (Attribute Handle is 0x%04X (%u)\r\n", Index1, mServiceTable[Index1].AttributeList[Index2].AttributeOffset, AttributeHandle, AttributeHandle);
+                                    BOT_NOTIFY_DEBUG("   IndicateCharacteristic %u %u [BD_ADDR] (Attribute Handle is 0x%04X (%u)\r\n", Index1, mServiceTable[Index1].AttributeList[Index2].AttributeOffset, AttributeHandle, AttributeHandle);
                                 }
                             }
                         }
                     }
                 }
 
-                printf("\r\n");
+                BOT_NOTIFY_DEBUG("\r\n");
             }
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4949,7 +4775,7 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
 /* if successful and a negative value if an error occurred.          */
 int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                   ret_val;
+    int                   ret_val = UNDEFINED_ERROR;
     bool             DisplayUsage = false;
     BD_ADDR_t             BD_ADDR;
     unsigned int          Index1;
@@ -4989,31 +4815,30 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                             ret_val = GATM_SendHandleValueNotification(mServiceTable[aParams->Params[0].intParam].ServiceID, BD_ADDR, AttributeInfo->AttributeOffset, BTPS_StringLength(DataString), (Byte_t *)DataString);
 
                         if (!ret_val)
-                            printf("Notification sent successfully.\r\n");
+                            BOT_NOTIFY_INFO("Notification sent successfully.\r\n");
                         else
                         {
-                            printf("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                            BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                             ret_val = FUNCTION_ERROR;
                         }
                     }
                     else
                     {
-                        printf("Invalid Attribute Offset.\r\n)");
+                        BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
 
                         DisplayUsage = true;
                     }
                 }
                 else
                 {
-                    printf("Invalid Service Index or Attribute Offset.\r\n)");
+                    BOT_NOTIFY_ERROR("Invalid Service Index or Attribute Offset.\r\n)");
 
                     DisplayUsage = true;
                 }
             }
             else
             {
-                printf("Invalid parameter or number of parameters.\r\n)");
+                BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
 
                 DisplayUsage = true;
             }
@@ -5022,9 +4847,8 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
             if (DisplayUsage)
             {
                 /* One or more of the necessary parameters is/are invalid.  */
-                printf("Usage: NotifyCharacteristic [Service Index (0 - %u)] [Attribute Offset] [BD_ADDR].\r\n", (mServiceCount-1));
-                printf("Valid usages:\r\n\r\n");
-
+                BOT_NOTIFY_ERROR("Usage: NotifyCharacteristic [Service Index (0 - %u)] [Attribute Offset] [BD_ADDR].\r\n", (mServiceCount-1));
+                BOT_NOTIFY_ERROR("Valid usages:\r\n\r\n");
                 ret_val = INVALID_PARAMETERS_ERROR;
 
                 for (Index1=0;Index1<mServiceCount;Index1++)
@@ -5039,29 +4863,27 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                                 {
                                     AttributeHandle = mServiceTable[Index1].ServiceHandleRange.Starting_Handle + mServiceTable[Index1].AttributeList[Index2].AttributeOffset + 1;
 
-                                    printf("   NotifyCharacteristic %u %u [BD_ADDR] (Attribute Handle is 0x%04X (%u)\r\n", Index1, mServiceTable[Index1].AttributeList[Index2].AttributeOffset, AttributeHandle, AttributeHandle);
+                                    BOT_NOTIFY_DEBUG("   NotifyCharacteristic %u %u [BD_ADDR] (Attribute Handle is 0x%04X (%u)\r\n", Index1, mServiceTable[Index1].AttributeList[Index2].AttributeOffset, AttributeHandle, AttributeHandle);
                                 }
                             }
                         }
                     }
                 }
 
-                printf("\r\n");
+                BOT_NOTIFY_DEBUG("\r\n");
             }
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5074,7 +4896,7 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
 /* negative value if an error occurred.                              */
 int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                   ret_val;
+    int                   ret_val = UNDEFINED_ERROR;
     char                  Buffer[512];
     unsigned int          Index1;
     unsigned int          AttributeHandle;
@@ -5087,17 +4909,17 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
         /* Verify that a GATM Event Callback is registered.               */
         if (mGATMCallbackID)
         {
-            printf("Key: \r\n");
-            printf("x (xx), where X is the operation and XX are any security flags\r\n");
-            printf("ENC = Encryption required, MITM = Man in the Middle protection required\r\n");
-            printf("\r\n");
-            printf("W  = Writable\r\n");
-            printf("WO = Write without Response\r\n");
-            printf("R  = Readable\r\n");
-            printf("N  = Notifiable\r\n");
-            printf("I  = Indicatable\r\n");
-            printf("S  = Signed Writes allowed\r\n");
-            printf("\r\n");
+            BOT_NOTIFY_DEBUG("Key: \r\n");
+            BOT_NOTIFY_DEBUG("x (xx), where X is the operation and XX are any security flags\r\n");
+            BOT_NOTIFY_DEBUG("ENC = Encryption required, MITM = Man in the Middle protection required\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
+            BOT_NOTIFY_DEBUG("W  = Writable\r\n");
+            BOT_NOTIFY_DEBUG("WO = Write without Response\r\n");
+            BOT_NOTIFY_DEBUG("R  = Readable\r\n");
+            BOT_NOTIFY_DEBUG("N  = Notifiable\r\n");
+            BOT_NOTIFY_DEBUG("I  = Indicatable\r\n");
+            BOT_NOTIFY_DEBUG("S  = Signed Writes allowed\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
 
             /* Loop through the service list and list all of the           */
             /* characteristics that are valid.                             */
@@ -5205,29 +5027,27 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
 
                             AttributeHandle = (mServiceTable[Index1].ServiceHandleRange.Starting_Handle + mServiceTable[Index1].AttributeList[Index2].AttributeOffset + 1);
 
-                            printf("Characteristic Handle:     0x%04X (%u)\r\n", AttributeHandle, AttributeHandle);
-                            printf("Characteristic Properties: %s.\r\n", Buffer);
+                            BOT_NOTIFY_DEBUG("Characteristic Handle:     0x%04X (%u)\r\n", AttributeHandle, AttributeHandle);
+                            BOT_NOTIFY_DEBUG("Characteristic Properties: %s.\r\n", Buffer);
                         }
                     }
                 }
             }
 
             /* Simply return success to the caller.                        */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5240,7 +5060,7 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
 /* an error occurred.                                                */
 int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int               ret_val;
+    int               ret_val = UNDEFINED_ERROR;
     char              Buffer[512];
     unsigned int      Index1;
     unsigned int      AttributeHandle;
@@ -5253,13 +5073,13 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
         /* Verify that a GATM Event Callback is registered.               */
         if (mGATMCallbackID)
         {
-            printf("Key: \r\n");
-            printf("x (xx), where X is the operation and XX are any security flags\r\n");
-            printf("ENC = Encryption required, MITM = Man in the Middle protection required\r\n");
-            printf("\r\n");
-            printf("W  = Writable\r\n");
-            printf("R  = Readable\r\n");
-            printf("\r\n");
+            BOT_NOTIFY_DEBUG("Key: \r\n");
+            BOT_NOTIFY_DEBUG("x (xx), where X is the operation and XX are any security flags\r\n");
+            BOT_NOTIFY_DEBUG("ENC = Encryption required, MITM = Man in the Middle protection required\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
+            BOT_NOTIFY_DEBUG("W  = Writable\r\n");
+            BOT_NOTIFY_DEBUG("R  = Readable\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
 
             /* Loop through the service list and list all of the           */
             /* characteristics that are valid.                             */
@@ -5322,29 +5142,27 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
 
                             AttributeHandle = (mServiceTable[Index1].ServiceHandleRange.Starting_Handle + mServiceTable[Index1].AttributeList[Index2].AttributeOffset);
 
-                            printf("Descriptor Handle:     0x%04X (%u)\r\n", AttributeHandle, AttributeHandle);
-                            printf("Descriptor Properties: %s.\r\n", Buffer);
+                            BOT_NOTIFY_DEBUG("Descriptor Handle:     0x%04X (%u)\r\n", AttributeHandle, AttributeHandle);
+                            BOT_NOTIFY_DEBUG("Descriptor Properties: %s.\r\n", Buffer);
                         }
                     }
                 }
             }
 
             /* Simply return success to the caller.                        */
-            ret_val = 0;
+            ret_val = NO_ERROR;
         }
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5363,7 +5181,7 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
 /* occurred.                                                          */
 int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused)))
 {
-    int                         ret_val;
+    int                         ret_val = UNDEFINED_ERROR;
     GATT_UUID_t                 ServiceUUID;
     GATT_UUID_t                *ServiceUUIDPtr = NULL;
     unsigned int                TotalServices;
@@ -5410,19 +5228,18 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
 
                     ServiceUUIDPtr = &ServiceUUID;
 
-                    ret_val = 0;
+                    ret_val = NO_ERROR;
                 }
                 else
                 {
                     /* Invalid Size of UUID String.                          */
-                    printf("Invalid size of 16-bit/128-bit UUID.\r\n");
-                    printf("Usage: [16-bit/128-bit UUID (Optional Prefix['0x|0X']) 'AABB | AABBCCDDEEFFAABBCCDDEEFF'].\r\n");
-
+                    BOT_NOTIFY_ERROR("Invalid size of 16-bit/128-bit UUID.\r\n");
+                    BOT_NOTIFY_ERROR("Usage: [16-bit/128-bit UUID (Optional Prefix['0x|0X']) 'AABB | AABBCCDDEEFFAABBCCDDEEFF'].\r\n");
                     ret_val = INVALID_PARAMETERS_ERROR;
                 }
             }
             else
-                ret_val = 0;
+                ret_val = NO_ERROR;
 
             /* Continue only if no error occurred.                         */
             if (!ret_val)
@@ -5431,7 +5248,7 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
                 if ((ret_val = GATM_QueryPublishedServices(0, NULL, ServiceUUIDPtr, &TotalServices)) == 0)
                 {
                     /* Print the total number of published services.         */
-                    printf("The Total Number of Published Services is: %u\r\n\r\n", TotalServices);
+                    BOT_NOTIFY_DEBUG("The Total Number of Published Services is: %u\r\n\r\n", TotalServices);
 
                     /* If there are any services published go ahead and query*/
                     /* information on the published services.                */
@@ -5444,20 +5261,20 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
                             /* Attempt to query all of the published services. */
                             if ((ret_val = GATM_QueryPublishedServices(TotalServices, PublishedServiceList, ServiceUUIDPtr, &TotalServices)) >= 0)
                             {
-                                printf("Printing the Published Services List:\r\n");
+                                BOT_NOTIFY_DEBUG("Printing the Published Services List:\r\n");
 
                                 for (Index=0,tempPtr=PublishedServiceList;Index<((unsigned int)ret_val);Index++,tempPtr++)
                                 {
-                                    printf("ServiceID: %u\r\n", tempPtr->ServiceID);
+                                    BOT_NOTIFY_DEBUG("ServiceID: %u\r\n", tempPtr->ServiceID);
                                     DisplayGATTUUID(&tempPtr->ServiceUUID, "\bServiceUUID", 0);
-                                    printf("Start Handle: %u\r\n", tempPtr->StartHandle);
-                                    printf("End Handle: %u\r\n", tempPtr->EndHandle);
+                                    BOT_NOTIFY_DEBUG("Start Handle: %u\r\n", tempPtr->StartHandle);
+                                    BOT_NOTIFY_DEBUG("End Handle: %u\r\n", tempPtr->EndHandle);
                                 }
 
-                                printf("\r\n");
+                                BOT_NOTIFY_DEBUG("\r\n");
 
                                 /* Return success to the caller.                */
-                                ret_val = 0;
+                                ret_val = NO_ERROR;
                             }
 
                             /* Free the allocated memory.                      */
@@ -5469,11 +5286,10 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
 
                 /* Print Success or Error Message.                          */
                 if (!ret_val)
-                    printf("GATM_QueryPublishedServices() success\r\n\r\n");
+                    BOT_NOTIFY_INFO("GATM_QueryPublishedServices() success\r\n\r\n");
                 else
                 {
-                    printf("Error - GATM_QueryPublishedServices() %d, %s\r\n\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-
+                    BOT_NOTIFY_ERROR("Error - GATM_QueryPublishedServices() %d, %s\r\n\r\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -5481,16 +5297,14 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
         else
         {
             /* Callback not registered, go ahead and notify the user.      */
-            printf("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
-
+            BOT_NOTIFY_ERROR("Generic Attribute Profile Manager Event Callback is not registered.\r\n");
             ret_val = FUNCTION_ERROR;
         }
     }
     else
     {
         /* Not mInitialized, flag an error.                                */
-        printf("Platform Manager has not been mInitialized.\r\n");
-
+        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5611,137 +5425,135 @@ static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *Call
 
     if (EventData)
     {
-        printf("\r\n");
+        BOT_NOTIFY_DEBUG("\r\n");
 
         switch(EventData->EventType)
         {
         case detDevicePoweredOn:
-            printf("Device Powered On.\r\n");
+            BOT_NOTIFY_DEBUG("Device Powered On.\r\n");
             break;
         case detDevicePoweringOff:
-            printf("Device Powering Off Event, Timeout: 0x%08X.\r\n", EventData->EventData.DevicePoweringOffEventData.PoweringOffTimeout);
+            BOT_NOTIFY_DEBUG("Device Powering Off Event, Timeout: 0x%08X.\r\n", EventData->EventData.DevicePoweringOffEventData.PoweringOffTimeout);
             break;
         case detDevicePoweredOff:
-            printf("Device Powered Off.\r\n");
+            BOT_NOTIFY_DEBUG("Device Powered Off.\r\n");
             break;
         case detLocalDevicePropertiesChanged:
-            printf("Local Device Properties Changed.\r\n");
+            BOT_NOTIFY_DEBUG("Local Device Properties Changed.\r\n");
 
             gatt->DisplayLocalDeviceProperties(EventData->EventData.LocalDevicePropertiesChangedEventData.ChangedMemberMask, &(EventData->EventData.LocalDevicePropertiesChangedEventData.LocalDeviceProperties));
             break;
         case detDeviceScanStarted:
-            printf("LE Device Discovery Started.\r\n");
+            BOT_NOTIFY_DEBUG("LE Device Discovery Started.\r\n");
             break;
         case detDeviceScanStopped:
-            printf("LE Device Discovery Stopped.\r\n");
+            BOT_NOTIFY_DEBUG("LE Device Discovery Stopped.\r\n");
             break;
         case detDeviceAdvertisingStarted:
-            printf("LE Advertising Started.\r\n");
+            BOT_NOTIFY_DEBUG("LE Advertising Started.\r\n");
             break;
         case detDeviceAdvertisingStopped:
-            printf("LE Advertising Stopped.\r\n");
+            BOT_NOTIFY_DEBUG("LE Advertising Stopped.\r\n");
             break;
         case detAdvertisingTimeout:
-            printf("LE Advertising Timeout.\r\n");
+            BOT_NOTIFY_DEBUG("LE Advertising Timeout.\r\n");
             break;
         case detDeviceDiscoveryStarted:
-            printf("Device Discovery Started.\r\n");
+            BOT_NOTIFY_DEBUG("Device Discovery Started.\r\n");
             break;
         case detDeviceDiscoveryStopped:
-            printf("Device Discovery Stopped.\r\n");
+            BOT_NOTIFY_DEBUG("Device Discovery Stopped.\r\n");
             break;
         case detRemoteDeviceFound:
-            printf("Remote Device Found.\r\n");
+            BOT_NOTIFY_DEBUG("Remote Device Found.\r\n");
 
             gatt->DisplayRemoteDeviceProperties(0, &(EventData->EventData.RemoteDeviceFoundEventData.RemoteDeviceProperties));
             break;
         case detRemoteDeviceDeleted:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceDeletedEventData.RemoteDeviceAddress, Buffer);
-
-            printf("Remote Device Deleted: %s.\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("Remote Device Deleted: %s.\r\n", Buffer);
             break;
         case detRemoteDevicePropertiesChanged:
-            printf("Remote Device Properties Changed.\r\n");
-
+            BOT_NOTIFY_DEBUG("Remote Device Properties Changed.\r\n");
             gatt->DisplayRemoteDeviceProperties(EventData->EventData.RemoteDevicePropertiesChangedEventData.ChangedMemberMask, &(EventData->EventData.RemoteDevicePropertiesChangedEventData.RemoteDeviceProperties));
             break;
         case detRemoteDeviceAddressChanged:
-            printf("Remote Device Address Changed.\r\n");
+            BOT_NOTIFY_DEBUG("Remote Device Address Changed.\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceAddressChangeEventData.RemoteDeviceAddress, Buffer);
-            printf("Remote Device Address:          %s.\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("Remote Device Address:          %s.\r\n", Buffer);
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceAddressChangeEventData.PreviousRemoteDeviceAddress, Buffer);
-            printf("Previous Remote Device Address: %s.\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("Previous Remote Device Address: %s.\r\n", Buffer);
             break;
         case detRemoteDevicePropertiesStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDevicePropertiesStatusEventData.RemoteDeviceProperties.BD_ADDR, Buffer);
 
-            printf("Remote Device Properties Status: %s, %s.\r\n", Buffer, EventData->EventData.RemoteDevicePropertiesStatusEventData.Success?"SUCCESS":"FAILURE");
+            BOT_NOTIFY_DEBUG("Remote Device Properties Status: %s, %s.\r\n", Buffer, EventData->EventData.RemoteDevicePropertiesStatusEventData.Success?"SUCCESS":"FAILURE");
 
             gatt->DisplayRemoteDeviceProperties(0, &(EventData->EventData.RemoteDevicePropertiesStatusEventData.RemoteDeviceProperties));
             break;
         case detRemoteDeviceServicesStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceServicesStatusEventData.RemoteDeviceAddress, Buffer);
 
-            printf("Remote Device %s Services Status: %s, %s.\r\n", Buffer, (EventData->EventData.RemoteDeviceServicesStatusEventData.StatusFlags & DEVM_REMOTE_DEVICE_SERVICES_STATUS_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (EventData->EventData.RemoteDeviceServicesStatusEventData.StatusFlags & DEVM_REMOTE_DEVICE_SERVICES_STATUS_FLAGS_SUCCESS)?"SUCCESS":"FAILURE");
+            BOT_NOTIFY_DEBUG("Remote Device %s Services Status: %s, %s.\r\n", Buffer, (EventData->EventData.RemoteDeviceServicesStatusEventData.StatusFlags & DEVM_REMOTE_DEVICE_SERVICES_STATUS_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (EventData->EventData.RemoteDeviceServicesStatusEventData.StatusFlags & DEVM_REMOTE_DEVICE_SERVICES_STATUS_FLAGS_SUCCESS)?"SUCCESS":"FAILURE");
             break;
         case detRemoteDevicePairingStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDevicePairingStatusEventData.RemoteDeviceAddress, Buffer);
 
-            printf("%s Remote Device Pairing Status: %s, %s (0x%02X)\r\n", ((EventData->EventData.RemoteDevicePairingStatusEventData.AuthenticationStatus & DEVM_REMOTE_DEVICE_PAIRING_STATUS_FLAGS_LOW_ENERGY)?"LE":"BR/EDR"), Buffer, (EventData->EventData.RemoteDevicePairingStatusEventData.Success)?"SUCCESS":"FAILURE", EventData->EventData.RemoteDevicePairingStatusEventData.AuthenticationStatus);
+            BOT_NOTIFY_DEBUG("%s Remote Device Pairing Status: %s, %s (0x%02X)\r\n", ((EventData->EventData.RemoteDevicePairingStatusEventData.AuthenticationStatus & DEVM_REMOTE_DEVICE_PAIRING_STATUS_FLAGS_LOW_ENERGY)?"LE":"BR/EDR"), Buffer, (EventData->EventData.RemoteDevicePairingStatusEventData.Success)?"SUCCESS":"FAILURE", EventData->EventData.RemoteDevicePairingStatusEventData.AuthenticationStatus);
             break;
         case detRemoteDeviceAuthenticationStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceAuthenticationStatusEventData.RemoteDeviceAddress, Buffer);
 
-            printf("Remote Device Authentication Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status, (EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status):"SUCCESS");
+            BOT_NOTIFY_DEBUG("Remote Device Authentication Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status, (EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceAuthenticationStatusEventData.Status):"SUCCESS");
             break;
         case detRemoteDeviceEncryptionStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceEncryptionStatusEventData.RemoteDeviceAddress, Buffer);
 
-            printf("Remote Device Encryption Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status, (EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status):"SUCCESS");
+            BOT_NOTIFY_DEBUG("Remote Device Encryption Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status, (EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceEncryptionStatusEventData.Status):"SUCCESS");
             break;
         case detRemoteDeviceConnectionStatus:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceConnectionStatusEventData.RemoteDeviceAddress, Buffer);
 
-            printf("Remote Device Connection Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceConnectionStatusEventData.Status, (EventData->EventData.RemoteDeviceConnectionStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceConnectionStatusEventData.Status):"SUCCESS");
+            BOT_NOTIFY_DEBUG("Remote Device Connection Status: %s, %d (%s)\r\n", Buffer, EventData->EventData.RemoteDeviceConnectionStatusEventData.Status, (EventData->EventData.RemoteDeviceConnectionStatusEventData.Status)?ERR_ConvertErrorCodeToString(EventData->EventData.RemoteDeviceConnectionStatusEventData.Status):"SUCCESS");
             break;
         case detConnectionParameterUpdateResponse:
-            printf("Connection Parameter Update Response\r\n");
+            BOT_NOTIFY_DEBUG("Connection Parameter Update Response\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceConnectionParameterUpdateResponseEventData.RemoteDeviceAddress, Buffer);
-            printf("   Status:              %s.\r\n", (EventData->EventData.RemoteDeviceConnectionParameterUpdateResponseEventData.Accepted)?"Accepted":"Declined");
-            printf("   BD_ADDR:             %s.\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("   Status:              %s.\r\n", (EventData->EventData.RemoteDeviceConnectionParameterUpdateResponseEventData.Accepted)?"Accepted":"Declined");
+            BOT_NOTIFY_DEBUG("   BD_ADDR:             %s.\r\n", Buffer);
 
             break;
         case detConnectionParametersUpdated:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.RemoteDeviceAddress, Buffer);
-            printf("Connection Parameters Updated\r\n");
-            printf("   Status             : %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Status);
-            printf("   BD_ADDR            : %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("Connection Parameters Updated\r\n");
+            BOT_NOTIFY_DEBUG("   Status             : %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Status);
+            BOT_NOTIFY_DEBUG("   BD_ADDR            : %s\r\n", Buffer);
             if (EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Status == 0)
             {
-                printf("   Connection Interval: %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Connection_Interval);
-                printf("   Slave Latency      : %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Slave_Latency);
-                printf("   Supervision Timeout: %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Supervision_Timeout);
+                BOT_NOTIFY_DEBUG("   Connection Interval: %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Connection_Interval);
+                BOT_NOTIFY_DEBUG("   Slave Latency      : %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Slave_Latency);
+                BOT_NOTIFY_DEBUG("   Supervision Timeout: %d\r\n", EventData->EventData.RemoteDeviceConnectionParametersUpdatedEventData.Current_Connection_Parameters.Supervision_Timeout);
             }
             break;
         case detAuthenticationPayloadTimeoutExpired:
             gatt->BD_ADDRToStr(EventData->EventData.RemoteDeviceAuthenticatedPayloadTimeoutExpiredEventData.RemoteDeviceAddress, Buffer);
 
-            printf("Authenticated Payload Timeout Expired received from BD_ADDR: %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("Authenticated Payload Timeout Expired received from BD_ADDR: %s\r\n", Buffer);
             break;
         default:
-            printf("Unknown Device Manager Event Received: 0x%08X, Length: 0x%08X.\r\n", (unsigned int)EventData->EventType, EventData->EventLength);
+            BOT_NOTIFY_DEBUG("Unknown Device Manager Event Received: 0x%08X, Length: 0x%08X.\r\n", (unsigned int)EventData->EventType, EventData->EventLength);
             break;
         }
     }
     else
-        printf("\r\nDEVM Event Data is NULL.\r\n");
-
-    printf("GATM>");
+        BOT_NOTIFY_WARNING("\r\nDEVM Event Data is NULL.\r\n");
 
     /* Make sure the output is displayed to the user.                    */
+#ifdef TEST_CONSOLE_WRITE
     fflush(stdout);
+#endif
 }
 
 /* The following function is the Device Manager Authentication Event */
@@ -5758,11 +5570,11 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 
     if (AuthenticationRequestInformation)
     {
-        printf("\r\n");
+        BOT_NOTIFY_DEBUG("\nAuthenticationRequestInformation\r\n");
 
         gatt->BD_ADDRToStr(AuthenticationRequestInformation->BD_ADDR, Buffer);
 
-        printf("Authentication Request received for %s.\r\n", Buffer);
+        BOT_NOTIFY_DEBUG("Authentication Request received for %s.\r\n", Buffer);
 
         /* Check to see if this is an LE event.                           */
         if (AuthenticationRequestInformation->AuthenticationAction & DEVM_AUTHENTICATION_ACTION_LOW_ENERGY_OPERATION_MASK)
@@ -5777,7 +5589,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
         switch(AuthenticationRequestInformation->AuthenticationAction)
         {
         case DEVM_AUTHENTICATION_ACTION_PIN_CODE_REQUEST:
-            printf("PIN Code Request.\r\n.");
+            BOT_NOTIFY_DEBUG("PIN Code Request.\r\n.");
 
             /* Note the current Remote BD_ADDR that is requesting the   */
             /* PIN Code.                                                */
@@ -5785,10 +5597,10 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 
             /* Inform the user that they will need to respond with a PIN*/
             /* Code Response.                                           */
-            printf("\r\nRespond with the command: PINCodeResponse\r\n");
+            BOT_NOTIFY_DEBUG("\r\nRespond with the command: PINCodeResponse\r\n");
             break;
         case DEVM_AUTHENTICATION_ACTION_USER_CONFIRMATION_REQUEST:
-            printf("User Confirmation Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("User Confirmation Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
             /* Note the current Remote BD_ADDR that is requesting the   */
             /* User Confirmation.                                       */
@@ -5804,17 +5616,17 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
                 /* IO Capability that means that we are using numeric   */
                 /* comparison method and the user must enter an input.  */
 
-                printf("User Confirmation: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
+                BOT_NOTIFY_DEBUG("User Confirmation: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
 
                 /* Inform the user that they will need to respond with  */
                 /* a PIN Code Response.                                 */
-                printf("\r\nRespond with the command: UserConfirmationResponse\r\n");
+                BOT_NOTIFY_DEBUG("\r\nRespond with the command: UserConfirmationResponse\r\n");
             }
             else
             {
                 /* Invoke Just works.                                   */
 
-                printf("\r\nAuto Accepting: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
+                BOT_NOTIFY_DEBUG("\r\nAuto Accepting: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
 
                 BTPS_MemInitialize(&AuthenticationResponseInformation, 0, sizeof(AuthenticationResponseInformation));
 
@@ -5831,9 +5643,9 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
                 }
 
                 if ((Result = DEVM_AuthenticationResponse(gatt->GetAuthenticationCallbackID(), &AuthenticationResponseInformation)) >= 0)
-                    printf("DEVM_AuthenticationResponse() Success.\r\n");
+                    BOT_NOTIFY_INFO("DEVM_AuthenticationResponse() Success.\r\n");
                 else
-                    printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                    BOT_NOTIFY_DEBUG("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
 
                 /* Flag that there is no longer a current               */
                 /* Authentication procedure in progress.                */
@@ -5843,7 +5655,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             }
             break;
         case DEVM_AUTHENTICATION_ACTION_PASSKEY_REQUEST:
-            printf("Passkey Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("Passkey Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
             /* Note the current Remote BD_ADDR that is requesting the   */
             /* Passkey.                                                 */
@@ -5852,33 +5664,33 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 
             /* Inform the user that they will need to respond with a    */
             /* Passkey Response.                                        */
-            printf("\r\nRespond with the command: PassKeyResponse\r\n");
+            BOT_NOTIFY_DEBUG("\r\nRespond with the command: PassKeyResponse\r\n");
             break;
         case DEVM_AUTHENTICATION_ACTION_PASSKEY_INDICATION:
-            printf("PassKey Indication %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("PassKey Indication %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
-            printf("PassKey: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
+            BOT_NOTIFY_DEBUG("PassKey: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
             break;
         case DEVM_AUTHENTICATION_ACTION_NUMERIC_COMPARISON_REQUEST:
             /* Flag that this is LE Pairing.                         */
             gatt->SetCurrentLowEnergy(true);
 
-            printf("Numeric Comparison Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("Numeric Comparison Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
-            printf("User Confirmation: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
+            BOT_NOTIFY_DEBUG("User Confirmation: %lu\r\n", (unsigned long)AuthenticationRequestInformation->AuthenticationData.Passkey);
 
             /* Inform the user they will need to respond                */
             /* with a user confirmation response command                */
             /* that will verify the numeric values matches.             */
-            printf("\r\nRespond with the command: UserConfirmationResponse\r\n");
+            BOT_NOTIFY_DEBUG("\r\nRespond with the command: UserConfirmationResponse\r\n");
             break;
         case DEVM_AUTHENTICATION_ACTION_KEYPRESS_INDICATION:
-            printf("mKeypress Indication.\r\n");
+            BOT_NOTIFY_DEBUG("mKeypress Indication.\r\n");
 
-            printf("mKeypress: %d\r\n", (int)AuthenticationRequestInformation->AuthenticationData.Keypress);
+            BOT_NOTIFY_DEBUG("mKeypress: %d\r\n", (int)AuthenticationRequestInformation->AuthenticationData.Keypress);
             break;
         case DEVM_AUTHENTICATION_ACTION_OUT_OF_BAND_DATA_REQUEST:
-            printf("Out of Band Data Request: %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("Out of Band Data Request: %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
             /* This application does not support OOB data so respond    */
             /* with a data length of Zero to force a negative reply.    */
@@ -5910,12 +5722,12 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             }
 
             if ((Result = DEVM_AuthenticationResponse(gatt->GetAuthenticationCallbackID(), &AuthenticationResponseInformation)) >= 0)
-                printf("DEVM_AuthenticationResponse() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_AuthenticationResponse() Success.\r\n");
             else
-                printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_DEBUG("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             break;
         case DEVM_AUTHENTICATION_ACTION_IO_CAPABILITIES_REQUEST:
-            printf("I/O Capability Request: %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
+            BOT_NOTIFY_DEBUG("I/O Capability Request: %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
             /* Note the current Remote BD_ADDR that is requesting the   */
             /* Passkey.                                                 */
@@ -5953,39 +5765,39 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             }
 
             if ((Result = DEVM_AuthenticationResponse(gatt->GetAuthenticationCallbackID(), &AuthenticationResponseInformation)) >= 0)
-                printf("DEVM_AuthenticationResponse() Success.\r\n");
+                BOT_NOTIFY_INFO("DEVM_AuthenticationResponse() Success.\r\n");
             else
-                printf("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_DEBUG("DEVM_AuthenticationResponse() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
             break;
         case DEVM_AUTHENTICATION_ACTION_IO_CAPABILITIES_RESPONSE:
-            printf("I/O Capability Response.\r\n");
+            BOT_NOTIFY_DEBUG("I/O Capability Response.\r\n");
 
             /* Inform the user of the Remote I/O Capablities.           */
-            printf("Remote I/O Capabilities: %s, MITM Protection: %s.\r\n", IOCapabilitiesStrings[AuthenticationRequestInformation->AuthenticationData.IOCapabilities.IO_Capability], AuthenticationRequestInformation->AuthenticationData.IOCapabilities.MITM_Protection_Required?"true":"false");
+            BOT_NOTIFY_DEBUG("Remote I/O Capabilities: %s, MITM Protection: %s.\r\n", GattSrv::IOCapabilitiesStrings[AuthenticationRequestInformation->AuthenticationData.IOCapabilities.IO_Capability], AuthenticationRequestInformation->AuthenticationData.IOCapabilities.MITM_Protection_Required?"true":"false");
             break;
         case DEVM_AUTHENTICATION_ACTION_AUTHENTICATION_STATUS_RESULT:
-            printf("Authentication Status: .\r\n");
+            BOT_NOTIFY_DEBUG("Authentication Status: .\r\n");
 
-            printf("Status: %d\r\n", AuthenticationRequestInformation->AuthenticationData.AuthenticationStatus);
+            BOT_NOTIFY_DEBUG("Status: %d\r\n", AuthenticationRequestInformation->AuthenticationData.AuthenticationStatus);
             break;
         case DEVM_AUTHENTICATION_ACTION_AUTHENTICATION_START:
-            printf("Authentication Start.\r\n");
+            BOT_NOTIFY_DEBUG("Authentication Start.\r\n");
             break;
         case DEVM_AUTHENTICATION_ACTION_AUTHENTICATION_END:
-            printf("Authentication End.\r\n");
+            BOT_NOTIFY_DEBUG("Authentication End.\r\n");
             break;
         default:
-            printf("Unknown Device Manager Authentication Event Received: 0x%08X, Length: 0x%08X.\r\n", (unsigned int)AuthenticationRequestInformation->AuthenticationAction, AuthenticationRequestInformation->AuthenticationDataLength);
+            BOT_NOTIFY_DEBUG("Unknown Device Manager Authentication Event Received: 0x%08X, Length: 0x%08X.\r\n", (unsigned int)AuthenticationRequestInformation->AuthenticationAction, AuthenticationRequestInformation->AuthenticationDataLength);
             break;
         }
     }
     else
-        printf("\r\nDEVM Authentication Request Data is NULL.\r\n");
-
-    printf("GATM>");
+        BOT_NOTIFY_DEBUG("\r\nDEVM Authentication Request Data is NULL.\r\n");
 
     /* Make sure the output is displayed to the user.                    */
+#ifdef TEST_CONSOLE_WRITE
     fflush(stdout);
+#endif
 }
 
 /* The following function is the GATM Event Callback function that is*/
@@ -6002,78 +5814,78 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
         {
         /* GATM Connection Events.                                     */
         case getGATTConnected:
-            printf("\r\nGATT Connection Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Connection Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.ConnectedEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type: %s\r\n", (EventData->EventData.ConnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:  %s\r\n", Buffer);
-            printf("    MTU:             %u\r\n", EventData->EventData.ConnectedEventData.MTU);
+            BOT_NOTIFY_DEBUG("    Connection Type: %s\r\n", (EventData->EventData.ConnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:  %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    MTU:             %u\r\n", EventData->EventData.ConnectedEventData.MTU);
             break;
         case getGATTDisconnected:
-            printf("\r\nGATT Disconnect Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Disconnect Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.DisconnectedEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type: %s\r\n", (EventData->EventData.DisconnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:  %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Connection Type: %s\r\n", (EventData->EventData.DisconnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:  %s\r\n", Buffer);
             break;
         case getGATTConnectionMTUUpdate:
-            printf("\r\nGATT Connection MTU Update Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Connection MTU Update Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.ConnectionMTUUpdateEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type: %s\r\n", (EventData->EventData.ConnectionMTUUpdateEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:  %s\r\n", Buffer);
-            printf("    New MTU:         %u\r\n", EventData->EventData.ConnectionMTUUpdateEventData.MTU);
+            BOT_NOTIFY_DEBUG("    Connection Type: %s\r\n", (EventData->EventData.ConnectionMTUUpdateEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:  %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    New MTU:         %u\r\n", EventData->EventData.ConnectionMTUUpdateEventData.MTU);
             break;
         case getGATTHandleValueData:
-            printf("\r\nGATT Handle Value Data Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Handle Value Data Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.HandleValueDataEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:  %s\r\n", (EventData->EventData.HandleValueDataEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:   %s\r\n", Buffer);
-            printf("    Type:             %s\r\n", (EventData->EventData.HandleValueDataEventData.HandleValueIndication?"Indication":"Notification"));
-            printf("    Attribute Handle: 0x%04X (%u)\r\n", EventData->EventData.HandleValueDataEventData.AttributeHandle, EventData->EventData.HandleValueDataEventData.AttributeHandle);
-            printf("    Value Length:     %u\r\n", EventData->EventData.HandleValueDataEventData.AttributeValueLength);
-            printf("    Value:            \r\n");
+            BOT_NOTIFY_DEBUG("    Connection Type:  %s\r\n", (EventData->EventData.HandleValueDataEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:   %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Type:             %s\r\n", (EventData->EventData.HandleValueDataEventData.HandleValueIndication?"Indication":"Notification"));
+            BOT_NOTIFY_DEBUG("    Attribute Handle: 0x%04X (%u)\r\n", EventData->EventData.HandleValueDataEventData.AttributeHandle, EventData->EventData.HandleValueDataEventData.AttributeHandle);
+            BOT_NOTIFY_DEBUG("    Value Length:     %u\r\n", EventData->EventData.HandleValueDataEventData.AttributeValueLength);
+            BOT_NOTIFY_DEBUG("    Value:            \r\n");
             gatt->DumpData(false, EventData->EventData.HandleValueDataEventData.AttributeValueLength, EventData->EventData.HandleValueDataEventData.AttributeValue);
             break;
 
             /* GATM Server Events.                                         */
         case getGATTWriteRequest:
-            printf("\r\nGATT Write Request Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Write Request Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.WriteRequestData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:  %s\r\n", (EventData->EventData.WriteRequestData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:   %s\r\n", Buffer);
-            printf("    Service ID:       %u\r\n", EventData->EventData.WriteRequestData.ServiceID);
-            printf("    Request ID:       %u\r\n", EventData->EventData.WriteRequestData.RequestID);
-            printf("    Attribute Offset: %u\r\n", EventData->EventData.WriteRequestData.AttributeOffset);
-            printf("    Data Length:      %u\r\n", EventData->EventData.WriteRequestData.DataLength);
-            printf("    Value:            \r\n");
+            BOT_NOTIFY_DEBUG("    Connection Type:  %s\r\n", (EventData->EventData.WriteRequestData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:   %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:       %u\r\n", EventData->EventData.WriteRequestData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Request ID:       %u\r\n", EventData->EventData.WriteRequestData.RequestID);
+            BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.WriteRequestData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Data Length:      %u\r\n", EventData->EventData.WriteRequestData.DataLength);
+            BOT_NOTIFY_DEBUG("    Value:            \r\n");
             gatt->DumpData(false, EventData->EventData.WriteRequestData.DataLength, EventData->EventData.WriteRequestData.Data);
-            printf("\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
 
             /* Go ahead and process the Write Request.                  */
             gatt->ProcessWriteRequestEvent(&(EventData->EventData.WriteRequestData));
             break;
         case getGATTSignedWrite:
-            printf("\r\nGATT Signed Write Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Signed Write Event\r\n");
 
            gatt-> BD_ADDRToStr(EventData->EventData.SignedWriteData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:  %s\r\n", (EventData->EventData.SignedWriteData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:   %s\r\n", Buffer);
-            printf("    Service ID:       %u\r\n", EventData->EventData.SignedWriteData.ServiceID);
-            printf("    Signature:        %s\r\n", (EventData->EventData.SignedWriteData.ValidSignature?"VALID":"INVALID"));
-            printf("    Attribute Offset: %u\r\n", EventData->EventData.SignedWriteData.AttributeOffset);
-            printf("    Data Length:      %u\r\n", EventData->EventData.SignedWriteData.DataLength);
-            printf("    Value:            \r\n");
+            BOT_NOTIFY_DEBUG("    Connection Type:  %s\r\n", (EventData->EventData.SignedWriteData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:   %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:       %u\r\n", EventData->EventData.SignedWriteData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Signature:        %s\r\n", (EventData->EventData.SignedWriteData.ValidSignature?"VALID":"INVALID"));
+            BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.SignedWriteData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Data Length:      %u\r\n", EventData->EventData.SignedWriteData.DataLength);
+            BOT_NOTIFY_DEBUG("    Value:            \r\n");
             gatt->DumpData(false, EventData->EventData.SignedWriteData.DataLength, EventData->EventData.SignedWriteData.Data);
-            printf("\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
 
             /* If the signature is valid go ahead and process the signed*/
             /* write command.                                           */
@@ -6081,78 +5893,78 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
                 gatt->ProcessSignedWriteEvent(&(EventData->EventData.SignedWriteData));
             break;
         case getGATTReadRequest:
-            printf("\r\nGATT Read Request Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Read Request Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.ReadRequestData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:        %s\r\n", (EventData->EventData.ReadRequestData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:         %s\r\n", Buffer);
-            printf("    Service ID:             %u\r\n", EventData->EventData.ReadRequestData.ServiceID);
-            printf("    Request ID:             %u\r\n", EventData->EventData.ReadRequestData.RequestID);
-            printf("    Attribute Offset:       %u\r\n", EventData->EventData.ReadRequestData.AttributeOffset);
-            printf("    Attribute Value Offset: %u\r\n", EventData->EventData.ReadRequestData.AttributeValueOffset);
+            BOT_NOTIFY_DEBUG("    Connection Type:        %s\r\n", (EventData->EventData.ReadRequestData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:         %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:             %u\r\n", EventData->EventData.ReadRequestData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Request ID:             %u\r\n", EventData->EventData.ReadRequestData.RequestID);
+            BOT_NOTIFY_DEBUG("    Attribute Offset:       %u\r\n", EventData->EventData.ReadRequestData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Attribute Value Offset: %u\r\n", EventData->EventData.ReadRequestData.AttributeValueOffset);
 
             /* Go ahead and process the Read Request.                   */
             gatt->ProcessReadRequestEvent(&(EventData->EventData.ReadRequestData));
             break;
         case getGATTPrepareWriteRequest:
-            printf("\r\nGATT Prepare Write Request Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Prepare Write Request Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.PrepareWriteRequestEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:        %s\r\n", (EventData->EventData.PrepareWriteRequestEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:         %s\r\n", Buffer);
-            printf("    Service ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.ServiceID);
-            printf("    Request ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.RequestID);
-            printf("    Attribute Offset:       %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeOffset);
-            printf("    Attribute Value Offset: %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeValueOffset);
-            printf("    Data Length:            %u\r\n", EventData->EventData.PrepareWriteRequestEventData.DataLength);
-            printf("    Value:                  \r\n");
+            BOT_NOTIFY_DEBUG("    Connection Type:        %s\r\n", (EventData->EventData.PrepareWriteRequestEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:         %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Request ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.RequestID);
+            BOT_NOTIFY_DEBUG("    Attribute Offset:       %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Attribute Value Offset: %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeValueOffset);
+            BOT_NOTIFY_DEBUG("    Data Length:            %u\r\n", EventData->EventData.PrepareWriteRequestEventData.DataLength);
+            BOT_NOTIFY_DEBUG("    Value:                  \r\n");
             gatt->DumpData(false, EventData->EventData.PrepareWriteRequestEventData.DataLength, EventData->EventData.PrepareWriteRequestEventData.Data);
-            printf("\r\n");
+            BOT_NOTIFY_DEBUG("\r\n");
 
             /* Go ahead and process the Prepare Write Request.          */
             gatt->ProcessPrepareWriteRequestEvent(&(EventData->EventData.PrepareWriteRequestEventData));
             break;
         case getGATTCommitPrepareWrite:
-            printf("\r\nGATT Commit Prepare Write Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Commit Prepare Write Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.CommitPrepareWriteEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:        %s\r\n", (EventData->EventData.CommitPrepareWriteEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:         %s\r\n", Buffer);
-            printf("    Service ID:             %u\r\n", EventData->EventData.CommitPrepareWriteEventData.ServiceID);
-            printf("    Commit Writes?:         %s\r\n", (EventData->EventData.CommitPrepareWriteEventData.CommitWrites?"YES":"NO"));
+            BOT_NOTIFY_DEBUG("    Connection Type:        %s\r\n", (EventData->EventData.CommitPrepareWriteEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:         %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:             %u\r\n", EventData->EventData.CommitPrepareWriteEventData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Commit Writes?:         %s\r\n", (EventData->EventData.CommitPrepareWriteEventData.CommitWrites?"YES":"NO"));
 
             /* Go ahead and process the Execute Write Request.          */
             gatt->ProcessCommitPrepareWriteEvent(&(EventData->EventData.CommitPrepareWriteEventData));
             break;
         case getGATTHandleValueConfirmation:
-            printf("\r\nGATT Handle-Value Confirmation Event\r\n");
+            BOT_NOTIFY_DEBUG("\r\nGATT Handle-Value Confirmation Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.HandleValueConfirmationEventData.RemoteDeviceAddress, Buffer);
 
-            printf("    Connection Type:  %s\r\n", (EventData->EventData.HandleValueConfirmationEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
-            printf("    Remote Address:   %s\r\n", Buffer);
-            printf("    Service ID:       %u\r\n", EventData->EventData.HandleValueConfirmationEventData.ServiceID);
-            printf("    Request ID:       %u\r\n", EventData->EventData.HandleValueConfirmationEventData.TransactionID);
-            printf("    Attribute Offset: %u\r\n", EventData->EventData.HandleValueConfirmationEventData.AttributeOffset);
-            printf("    Status:           %u\r\n", EventData->EventData.HandleValueConfirmationEventData.Status);
+            BOT_NOTIFY_DEBUG("    Connection Type:  %s\r\n", (EventData->EventData.HandleValueConfirmationEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
+            BOT_NOTIFY_DEBUG("    Remote Address:   %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("    Service ID:       %u\r\n", EventData->EventData.HandleValueConfirmationEventData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Request ID:       %u\r\n", EventData->EventData.HandleValueConfirmationEventData.TransactionID);
+            BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.HandleValueConfirmationEventData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Status:           %u\r\n", EventData->EventData.HandleValueConfirmationEventData.Status);
             break;
         default:
-            printf("\r\nUnhandled event.\r\n");
+            BOT_NOTIFY_DEBUG("\r\nUnhandled event.\r\n");
             break;
         }
 
         puts("\r\n");
     }
     else
-        printf("\r\nGATM Event Data is NULL.\r\n");
-
-    printf("GATM>");
+        BOT_NOTIFY_DEBUG("\r\nGATM Event Data is NULL.\r\n");
 
     /* Make sure the output is displayed to the user.                    */
+#ifdef TEST_CONSOLE_WRITE
     fflush(stdout);
+#endif
 }
 
 /////////////////////////////// Helper funtions ///////////////////////////////////
@@ -6175,18 +5987,18 @@ void GattSrv::DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_
         {
             BD_ADDRToStr(LocalDeviceProperties->BD_ADDR, Buffer);
 
-            printf("BD_ADDR:      %s\r\n", Buffer);
-            printf("HCI Ver:      0x%04X\r\n", (Word_t)LocalDeviceProperties->HCIVersion);
-            printf("HCI Rev:      0x%04X\r\n", (Word_t)LocalDeviceProperties->HCIRevision);
-            printf("LMP Ver:      0x%04X\r\n", (Word_t)LocalDeviceProperties->LMPVersion);
-            printf("LMP Sub Ver:  0x%04X\r\n", (Word_t)LocalDeviceProperties->LMPSubVersion);
-            printf("Device Man:   0x%04X (%s)\r\n", (Word_t)LocalDeviceProperties->DeviceManufacturer, DEVM_ConvertManufacturerNameToString(LocalDeviceProperties->DeviceManufacturer));
-            printf("Device Flags: 0x%08lX\r\n", LocalDeviceProperties->LocalDeviceFlags);
+            BOT_NOTIFY_DEBUG("BD_ADDR:      %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("HCI Ver:      0x%04X\r\n", (Word_t)LocalDeviceProperties->HCIVersion);
+            BOT_NOTIFY_DEBUG("HCI Rev:      0x%04X\r\n", (Word_t)LocalDeviceProperties->HCIRevision);
+            BOT_NOTIFY_DEBUG("LMP Ver:      0x%04X\r\n", (Word_t)LocalDeviceProperties->LMPVersion);
+            BOT_NOTIFY_DEBUG("LMP Sub Ver:  0x%04X\r\n", (Word_t)LocalDeviceProperties->LMPSubVersion);
+            BOT_NOTIFY_DEBUG("Device Man:   0x%04X (%s)\r\n", (Word_t)LocalDeviceProperties->DeviceManufacturer, DEVM_ConvertManufacturerNameToString(LocalDeviceProperties->DeviceManufacturer));
+            BOT_NOTIFY_DEBUG("Device Flags: 0x%08lX\r\n", LocalDeviceProperties->LocalDeviceFlags);
         }
         else
         {
             if (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DEVICE_FLAGS)
-                printf("Device Flags: 0x%08lX\r\n", LocalDeviceProperties->LocalDeviceFlags);
+                BOT_NOTIFY_DEBUG("Device Flags: 0x%08lX\r\n", LocalDeviceProperties->LocalDeviceFlags);
         }
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_BLE_ADDRESS))
@@ -6194,43 +6006,43 @@ void GattSrv::DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_
             switch(LocalDeviceProperties->BLEAddressType)
             {
             case atPublic:
-                printf("BLE Address Type: %s\r\n", "Public");
+                BOT_NOTIFY_DEBUG("BLE Address Type: %s\r\n", "Public");
                 break;
             case atStatic:
-                printf("BLE Address Type: %s\r\n", "Static");
+                BOT_NOTIFY_DEBUG("BLE Address Type: %s\r\n", "Static");
                 break;
             case atPrivate_Resolvable:
-                printf("BLE Address Type: %s\r\n", "Resolvable Random");
+                BOT_NOTIFY_DEBUG("BLE Address Type: %s\r\n", "Resolvable Random");
                 break;
             case atPrivate_NonResolvable:
-                printf("BLE Address Type: %s\r\n", "Non-Resolvable Random");
+                BOT_NOTIFY_DEBUG("BLE Address Type: %s\r\n", "Non-Resolvable Random");
                 break;
             }
 
             BD_ADDRToStr(LocalDeviceProperties->BLEBD_ADDR, Buffer);
 
-            printf("BLE BD_ADDR:      %s\r\n", Buffer);
+            BOT_NOTIFY_DEBUG("BLE BD_ADDR:      %s\r\n", Buffer);
         }
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_CLASS_OF_DEVICE))
-            printf("COD:          0x%02X%02X%02X\r\n", LocalDeviceProperties->ClassOfDevice.Class_of_Device0, LocalDeviceProperties->ClassOfDevice.Class_of_Device1, LocalDeviceProperties->ClassOfDevice.Class_of_Device2);
+            BOT_NOTIFY_DEBUG("COD:          0x%02X%02X%02X\r\n", LocalDeviceProperties->ClassOfDevice.Class_of_Device0, LocalDeviceProperties->ClassOfDevice.Class_of_Device1, LocalDeviceProperties->ClassOfDevice.Class_of_Device2);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DEVICE_NAME))
-            printf("Device Name:  %s\r\n", (LocalDeviceProperties->DeviceNameLength)?LocalDeviceProperties->DeviceName:"");
+            BOT_NOTIFY_DEBUG("Device Name:  %s\r\n", (LocalDeviceProperties->DeviceNameLength)?LocalDeviceProperties->DeviceName:"");
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DISCOVERABLE_MODE))
-            printf("Disc. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->DiscoverableMode?"true ":"false", LocalDeviceProperties->DiscoverableModeTimeout);
+            BOT_NOTIFY_DEBUG("Disc. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->DiscoverableMode?"true ":"false", LocalDeviceProperties->DiscoverableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_CONNECTABLE_MODE))
-            printf("Conn. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->ConnectableMode?"true ":"false", LocalDeviceProperties->ConnectableModeTimeout);
+            BOT_NOTIFY_DEBUG("Conn. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->ConnectableMode?"true ":"false", LocalDeviceProperties->ConnectableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_PAIRABLE_MODE))
-            printf("Pair. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->PairableMode?"true ":"false", LocalDeviceProperties->PairableModeTimeout);
+            BOT_NOTIFY_DEBUG("Pair. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->PairableMode?"true ":"false", LocalDeviceProperties->PairableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DEVICE_FLAGS))
         {
-            printf("LE Scan Mode:    %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_SCANNING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->ScanTimeout);
-            printf("LE Adv Mode:     %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_ADVERTISING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->AdvertisingTimeout);
+            BOT_NOTIFY_DEBUG("LE Scan Mode:    %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_SCANNING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->ScanTimeout);
+            BOT_NOTIFY_DEBUG("LE Adv Mode:     %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_ADVERTISING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->AdvertisingTimeout);
         }
     }
 }
@@ -6255,7 +6067,7 @@ void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remot
         SingleMode = (LEFlags == DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SUPPORTS_LOW_ENERGY);
 
         /* Print the BR/EDR + LE Common Information.                      */
-        printf("BD_ADDR:             %s\r\n", Buffer);
+        BOT_NOTIFY_DEBUG("BD_ADDR:             %s\r\n", Buffer);
 
         if (LEFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SUPPORTS_LOW_ENERGY)
         {
@@ -6264,28 +6076,28 @@ void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remot
             {
             default:
             case atPublic:
-                printf("Address Type:        %s\r\n", "Public");
+                BOT_NOTIFY_DEBUG("Address Type:        %s\r\n", "Public");
                 break;
             case atStatic:
-                printf("Address Type:        %s\r\n", "Static");
+                BOT_NOTIFY_DEBUG("Address Type:        %s\r\n", "Static");
                 break;
             case atPrivate_Resolvable:
-                printf("Address Type:        %s\r\n", "Resolvable Random Address.");
+                BOT_NOTIFY_DEBUG("Address Type:        %s\r\n", "Resolvable Random Address.");
                 break;
             case atPrivate_NonResolvable:
-                printf("Address Type:        %s\r\n", "Non-resolvable Random Address.");
+                BOT_NOTIFY_DEBUG("Address Type:        %s\r\n", "Non-resolvable Random Address.");
                 break;
             }
         }
 
         if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_DEVICE_NAME))
-            printf("Device Name:         %s\r\n", (RemoteDeviceProperties->DeviceNameLength)?RemoteDeviceProperties->DeviceName:"");
+            BOT_NOTIFY_DEBUG("Device Name:         %s\r\n", (RemoteDeviceProperties->DeviceNameLength)?RemoteDeviceProperties->DeviceName:"");
 
         if (LEFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SUPPORTS_LOW_ENERGY)
-            printf("LE Type:             %s\r\n", (!SingleMode)?"Dual Mode":"Single Mode");
+            BOT_NOTIFY_DEBUG("LE Type:             %s\r\n", (!SingleMode)?"Dual Mode":"Single Mode");
 
         if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_DEVICE_FLAGS))
-            printf("Device Flags:        0x%08lX\r\n", RemoteDeviceProperties->RemoteDeviceFlags);
+            BOT_NOTIFY_DEBUG("Device Flags:        0x%08lX\r\n", RemoteDeviceProperties->RemoteDeviceFlags);
 
         /* Print the LE Information.                                      */
         if (LEFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SUPPORTS_LOW_ENERGY)
@@ -6293,69 +6105,69 @@ void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remot
             if (((!UpdateMask) && (!COMPARE_NULL_BD_ADDR(RemoteDeviceProperties->PriorResolvableBD_ADDR))) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_PRIOR_RESOLVABLE_ADDRESS))
             {
                 BD_ADDRToStr(RemoteDeviceProperties->PriorResolvableBD_ADDR, Buffer);
-                printf("Resolv. BD_ADDR:     %s\r\n\r\n", Buffer);
+                BOT_NOTIFY_DEBUG("Resolv. BD_ADDR:     %s\r\n\r\n", Buffer);
             }
 
             if (((!UpdateMask) && (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_APPEARANCE_KNOWN)) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_DEVICE_APPEARANCE))
-                printf("Device Appearance:   %u\r\n", RemoteDeviceProperties->DeviceAppearance);
+                BOT_NOTIFY_DEBUG("Device Appearance:   %u\r\n", RemoteDeviceProperties->DeviceAppearance);
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_RSSI))
-                printf("LE RSSI:             %d\r\n", RemoteDeviceProperties->LE_RSSI);
+                BOT_NOTIFY_DEBUG("LE RSSI:             %d\r\n", RemoteDeviceProperties->LE_RSSI);
 
             if ((!UpdateMask) && (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_TX_POWER_KNOWN))
-                printf("LE Trans. Power:     %d\r\n", RemoteDeviceProperties->LETransmitPower);
+                BOT_NOTIFY_DEBUG("LE Trans. Power:     %d\r\n", RemoteDeviceProperties->LETransmitPower);
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_PAIRING_STATE))
-                printf("LE Paired State :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED_OVER_LE)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Paired State :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED_OVER_LE)?"true":"false");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_CONNECTION_STATE))
-                printf("LE Connect State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED_OVER_LE)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Connect State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED_OVER_LE)?"true":"false");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_ENCRYPTION_STATE))
-                printf("LE Encrypt State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Encrypt State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_SERVICES_STATE))
-                printf("GATT Services Known: %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_SERVICES_KNOWN)?"true":"false");
+                BOT_NOTIFY_DEBUG("GATT Services Known: %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_SERVICES_KNOWN)?"true":"false");
         }
 
         /* Print the BR/EDR Only information.                             */
         if (!SingleMode)
         {
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_RSSI))
-                printf("RSSI:                %d\r\n", RemoteDeviceProperties->RSSI);
+                BOT_NOTIFY_DEBUG("RSSI:                %d\r\n", RemoteDeviceProperties->RSSI);
 
             if ((!UpdateMask) && (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_TX_POWER_KNOWN))
-                printf("Trans. Power:        %d\r\n", RemoteDeviceProperties->TransmitPower);
+                BOT_NOTIFY_DEBUG("Trans. Power:        %d\r\n", RemoteDeviceProperties->TransmitPower);
 
             if (((!UpdateMask) || ((UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_APPLICATION_DATA) && (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_APPLICATION_DATA_VALID))))
             {
-                printf("Friendly Name:       %s\r\n", (RemoteDeviceProperties->ApplicationData.FriendlyNameLength)?RemoteDeviceProperties->ApplicationData.FriendlyName:"");
+                BOT_NOTIFY_DEBUG("Friendly Name:       %s\r\n", (RemoteDeviceProperties->ApplicationData.FriendlyNameLength)?RemoteDeviceProperties->ApplicationData.FriendlyName:"");
 
-                printf("App. Info:   :       %08lX\r\n", RemoteDeviceProperties->ApplicationData.ApplicationInfo);
+                BOT_NOTIFY_DEBUG("App. Info:   :       %08lX\r\n", RemoteDeviceProperties->ApplicationData.ApplicationInfo);
             }
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_PAIRING_STATE))
-                printf("Paired State :       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Paired State :       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED)?"true":"false");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_CONNECTION_STATE))
-                printf("Connect State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Connect State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED)?"true":"false");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_ENCRYPTION_STATE))
-                printf("Encrypt State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Encrypt State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
 
             if (((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_SNIFF_STATE)))
             {
                 if (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_SNIFF_MODE)
-                    printf("Sniff State  :       true (%u ms)\r\n", RemoteDeviceProperties->SniffInterval);
+                    BOT_NOTIFY_DEBUG("Sniff State  :       true (%u ms)\r\n", RemoteDeviceProperties->SniffInterval);
                 else
-                    printf("Sniff State  :       false\r\n");
+                    BOT_NOTIFY_DEBUG("Sniff State  :       false\r\n");
             }
 
             if (((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_CLASS_OF_DEVICE)))
-                printf("COD:                 0x%02X%02X%02X\r\n", RemoteDeviceProperties->ClassOfDevice.Class_of_Device0, RemoteDeviceProperties->ClassOfDevice.Class_of_Device1, RemoteDeviceProperties->ClassOfDevice.Class_of_Device2);
+                BOT_NOTIFY_DEBUG("COD:                 0x%02X%02X%02X\r\n", RemoteDeviceProperties->ClassOfDevice.Class_of_Device0, RemoteDeviceProperties->ClassOfDevice.Class_of_Device1, RemoteDeviceProperties->ClassOfDevice.Class_of_Device2);
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_SERVICES_STATE))
-                printf("SDP Serv. Known :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SERVICES_KNOWN)?"true":"false");
+                BOT_NOTIFY_DEBUG("SDP Serv. Known :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SERVICES_KNOWN)?"true":"false");
         }
     }
 }
@@ -6370,19 +6182,19 @@ void GattSrv::DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned in
         {
         case guUUID_16:
         {
-            printf("%*s %s: %02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix, UUID->UUID.UUID_16.UUID_Byte1, UUID->UUID.UUID_16.UUID_Byte0);
+            BOT_NOTIFY_DEBUG("%*s %s: %02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix, UUID->UUID.UUID_16.UUID_Byte1, UUID->UUID.UUID_16.UUID_Byte0);
             break;
         }
         case guUUID_32:
         {
-            printf("%*s %s: %02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix,
+            BOT_NOTIFY_DEBUG("%*s %s: %02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix,
                    UUID->UUID.UUID_128.UUID_Byte3,  UUID->UUID.UUID_128.UUID_Byte2,
                    UUID->UUID.UUID_128.UUID_Byte1,  UUID->UUID.UUID_128.UUID_Byte0);
             break;
         }
         case guUUID_128:
         {
-            printf("%*s %s: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix,
+            BOT_NOTIFY_DEBUG("%*s %s: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", Prefix,
                    UUID->UUID.UUID_128.UUID_Byte15, UUID->UUID.UUID_128.UUID_Byte14, UUID->UUID.UUID_128.UUID_Byte13,
                    UUID->UUID.UUID_128.UUID_Byte12, UUID->UUID.UUID_128.UUID_Byte11, UUID->UUID.UUID_128.UUID_Byte10,
                    UUID->UUID.UUID_128.UUID_Byte9,  UUID->UUID.UUID_128.UUID_Byte8,  UUID->UUID.UUID_128.UUID_Byte7,
@@ -6407,14 +6219,14 @@ void GattSrv::DisplayParsedGATTServiceData(DEVM_Parsed_Services_Data_t *ParsedGA
     if (ParsedGATTData)
     {
         /* Print the number of GATT Services in the Record.               */
-        printf("Number of Services: %u\r\n", ParsedGATTData->NumberServices);
+        BOT_NOTIFY_DEBUG("Number of Services: %u\r\n", ParsedGATTData->NumberServices);
 
         for (Index=0;Index<ParsedGATTData->NumberServices;Index++)
         {
             DisplayGATTUUID(&(ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.UUID), "Service UUID", 0);
 
-            printf("%*s Start Handle: 0x%04X (%d)\r\n", (1*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.Service_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.Service_Handle);
-            printf("%*s End Handle:   0x%04X (%d)\r\n", (1*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.End_Group_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.End_Group_Handle);
+            BOT_NOTIFY_DEBUG("%*s Start Handle: 0x%04X (%d)\r\n", (1*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.Service_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.Service_Handle);
+            BOT_NOTIFY_DEBUG("%*s End Handle:   0x%04X (%d)\r\n", (1*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.End_Group_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].ServiceInformation.End_Group_Handle);
 
             /* Check to see if there are included services.                */
             if (ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].NumberOfIncludedService)
@@ -6423,9 +6235,9 @@ void GattSrv::DisplayParsedGATTServiceData(DEVM_Parsed_Services_Data_t *ParsedGA
                 {
                     DisplayGATTUUID(&(ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].UUID), "Included Service UUID", 2);
 
-                    printf("%*s Start Handle: 0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].Service_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].Service_Handle);
-                    printf("%*s End Handle:   0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].End_Group_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].End_Group_Handle);
-                    printf("\r\n");
+                    BOT_NOTIFY_DEBUG("%*s Start Handle: 0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].Service_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].Service_Handle);
+                    BOT_NOTIFY_DEBUG("%*s End Handle:   0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].End_Group_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].IncludedServiceList[Index1].End_Group_Handle);
+                    BOT_NOTIFY_DEBUG("\r\n");
                 }
             }
 
@@ -6436,27 +6248,27 @@ void GattSrv::DisplayParsedGATTServiceData(DEVM_Parsed_Services_Data_t *ParsedGA
                 {
                     DisplayGATTUUID(&(ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_UUID), "Characteristic UUID", 2);
 
-                    printf("%*s Handle:     0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Handle);
-                    printf("%*s Properties: 0x%02X\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Properties);
+                    BOT_NOTIFY_DEBUG("%*s Handle:     0x%04X (%d)\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Handle);
+                    BOT_NOTIFY_DEBUG("%*s Properties: 0x%02X\r\n", (2*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].Characteristic_Properties);
 
                     /* Loop through the descriptors for this characteristic. */
                     for (Index2=0;Index2<ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].NumberOfDescriptors;Index2++)
                     {
                         if (Index2==0)
-                            printf("\r\n");
+                            BOT_NOTIFY_DEBUG("\r\n");
 
                         DisplayGATTUUID(&(ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].DescriptorList[Index2].Characteristic_Descriptor_UUID), "Descriptor UUID", 3);
-                        printf("%*s Handle:     0x%04X (%d)\r\n", (3*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].DescriptorList[Index2].Characteristic_Descriptor_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].DescriptorList[Index2].Characteristic_Descriptor_Handle);
+                        BOT_NOTIFY_DEBUG("%*s Handle:     0x%04X (%d)\r\n", (3*INDENT_LENGTH), "", ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].DescriptorList[Index2].Characteristic_Descriptor_Handle, ParsedGATTData->GATTServiceDiscoveryIndicationData[Index].CharacteristicInformationList[Index1].DescriptorList[Index2].Characteristic_Descriptor_Handle);
                     }
 
                     if (Index2>0)
-                        printf("\r\n");
+                        BOT_NOTIFY_DEBUG("\r\n");
                 }
             }
         }
     }
     else
-        printf("No GATT Service Records Found.\r\n");
+        BOT_NOTIFY_DEBUG("No GATT Service Records Found.\r\n");
 }
 
 /* The following function is responsible for displaying the contents */
@@ -6473,7 +6285,7 @@ void GattSrv::DisplayParsedSDPServiceData(DEVM_Parsed_SDP_Data_t *ParsedSDPData)
         {
             /* First display the number of SDP Service Records we are      */
             /* currently processing.                                       */
-            printf("Service Record: %u:\r\n", (Index + 1));
+            BOT_NOTIFY_DEBUG("Service Record: %u:\r\n", (Index + 1));
 
             /* Call Display SDPAttributeResponse for all SDP Service       */
             /* Records received.                                           */
@@ -6481,7 +6293,7 @@ void GattSrv::DisplayParsedSDPServiceData(DEVM_Parsed_SDP_Data_t *ParsedSDPData)
         }
     }
     else
-        printf("No SDP Service Records Found.\r\n");
+        BOT_NOTIFY_DEBUG("No SDP Service Records Found.\r\n");
 }
 
 /* The following function is responsible for Displaying the contents */
@@ -6497,7 +6309,7 @@ void GattSrv::DisplaySDPAttributeResponse(SDP_Service_Attribute_Response_Data_t 
         for (Index = 0; Index < SDPServiceAttributeResponse->Number_Attribute_Values; Index++)
         {
             /* First Print the Attribute ID that was returned.             */
-            printf("%*s Attribute ID 0x%04X\r\n", (InitLevel*INDENT_LENGTH), "", SDPServiceAttributeResponse->SDP_Service_Attribute_Value_Data[Index].Attribute_ID);
+            BOT_NOTIFY_DEBUG("%*s Attribute ID 0x%04X\r\n", (InitLevel*INDENT_LENGTH), "", SDPServiceAttributeResponse->SDP_Service_Attribute_Value_Data[Index].Attribute_ID);
 
             /* Now Print out all of the SDP Data Elements that were        */
             /* returned that are associated with the SDP Attribute.        */
@@ -6505,7 +6317,7 @@ void GattSrv::DisplaySDPAttributeResponse(SDP_Service_Attribute_Response_Data_t 
         }
     }
     else
-        printf("No SDP Attributes Found.\r\n");
+        BOT_NOTIFY_DEBUG("No SDP Attributes Found.\r\n");
 }
 
 /* The following function is responsible for actually displaying an  */
@@ -6525,27 +6337,27 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
     {
     case deNIL:
         /* Display the NIL Type.                                       */
-        printf("%*s Type: NIL\r\n", (Level*INDENT_LENGTH), "");
+        BOT_NOTIFY_DEBUG("%*s Type: NIL\r\n", (Level*INDENT_LENGTH), "");
         break;
     case deNULL:
         /* Display the NULL Type.                                      */
-        printf("%*s Type: NULL\r\n", (Level*INDENT_LENGTH), "");
+        BOT_NOTIFY_DEBUG("%*s Type: NULL\r\n", (Level*INDENT_LENGTH), "");
         break;
     case deUnsignedInteger1Byte:
         /* Display the Unsigned Integer (1 Byte) Type.                 */
-        printf("%*s Type: Unsigned Int = 0x%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger1Byte);
+        BOT_NOTIFY_DEBUG("%*s Type: Unsigned Int = 0x%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger1Byte);
         break;
     case deUnsignedInteger2Bytes:
         /* Display the Unsigned Integer (2 Bytes) Type.                */
-        printf("%*s Type: Unsigned Int = 0x%04X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger2Bytes);
+        BOT_NOTIFY_DEBUG("%*s Type: Unsigned Int = 0x%04X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger2Bytes);
         break;
     case deUnsignedInteger4Bytes:
         /* Display the Unsigned Integer (4 Bytes) Type.                */
-        printf("%*s Type: Unsigned Int = 0x%08X\r\n", (Level*INDENT_LENGTH), "", (unsigned int)SDPDataElement->SDP_Data_Element.UnsignedInteger4Bytes);
+        BOT_NOTIFY_DEBUG("%*s Type: Unsigned Int = 0x%08X\r\n", (Level*INDENT_LENGTH), "", (unsigned int)SDPDataElement->SDP_Data_Element.UnsignedInteger4Bytes);
         break;
     case deUnsignedInteger8Bytes:
         /* Display the Unsigned Integer (8 Bytes) Type.                */
-        printf("%*s Type: Unsigned Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger8Bytes[7],
+        BOT_NOTIFY_DEBUG("%*s Type: Unsigned Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger8Bytes[7],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger8Bytes[6],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger8Bytes[5],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger8Bytes[4],
@@ -6556,7 +6368,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         break;
     case deUnsignedInteger16Bytes:
         /* Display the Unsigned Integer (16 Bytes) Type.               */
-        printf("%*s Type: Unsigned Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger16Bytes[15],
+        BOT_NOTIFY_DEBUG("%*s Type: Unsigned Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UnsignedInteger16Bytes[15],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger16Bytes[14],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger16Bytes[13],
                 SDPDataElement->SDP_Data_Element.UnsignedInteger16Bytes[12],
@@ -6575,19 +6387,19 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         break;
     case deSignedInteger1Byte:
         /* Display the Signed Integer (1 Byte) Type.                   */
-        printf("%*s Type: Signed Int = 0x%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger1Byte);
+        BOT_NOTIFY_DEBUG("%*s Type: Signed Int = 0x%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger1Byte);
         break;
     case deSignedInteger2Bytes:
         /* Display the Signed Integer (2 Bytes) Type.                  */
-        printf("%*s Type: Signed Int = 0x%04X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger2Bytes);
+        BOT_NOTIFY_DEBUG("%*s Type: Signed Int = 0x%04X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger2Bytes);
         break;
     case deSignedInteger4Bytes:
         /* Display the Signed Integer (4 Bytes) Type.                  */
-        printf("%*s Type: Signed Int = 0x%08X\r\n", (Level*INDENT_LENGTH), "", (unsigned int)SDPDataElement->SDP_Data_Element.SignedInteger4Bytes);
+        BOT_NOTIFY_DEBUG("%*s Type: Signed Int = 0x%08X\r\n", (Level*INDENT_LENGTH), "", (unsigned int)SDPDataElement->SDP_Data_Element.SignedInteger4Bytes);
         break;
     case deSignedInteger8Bytes:
         /* Display the Signed Integer (8 Bytes) Type.                  */
-        printf("%*s Type: Signed Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger8Bytes[7],
+        BOT_NOTIFY_DEBUG("%*s Type: Signed Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger8Bytes[7],
                 SDPDataElement->SDP_Data_Element.SignedInteger8Bytes[6],
                 SDPDataElement->SDP_Data_Element.SignedInteger8Bytes[5],
                 SDPDataElement->SDP_Data_Element.SignedInteger8Bytes[4],
@@ -6598,7 +6410,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         break;
     case deSignedInteger16Bytes:
         /* Display the Signed Integer (16 Bytes) Type.                 */
-        printf("%*s Type: Signed Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger16Bytes[15],
+        BOT_NOTIFY_DEBUG("%*s Type: Signed Int = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.SignedInteger16Bytes[15],
                 SDPDataElement->SDP_Data_Element.SignedInteger16Bytes[14],
                 SDPDataElement->SDP_Data_Element.SignedInteger16Bytes[13],
                 SDPDataElement->SDP_Data_Element.SignedInteger16Bytes[12],
@@ -6625,10 +6437,10 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         memcpy(Buffer, SDPDataElement->SDP_Data_Element.TextString, Index);
         Buffer[Index] = '\0';
 
-        printf("%*s Type: Text String = %s\r\n", (Level*INDENT_LENGTH), "", Buffer);
+        BOT_NOTIFY_DEBUG("%*s Type: Text String = %s\r\n", (Level*INDENT_LENGTH), "", Buffer);
         break;
     case deBoolean:
-        printf("%*s Type: Boolean = %s\r\n", (Level*INDENT_LENGTH), "", (SDPDataElement->SDP_Data_Element.Boolean)?"true":"false");
+        BOT_NOTIFY_DEBUG("%*s Type: Boolean = %s\r\n", (Level*INDENT_LENGTH), "", (SDPDataElement->SDP_Data_Element.Boolean)?"true":"false");
         break;
     case deURL:
         /* First retrieve the Length of the URL String so that we can  */
@@ -6640,20 +6452,20 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         memcpy(Buffer, SDPDataElement->SDP_Data_Element.URL, Index);
         Buffer[Index] = '\0';
 
-        printf("%*s Type: URL = %s\r\n", (Level*INDENT_LENGTH), "", Buffer);
+        BOT_NOTIFY_DEBUG("%*s Type: URL = %s\r\n", (Level*INDENT_LENGTH), "", Buffer);
         break;
     case deUUID_16:
-        printf("%*s Type: UUID_16 = 0x%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_16.UUID_Byte0,
+        BOT_NOTIFY_DEBUG("%*s Type: UUID_16 = 0x%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_16.UUID_Byte0,
                SDPDataElement->SDP_Data_Element.UUID_16.UUID_Byte1);
         break;
     case deUUID_32:
-        printf("%*s Type: UUID_32 = 0x%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_32.UUID_Byte0,
+        BOT_NOTIFY_DEBUG("%*s Type: UUID_32 = 0x%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_32.UUID_Byte0,
                SDPDataElement->SDP_Data_Element.UUID_32.UUID_Byte1,
                SDPDataElement->SDP_Data_Element.UUID_32.UUID_Byte2,
                SDPDataElement->SDP_Data_Element.UUID_32.UUID_Byte3);
         break;
     case deUUID_128:
-        printf("%*s Type: UUID_128 = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_128.UUID_Byte0,
+        BOT_NOTIFY_DEBUG("%*s Type: UUID_128 = 0x%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n", (Level*INDENT_LENGTH), "", SDPDataElement->SDP_Data_Element.UUID_128.UUID_Byte0,
                SDPDataElement->SDP_Data_Element.UUID_128.UUID_Byte1,
                SDPDataElement->SDP_Data_Element.UUID_128.UUID_Byte2,
                SDPDataElement->SDP_Data_Element.UUID_128.UUID_Byte3,
@@ -6672,7 +6484,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         break;
     case deSequence:
         /* Display that this is a SDP Data Element Sequence.           */
-        printf("%*s Type: Data Element Sequence\r\n", (Level*INDENT_LENGTH), "");
+        BOT_NOTIFY_DEBUG("%*s Type: Data Element Sequence\r\n", (Level*INDENT_LENGTH), "");
 
         /* Loop through each of the SDP Data Elements in the SDP Data  */
         /* Element Sequence.                                           */
@@ -6685,7 +6497,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         break;
     case deAlternative:
         /* Display that this is a SDP Data Element Alternative.        */
-        printf("%*s Type: Data Element Alternative\r\n", (Level*INDENT_LENGTH), "");
+        BOT_NOTIFY_DEBUG("%*s Type: Data Element Alternative\r\n", (Level*INDENT_LENGTH), "");
 
         /* Loop through each of the SDP Data Elements in the SDP Data  */
         /* Element Alternative.                                        */
@@ -6697,7 +6509,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         }
         break;
     default:
-        printf("%*s Unknown SDP Data Element Type\r\n", (Level*INDENT_LENGTH), "");
+        BOT_NOTIFY_DEBUG("%*s Unknown SDP Data Element Type\r\n", (Level*INDENT_LENGTH), "");
         break;
     }
 }
@@ -6709,9 +6521,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
 /* all resources can be cleaned up (i.e.  call BTPM_Cleanup().       */
 void GattSrv::BTPSAPI ServerUnRegistrationCallback(void *CallbackParameter __attribute__ ((unused)))
 {
-    printf("Server has been Un-Registered.\r\n");
-
-    printf("GATM>");
+    BOT_NOTIFY_DEBUG("Server has been Un-Registered.\r\n");
 
     GattSrv *gatt = (GattSrv *) GattSrv::instance;
     if (gatt != NULL)
@@ -6732,7 +6542,9 @@ void GattSrv::BTPSAPI ServerUnRegistrationCallback(void *CallbackParameter __att
     }
 
     /* Make sure the output is displayed to the user.                    */
+#ifdef TEST_CONSOLE_WRITE
     fflush(stdout);
+#endif
 }
 
 /* The following function is responsible for converting data of type */
@@ -6910,8 +6722,8 @@ void GattSrv::DumpData(bool String, unsigned int Length, Byte_t *Data)
             if (!(++i % 16))
             {
                 offset = 0;
-                printf("%s | ", Buf);
-                printf("%s\n", Ascii);
+                BOT_NOTIFY_DEBUG("%s | ", Buf);
+                BOT_NOTIFY_DEBUG("%s\n", Ascii);
 
                 ascidx = 0;
                 BTPS_MemInitialize(Ascii, 0, (sizeof(Ascii)/sizeof(char)));
@@ -6921,9 +6733,9 @@ void GattSrv::DumpData(bool String, unsigned int Length, Byte_t *Data)
 
         if (i % 16)
         {
-            printf("%s", Buf);
-            for (int j = 0; j < (first_line_len - (int ) strlen(Buf)); printf(" "), j++);
-            printf(" | %s\n", Ascii);
+            BOT_NOTIFY_DEBUG("%s", Buf);
+            for (int j = 0; j < (first_line_len - (int ) strlen(Buf)); BOT_NOTIFY_DEBUG(" "), j++);
+            BOT_NOTIFY_DEBUG(" | %s\n", Ascii);
         }
     }
 }
@@ -7153,9 +6965,9 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
                         if (WriteRequestData->RequestID)
                         {
                             if ((Result = GATM_WriteResponse(WriteRequestData->RequestID)) == 0)
-                                printf("GATM_WriteResponse() success.\n");
+                                BOT_NOTIFY_INFO("GATM_WriteResponse() success.\n");
                             else
-                                printf("Error - GATM_WriteResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                                BOT_NOTIFY_DEBUG("Error - GATM_WriteResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
                         }
                     }
                     else
@@ -7181,9 +6993,9 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
         if ((ErrorCode) && (WriteRequestData->RequestID))
         {
             if ((Result = GATM_ErrorResponse(WriteRequestData->RequestID, ErrorCode)) == 0)
-                printf("GATM_ErrorResponse() success.\n");
+                BOT_NOTIFY_INFO("GATM_ErrorResponse() success.\n");
             else
-                printf("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_DEBUG("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
         }
     }
 }
@@ -7380,10 +7192,10 @@ void GattSrv::ProcessPrepareWriteRequestEvent(GATM_Prepare_Write_Request_Event_D
 
                         if (ErrorCode == ATT_PROTOCOL_ERROR_CODE_INVALID_ATTRIBUTE_VALUE_LENGTH)
                         {
-                            printf("Maximum Value Length is     %u\r\n", PrepareWriteEntry->MaximumValueLength);
-                            printf("Prepare Write Offset:       %u\r\n", PrepareWriteRequestData->AttributeValueOffset);
-                            printf("Prepare Write Length:       %u\r\n", PrepareWriteRequestData->DataLength);
-                            printf("Prepare Queue Entry Length: %u\r\n", PrepareWriteEntry->ValueLength);
+                            BOT_NOTIFY_DEBUG("Maximum Value Length is     %u\r\n", PrepareWriteEntry->MaximumValueLength);
+                            BOT_NOTIFY_DEBUG("Prepare Write Offset:       %u\r\n", PrepareWriteRequestData->AttributeValueOffset);
+                            BOT_NOTIFY_DEBUG("Prepare Write Length:       %u\r\n", PrepareWriteRequestData->DataLength);
+                            BOT_NOTIFY_DEBUG("Prepare Queue Entry Length: %u\r\n", PrepareWriteEntry->ValueLength);
                         }
                     }
                     else
@@ -7417,9 +7229,9 @@ void GattSrv::ProcessPrepareWriteRequestEvent(GATM_Prepare_Write_Request_Event_D
         if (ErrorCode)
         {
             if ((Result = GATM_ErrorResponse(PrepareWriteRequestData->RequestID, ErrorCode)) == 0)
-                printf("GATM_ErrorResponse() success.\n");
+                BOT_NOTIFY_INFO("GATM_ErrorResponse() success.\n");
             else
-                printf("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
+                BOT_NOTIFY_DEBUG("Error - GATM_ErrorResponse() %d, %s\n", Result, ERR_ConvertErrorCodeToString(Result));
         }
     }
 }

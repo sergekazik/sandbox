@@ -12,7 +12,10 @@ CC = gcc
 AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
 BLUEZ_INC = -I$(PREBUILD_3RD_PARTY_DIR)/bluez5/include
 
+RING_TOP = $(AMB_TOPDIR)/ring
 RING_BLE = $(AMB_TOPDIR)/ring/ble
+RING_LOG = $(AMB_TOPDIR)/ring/ding/include
+
 TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
 BTPIA_SDK = $(TIBLE_3PARTY)/BluetopiaPM
 
@@ -25,32 +28,33 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g	\
-	    -D$(RING_NAME)		\
-	    -I$(RING_BLE)		\
-	    -I$(BTPIA_SDK_INC)		\
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g			    \
+	    -D$(RING_NAME)				    \
+	    -DTEST_CONSOLE_WRITE			    \
+	    -I$(RING_TOP) -I$(RING_BLE) -I$(RING_LOG)	    \
+	    -I$(BTPIA_SDK_INC)				    \
 	    -I$(HOME)/workspace/low-powered-doorbell-fw/ambarella/prebuild/third-party/TIBle/BluetopiaPM/include
 
 CXXFLAGS = $(CFLAGS)
 
-LDFLAGS_LIB = -shared -lbluetooth
+#LDFLAGS_LIB = -shared -lbluetooth
 LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
 
 RM = rm -f
-TARGET_LIB = libRingBle.so
+TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 
 SRCS_LIB = RingBleApi.cpp RingGattApi.cpp hcitools.c
-SRCS_APP = test_ble.c gatt_srv_test.cpp
+SRCS_APP = test_ble.c gatt_srv_test.cpp test_stubs.cpp
 
 OBJS_LIB = RingBleApi.o RingGattApi.o hcitools.o
-OBJS_APP = test_ble.o gatt_srv_test.o
+OBJS_APP = test_ble.o gatt_srv_test.o test_stubs.o
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP)
 
 $(TARGET_LIB): $(OBJS_LIB)
-	$(CC) $(OBJS_LIB) $(LDFLAGS_LIB) -o $@
+	$(AR) rcs $@ $(OBJS_LIB)
 
 $(TARGET_APP): $(OBJS_APP)
 	$(CC) $(OBJS_APP) $(LDFLAGS_APP) -o $@

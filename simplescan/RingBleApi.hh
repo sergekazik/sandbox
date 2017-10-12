@@ -151,6 +151,7 @@ public:
         TO_MANY_PARAMS                            = -5, // Denotes that there are more parameters then will fit in the UserCommand.
         INVALID_PARAMETERS_ERROR                  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
         NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
+        UNDEFINED_ERROR                           = -8, // Initial value; denotes that not all paths of the function modify return value
     };
 
     ~BleApi();

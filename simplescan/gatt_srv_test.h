@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-#define NUMBER_OF_SERVICES_MAX                                     (sizeof(ServiceTable)/sizeof(ServiceInfo_t))
-
 ///
 /// \brief gatt_server_start function for tests
 /// \param char* arguments, NULL or "--autoinit"
