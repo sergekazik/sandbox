@@ -62,7 +62,7 @@ GattSrv::GattSrv()
     /* Initialize the default Secure Simple Pairing parameters.          */
     mIOCapability    = DEFAULT_IO_CAPABILITY;
     mLEIOCapability  = DEFAULT_LE_IO_CAPABILITY;
-    mOOBSupport      = false;
+    mOOBSupport      = FALSE;
     mKeypress	     = DEFAULT_KEYPRESS;
     mMITMProtection  = DEFAULT_MITM_PROTECTION;
     mSC              = DEFAULT_SC_PROTECTION;
@@ -110,13 +110,13 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                 /* has been mInitialized.                                    */
                 BOT_NOTIFY_INFO("BTPM_Initialize() Success: %d.\r\n", Result);
 
-                mInitialized = true;
+                mInitialized = TRUE;
                 ret_val = NO_ERROR;
 
                 if (!mServiceMutex)
                 {
                     /* Create the mutex which will guard access to the service list.     */
-                    mServiceMutex     = BTPS_CreateMutex(false);
+                    mServiceMutex     = BTPS_CreateMutex(FALSE);
                 }
 
                 /* If the caller would like to Register an Event Callback   */
@@ -135,7 +135,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                         /* flag an error.                                     */
                         BOT_NOTIFY_ERROR("DEVM_RegisterEventCallback() Failure: %d, %s.\r\n", Result, ERR_ConvertErrorCodeToString(Result));
 
-                        mInitialized = false;
+                        mInitialized = FALSE;
                         ret_val = FUNCTION_ERROR;
                         /* Since there was an error, go ahead and clean up the*/
                         /* library.                                           */
@@ -205,7 +205,7 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
         /* Manager Service and flag that it is no longer mInitialized.     */
         BTPM_Cleanup();
 
-        mInitialized    = false;
+        mInitialized    = FALSE;
         mDEVMCallbackID = 0;
         mServiceCount = 0;
         mServiceTable = NULL;
@@ -442,7 +442,7 @@ int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ 
         if ((aParams) && (aParams->NumberofParameters >= 2))
         {
             /* Now actually Perform the command.                           */
-            Result = BTPM_SetDebugZoneMask((bool)((aParams->Params[0].intParam)?true:false), (unsigned long)aParams->Params[1].intParam);
+            Result = BTPM_SetDebugZoneMask((Boolean_t)((aParams->Params[0].intParam)?TRUE:FALSE), (unsigned long)aParams->Params[1].intParam);
 
             if (!Result)
             {
@@ -493,7 +493,7 @@ int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute_
         if ((aParams) && (aParams->NumberofParameters >= 1))
         {
             /* Now actually Perform the command.                           */
-            Result = BTPM_QueryDebugZoneMask((bool)((aParams->Params[0].intParam)?true:false), (aParams->NumberofParameters > 1)?aParams->Params[1].intParam:0, &DebugZoneMask);
+            Result = BTPM_QueryDebugZoneMask((Boolean_t)((aParams->Params[0].intParam)?TRUE:FALSE), (aParams->NumberofParameters > 1)?aParams->Params[1].intParam:0, &DebugZoneMask);
 
             if (!Result)
             {
@@ -820,7 +820,7 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters > 0))
         {
-            LocalDeviceProperties.DiscoverableMode = (bool)aParams->Params[0].intParam;
+            LocalDeviceProperties.DiscoverableMode = (Boolean_t)aParams->Params[0].intParam;
 
             if (aParams->NumberofParameters > 1)
                 LocalDeviceProperties.DiscoverableModeTimeout = aParams->Params[1].intParam;
@@ -886,7 +886,7 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters > 0))
         {
-            LocalDeviceProperties.ConnectableMode = (bool)aParams->Params[0].intParam;
+            LocalDeviceProperties.ConnectableMode = (Boolean_t)aParams->Params[0].intParam;
 
             if (aParams->NumberofParameters > 1)
                 LocalDeviceProperties.ConnectableModeTimeout = aParams->Params[1].intParam;
@@ -947,7 +947,7 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters > 0))
         {
-            LocalDeviceProperties.PairableMode = (bool)aParams->Params[0].intParam;
+            LocalDeviceProperties.PairableMode = (Boolean_t)aParams->Params[0].intParam;
 
             if (aParams->NumberofParameters > 1)
                 LocalDeviceProperties.PairableModeTimeout = aParams->Params[1].intParam;
@@ -1011,7 +1011,7 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
 
             /* Check to see if we are doing an LE or BR/EDR Discovery      */
             /* Process.                                                    */
-            if ((bool)aParams->Params[0].intParam)
+            if ((Boolean_t)aParams->Params[0].intParam)
             {
                 if ((Result = DEVM_StartDeviceScan(aParams->Params[1].intParam)) >= 0)
                 {
@@ -1079,7 +1079,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
         if ((aParams) && (aParams->NumberofParameters))
         {
             /* Check to see what type of discovery should be stopped.      */
-            if ((bool)aParams->Params[0].intParam)
+            if ((Boolean_t)aParams->Params[0].intParam)
             {
                 /* mInitialized, go ahead and attempt to stop LE Device      */
                 /* Discovery.                                               */
@@ -1267,7 +1267,7 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
             if ((aParams->NumberofParameters >= 3) && (aParams->Params[2].intParam))
                 QueryFlags |= DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE;
 
-            BOT_NOTIFY_DEBUG("Attempting to Query %s Device Properties: %s, ForceUpdate: %s.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE)?"true":"false");
+            BOT_NOTIFY_DEBUG("Attempting to Query %s Device Properties: %s, ForceUpdate: %s.\r\n", aParams->Params[0].strParam, (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_LOW_ENERGY)?"LE":"BR/EDR", (QueryFlags & DEVM_QUERY_REMOTE_DEVICE_PROPERTIES_FLAGS_FORCE_UPDATE)?"TRUE":"FALSE");
 
             if ((Result = DEVM_QueryRemoteDeviceProperties(BD_ADDR, QueryFlags, &RemoteDeviceProperties)) >= 0)
             {
@@ -1738,13 +1738,13 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
 /* In case this mode is enabled, pairing request from peers          */
 /* that support legacy pairing only will be rejected.                */
 /* Please note that in case this mode is enabled, the mSC flag        */
-/* must be set to true                                               */
+/* must be set to TRUE                                               */
 /* This function returns zero on successful execution and a negative */
 /* value on all errors.                                              */
 int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int       ret_val = UNDEFINED_ERROR;
-    bool EnableSCOnly;
+    Boolean_t EnableSCOnly;
     char     *mode;
 
     /* First, check to make sure that we have already been mInitialized.  */
@@ -1758,12 +1758,12 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
             /* into the API specific parameters.                           */
             if (aParams->Params[0].intParam == 0)
             {
-                EnableSCOnly = false;
+                EnableSCOnly = FALSE;
                 mode         = (char*) "mSC Only mode is off";
             }
             else
             {
-                EnableSCOnly = true;
+                EnableSCOnly = TRUE;
                 mode         = (char*) "mSC Only mode is on - LE Legacy pairing will be rejected";
             }
 
@@ -1775,13 +1775,13 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
                 BOT_NOTIFY_INFO("%s.\r\n", mode);
 
                 /* If mSC Only mode has been enabled, 	     				*/
-                /* even if the mSC flag is false, set it to true,			*/
-                /* to avoid a case, the mSC only is set to true,				*/
+                /* even if the mSC flag is FALSE, set it to TRUE,			*/
+                /* to avoid a case, the mSC only is set to TRUE,				*/
                 /* and the mSC flag is not. inform the user of the 			*/
                 /* updated mSC Pairing parameters.    						*/
-                if (EnableSCOnly == true)
+                if (EnableSCOnly == TRUE)
                 {
-                    mSC = true;
+                    mSC = TRUE;
                 }
 
                 /* Flag success to the caller.                              */
@@ -2646,7 +2646,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
     int                Result;
     long               RecordHandle;
     char               ServiceName[32];
-    bool          Persistent;
+    Boolean_t          Persistent;
     unsigned int       Port;
     SDP_UUID_Entry_t   SDPUUIDEntries;
     SDP_Data_Element_t SDP_Data_Element[3];
@@ -2665,11 +2665,11 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
             Port = 1;
 
         if ((aParams) && (aParams->NumberofParameters > 1))
-            Persistent = (bool)((aParams->Params[1].intParam)?true:false);
+            Persistent = (Boolean_t)((aParams->Params[1].intParam)?TRUE:FALSE);
         else
-            Persistent = (bool)false;
+            Persistent = (Boolean_t)FALSE;
 
-        BOT_NOTIFY_DEBUG("Attempting to Add sample SPP SDP Record (Port %d, Persistent: %s).\r\n", Port, Persistent?"true":"false");
+        BOT_NOTIFY_DEBUG("Attempting to Add sample SPP SDP Record (Port %d, Persistent: %s).\r\n", Port, Persistent?"TRUE":"FALSE");
 
         /* Initialize the Serial Port Profile.                            */
         SDPUUIDEntries.SDP_Data_Element_Type = deUUID_16;
@@ -3017,13 +3017,13 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
             if (!ret_val)
             {
                 /* Now actually Perform the command.                        */
-                Result = DEVM_EnableBluetoothDebug((bool)(aParams->Params[0].intParam), Type, Flags, ParameterDataLength, ParameterData);
+                Result = DEVM_EnableBluetoothDebug((Boolean_t)(aParams->Params[0].intParam), Type, Flags, ParameterDataLength, ParameterData);
 
                 if (!Result)
                 {
                     /* Enable Bluetooth Debugging request was successful, go */
                     /* ahead and inform the User.                            */
-                    BOT_NOTIFY_INFO("DEVM_EnableBluetoothDebug(%s) Success.\r\n", aParams->Params[0].intParam?"true":"false");
+                    BOT_NOTIFY_INFO("DEVM_EnableBluetoothDebug(%s) Success.\r\n", aParams->Params[0].intParam?"TRUE":"FALSE");
 
                     /* Return success to the caller.                         */
                     ret_val = NO_ERROR;
@@ -3031,7 +3031,7 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
                 else
                 {
                     /* Error Enabling Bluetooth Debugging, inform the user.  */
-                    BOT_NOTIFY_ERROR("DEVM_EnableBluetoothDebug(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"true":"false", Result, ERR_ConvertErrorCodeToString(Result));
+                    BOT_NOTIFY_ERROR("DEVM_EnableBluetoothDebug(%s) Failure: %d, %s.\r\n", aParams->Params[0].intParam?"TRUE":"FALSE", Result, ERR_ConvertErrorCodeToString(Result));
                     ret_val = FUNCTION_ERROR;
                 }
             }
@@ -3336,7 +3336,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
                 AuthenticationResponseInformation.AuthenticationAction            = DEVM_AUTHENTICATION_ACTION_USER_CONFIRMATION_RESPONSE;
                 AuthenticationResponseInformation.AuthenticationDataLength        = sizeof(AuthenticationResponseInformation.AuthenticationData.Confirmation);
 
-                AuthenticationResponseInformation.AuthenticationData.Confirmation = (bool)(aParams->Params[0].intParam?true:false);
+                AuthenticationResponseInformation.AuthenticationData.Confirmation = (Boolean_t)(aParams->Params[0].intParam?TRUE:FALSE);
 
                 if (mCurrentLowEnergy)
                 {
@@ -3344,7 +3344,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
                     AuthenticationResponseInformation.AuthenticationAction                   |= DEVM_AUTHENTICATION_ACTION_LOW_ENERGY_OPERATION_MASK;
                     AuthenticationResponseInformation.AuthenticationDataLength                = sizeof(AuthenticationResponseInformation.AuthenticationData.AcceptedNumericValue);
 
-                    AuthenticationResponseInformation.AuthenticationData.AcceptedNumericValue = (bool)(aParams->Params[0].intParam?true:false);
+                    AuthenticationResponseInformation.AuthenticationData.AcceptedNumericValue = (Boolean_t)(aParams->Params[0].intParam?TRUE:FALSE);
                 }
 
                 /* Submit the Authentication Response.                      */
@@ -3431,10 +3431,10 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
             }
 
             /* Finally map the Man in the Middle (MITM) Protection valud.  */
-            mMITMProtection = (bool)(aParams->Params[1].intParam?true:false);
+            mMITMProtection = (Boolean_t)(aParams->Params[1].intParam?TRUE:FALSE);
 
             /* Inform the user of the New I/O Capablities.                 */
-            BOT_NOTIFY_INFO("Current I/O Capabilities: %s, MITM Protection: %s.\r\n", IOCapabilitiesStrings[(unsigned int)mIOCapability], mMITMProtection?"true":"false");
+            BOT_NOTIFY_INFO("Current I/O Capabilities: %s, MITM Protection: %s.\r\n", IOCapabilitiesStrings[(unsigned int)mIOCapability], mMITMProtection?"TRUE":"FALSE");
 
             /* Flag success to the caller.                                 */
             ret_val = NO_ERROR;
@@ -3488,7 +3488,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
                 if ((aParams->Params[5].intParam == 0) || (aParams->Params[5].intParam == 1))
                 {
                     /* Set the OOB support value in case it was asked      */
-                    mOOBSupport = (bool)(aParams->Params[5].intParam?true:false);
+                    mOOBSupport = (Boolean_t)(aParams->Params[5].intParam?TRUE:FALSE);
                 }
                 else
                 {
@@ -3497,7 +3497,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
             }
             else
             {
-                mOOBSupport = (bool)false;
+                mOOBSupport = (Boolean_t)FALSE;
             }
 
             /* When using 7 parameters, the 7th parameter will be set to   */
@@ -3507,7 +3507,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
                 if ((aParams->Params[6].intParam == 0) || (aParams->Params[6].intParam == 1))
                 {
                     /* Set the mKeypress value in case it was asked         */
-                    mKeypress = (bool)(aParams->Params[6].intParam?true:false);
+                    mKeypress = (Boolean_t)(aParams->Params[6].intParam?TRUE:FALSE);
                 }
                 else
                 {
@@ -3516,7 +3516,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
             }
             else
             {
-                mKeypress = (bool)false;
+                mKeypress = (Boolean_t)FALSE;
             }
 
             if (!ret_val)
@@ -3530,15 +3530,15 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
                 mBondingType= (GAP_LE_Bonding_Type_t)aParams->Params[1].intParam;
 
                 /* Finally map the Man in the Middle (MITM) Protection value.  */
-                mLEMITMProtection = (bool)(aParams->Params[2].intParam?true:false);
+                mLEMITMProtection = (Boolean_t)(aParams->Params[2].intParam?TRUE:FALSE);
                 /* Set the mSC value in case it was asked                       */
-                mSC = (bool)(aParams->Params[3].intParam?true:false);
+                mSC = (Boolean_t)(aParams->Params[3].intParam?TRUE:FALSE);
                 /* Set the P256 Debug mode in case it was asked                */
-                mP256DebugMode = (bool)(aParams->Params[4].intParam?true:false);
+                mP256DebugMode = (Boolean_t)(aParams->Params[4].intParam?TRUE:FALSE);
 
                 /* In case the requested configuration is P256 debug set to    */
-                /* true,and Secure Connections (SC) set to false. return error.*/
-                if ( (mP256DebugMode == true) && (mSC == false) )
+                /* TRUE,and Secure Connections (SC) set to FALSE. return error.*/
+                if ( (mP256DebugMode == TRUE) && (mSC == FALSE) )
                 {
                     BOT_NOTIFY_ERROR("P256 debug mode is relevant to only in case of SC.\r\n");
                     return INVALID_PARAMETERS_ERROR;
@@ -3554,8 +3554,8 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
 
                 /* Inform the user of the New I/O Capablities.                  */
                 BOT_NOTIFY_INFO("MITM Protection: %s\r\nSC: %s\r\nmP256DebugMode %s\r\nmOOBSupport %s\r\nmKeypress %s.\r\n",\
-                       mLEMITMProtection?"true":"false", mSC?"true":"false",\
-                       mP256DebugMode?"true":"false",mOOBSupport?"true":"false", mKeypress?"true":"false");
+                       mLEMITMProtection?"TRUE":"FALSE", mSC?"TRUE":"FALSE",\
+                       mP256DebugMode?"TRUE":"FALSE",mOOBSupport?"TRUE":"FALSE", mKeypress?"TRUE":"FALSE");
 
                 if (mP256DebugMode)
                 {
@@ -4157,7 +4157,7 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
 {
     int                            ret_val = UNDEFINED_ERROR;
     int                            Result;
-    bool                      PrimaryService;
+    Boolean_t                      PrimaryService;
     GATT_UUID_t                    UUID;
     unsigned int                   Index;
     unsigned int                   NumberOfAttributes;
@@ -4211,7 +4211,7 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                 if (!ret_val)
                 {
                     /* Determine if this is a primary service.               */
-                    PrimaryService     = (bool)(!(mServiceTable[ServiceIndex].Flags & SERVICE_TABLE_FLAGS_SECONDARY_SERVICE));
+                    PrimaryService     = (Boolean_t)(!(mServiceTable[ServiceIndex].Flags & SERVICE_TABLE_FLAGS_SECONDARY_SERVICE));
 
                     /* Configure the Service UUID.  Not this sample          */
                     /* application only supports registering 128 bit UUIDs,  */
@@ -4226,10 +4226,9 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                     if (ret_val > 0)
                     {
                         BOT_NOTIFY_INFO(" Registered Service, Service ID: %u.\r\n", (unsigned int)ret_val);
-                        ret_val = NO_ERROR;
-
                         /* Save the Service ID.                               */
                         mServiceTable[ServiceIndex].ServiceID = (unsigned int) ret_val;
+                        ret_val = NO_ERROR;
 
                         /* Loop through all of the attributes and register    */
                         /* them.                                              */
@@ -4286,6 +4285,12 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
                                     {
                                         BOT_NOTIFY_ERROR("Error - GATM_AddServiceCharacteristic() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                                         BOT_NOTIFY_ERROR("Error - ServiceIndex %d, attr idx %d\n", ServiceIndex, Index);
+                                        DisplayGATTUUID(&UUID, "Characteristic UUID", 0);
+
+                                        BOT_NOTIFY_TRACE("mServiceTable[ServiceIndex].ServiceID = %d\n", mServiceTable[ServiceIndex].ServiceID);
+                                        BOT_NOTIFY_TRACE("mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset = 0x%08X \n", mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset);
+                                        BOT_NOTIFY_TRACE("CharacteristicInfo->CharacteristicPropertiesMask = 0x%08X \n", CharacteristicInfo->CharacteristicPropertiesMask);
+                                        BOT_NOTIFY_TRACE("CharacteristicInfo->SecurityPropertiesMask = 0x%08X \n", CharacteristicInfo->SecurityPropertiesMask);
                                         ret_val = FUNCTION_ERROR;
                                     }
                                 }
@@ -4654,7 +4659,7 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                   ret_val = UNDEFINED_ERROR;
-    bool             DisplayUsage = false;
+    Boolean_t             DisplayUsage = FALSE;
     BD_ADDR_t             BD_ADDR;
     unsigned int          Index1;
     unsigned int          AttributeHandle;
@@ -4707,20 +4712,20 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
                     else
                     {
                         BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
-                        DisplayUsage = true;
+                        DisplayUsage = TRUE;
                     }
                 }
                 else
                 {
                     BOT_NOTIFY_ERROR("Invalid Service Index or Attribute Offset.\r\n)");
-                    DisplayUsage = true;
+                    DisplayUsage = TRUE;
                 }
             }
             else
             {
                 BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
 
-                DisplayUsage = true;
+                DisplayUsage = TRUE;
             }
 
             /* If requested show the possible values to this function.     */
@@ -4776,7 +4781,7 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
 int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                   ret_val = UNDEFINED_ERROR;
-    bool             DisplayUsage = false;
+    Boolean_t             DisplayUsage = FALSE;
     BD_ADDR_t             BD_ADDR;
     unsigned int          Index1;
     unsigned int          AttributeHandle;
@@ -4826,21 +4831,21 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                     {
                         BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
 
-                        DisplayUsage = true;
+                        DisplayUsage = TRUE;
                     }
                 }
                 else
                 {
                     BOT_NOTIFY_ERROR("Invalid Service Index or Attribute Offset.\r\n)");
 
-                    DisplayUsage = true;
+                    DisplayUsage = TRUE;
                 }
             }
             else
             {
                 BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
 
-                DisplayUsage = true;
+                DisplayUsage = TRUE;
             }
 
             /* If requested show the possible values to this function.     */
@@ -5321,12 +5326,12 @@ BD_ADDR_t GattSrv::GetCurrentRemoteBD_ADDR()
     return mCurrentRemoteBD_ADDR;
 }
 
-void GattSrv::SetCurrentLowEnergy(bool aCurrentLowEnergy)
+void GattSrv::SetCurrentLowEnergy(Boolean_t aCurrentLowEnergy)
 {
     mCurrentLowEnergy = aCurrentLowEnergy;
 }
 
-bool GattSrv::GetCurrentLowEnergy()
+Boolean_t GattSrv::GetCurrentLowEnergy()
 {
     return mCurrentLowEnergy;
 }
@@ -5366,32 +5371,32 @@ unsigned int GattSrv::GetAuthenticationCallbackID()
     return mAuthenticationCallbackID;
 }
 
-bool GattSrv::GetOOBSupport()
+Boolean_t GattSrv::GetOOBSupport()
 {
     return mOOBSupport;
 }
 
-bool GattSrv::GetSC()
+Boolean_t GattSrv::GetSC()
 {
     return mSC;
 }
 
-bool GattSrv::GetKeypress()
+Boolean_t GattSrv::GetKeypress()
 {
     return mKeypress;
 }
 
-bool GattSrv::GetMITMProtection()
+Boolean_t GattSrv::GetMITMProtection()
 {
     return mMITMProtection;
 }
 
-bool GattSrv::GetLEMITMProtection()
+Boolean_t GattSrv::GetLEMITMProtection()
 {
     return mLEMITMProtection;
 }
 
-bool GattSrv::GetP256DebugMode()
+Boolean_t GattSrv::GetP256DebugMode()
 {
     return mP256DebugMode;
 }
@@ -5564,7 +5569,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 {
     int     Result;
     char    Buffer[32];
-    bool    LowEnergy;
+    Boolean_t    LowEnergy;
     GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
 
@@ -5581,10 +5586,10 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
         {
             AuthenticationRequestInformation->AuthenticationAction &= ~DEVM_AUTHENTICATION_ACTION_LOW_ENERGY_OPERATION_MASK;
 
-            LowEnergy = true;
+            LowEnergy = TRUE;
         }
         else
-            LowEnergy = false;
+            LowEnergy = FALSE;
 
         switch(AuthenticationRequestInformation->AuthenticationAction)
         {
@@ -5610,7 +5615,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             gatt->SetCurrentLowEnergy(LowEnergy);
 
             /* Check which method we need to use.                       */
-            if ((gatt->GetIOCapability() == icDisplayYesNo) && (gatt->GetCurrentLowEnergy() == false))
+            if ((gatt->GetIOCapability() == icDisplayYesNo) && (gatt->GetCurrentLowEnergy() == FALSE))
             {
                 /* If the device is using BR/EDR mode and DisplayYesNo  */
                 /* IO Capability that means that we are using numeric   */
@@ -5634,7 +5639,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
                 AuthenticationResponseInformation.AuthenticationAction            = DEVM_AUTHENTICATION_ACTION_USER_CONFIRMATION_RESPONSE;
                 AuthenticationResponseInformation.AuthenticationDataLength        = sizeof(AuthenticationResponseInformation.AuthenticationData.Confirmation);
 
-                AuthenticationResponseInformation.AuthenticationData.Confirmation = (bool)true;
+                AuthenticationResponseInformation.AuthenticationData.Confirmation = (Boolean_t)TRUE;
 
                 if (gatt->GetCurrentLowEnergy())
                 {
@@ -5673,7 +5678,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             break;
         case DEVM_AUTHENTICATION_ACTION_NUMERIC_COMPARISON_REQUEST:
             /* Flag that this is LE Pairing.                         */
-            gatt->SetCurrentLowEnergy(true);
+            gatt->SetCurrentLowEnergy(TRUE);
 
             BOT_NOTIFY_DEBUG("Numeric Comparison Request %s.\r\n", (LowEnergy?"LE":"BR/EDR"));
 
@@ -5706,7 +5711,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 
                 /* We should respond with different parametrs in case of LE SC */
                 /* This application support OOB only in case of LE SC.  */
-                if ((bool)AuthenticationRequestInformation->SC == true)
+                if ((Boolean_t)AuthenticationRequestInformation->SC == TRUE)
                 {
                     /* In debug mode, we don't have the remotes random and confirmation values, use the local ones */
                     gatt->CopyRandomValues();
@@ -5716,7 +5721,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
                     gatt->CopyRandomValues(&(AuthenticationResponseInformation.AuthenticationData.LESCOutOfBandData.RemoteRand));
                     gatt->CopyConfirmValues(&(AuthenticationResponseInformation.AuthenticationData.LESCOutOfBandData.RemoteConfirmation));
 
-                    AuthenticationResponseInformation.SC = true;
+                    AuthenticationResponseInformation.SC = TRUE;
                     AuthenticationResponseInformation.AuthenticationDataLength = sizeof(AuthenticationResponseInformation.AuthenticationData.LESCOutOfBandData);;
                 }
             }
@@ -5773,7 +5778,7 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
             BOT_NOTIFY_DEBUG("I/O Capability Response.\r\n");
 
             /* Inform the user of the Remote I/O Capablities.           */
-            BOT_NOTIFY_DEBUG("Remote I/O Capabilities: %s, MITM Protection: %s.\r\n", GattSrv::IOCapabilitiesStrings[AuthenticationRequestInformation->AuthenticationData.IOCapabilities.IO_Capability], AuthenticationRequestInformation->AuthenticationData.IOCapabilities.MITM_Protection_Required?"true":"false");
+            BOT_NOTIFY_DEBUG("Remote I/O Capabilities: %s, MITM Protection: %s.\r\n", GattSrv::IOCapabilitiesStrings[AuthenticationRequestInformation->AuthenticationData.IOCapabilities.IO_Capability], AuthenticationRequestInformation->AuthenticationData.IOCapabilities.MITM_Protection_Required?"TRUE":"FALSE");
             break;
         case DEVM_AUTHENTICATION_ACTION_AUTHENTICATION_STATUS_RESULT:
             BOT_NOTIFY_DEBUG("Authentication Status: .\r\n");
@@ -5850,7 +5855,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Attribute Handle: 0x%04X (%u)\r\n", EventData->EventData.HandleValueDataEventData.AttributeHandle, EventData->EventData.HandleValueDataEventData.AttributeHandle);
             BOT_NOTIFY_DEBUG("    Value Length:     %u\r\n", EventData->EventData.HandleValueDataEventData.AttributeValueLength);
             BOT_NOTIFY_DEBUG("    Value:            \r\n");
-            gatt->DumpData(false, EventData->EventData.HandleValueDataEventData.AttributeValueLength, EventData->EventData.HandleValueDataEventData.AttributeValue);
+            gatt->DumpData(FALSE, EventData->EventData.HandleValueDataEventData.AttributeValueLength, EventData->EventData.HandleValueDataEventData.AttributeValue);
             break;
 
             /* GATM Server Events.                                         */
@@ -5866,7 +5871,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.WriteRequestData.AttributeOffset);
             BOT_NOTIFY_DEBUG("    Data Length:      %u\r\n", EventData->EventData.WriteRequestData.DataLength);
             BOT_NOTIFY_DEBUG("    Value:            \r\n");
-            gatt->DumpData(false, EventData->EventData.WriteRequestData.DataLength, EventData->EventData.WriteRequestData.Data);
+            gatt->DumpData(FALSE, EventData->EventData.WriteRequestData.DataLength, EventData->EventData.WriteRequestData.Data);
             BOT_NOTIFY_DEBUG("\r\n");
 
             /* Go ahead and process the Write Request.                  */
@@ -5884,7 +5889,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.SignedWriteData.AttributeOffset);
             BOT_NOTIFY_DEBUG("    Data Length:      %u\r\n", EventData->EventData.SignedWriteData.DataLength);
             BOT_NOTIFY_DEBUG("    Value:            \r\n");
-            gatt->DumpData(false, EventData->EventData.SignedWriteData.DataLength, EventData->EventData.SignedWriteData.Data);
+            gatt->DumpData(FALSE, EventData->EventData.SignedWriteData.DataLength, EventData->EventData.SignedWriteData.Data);
             BOT_NOTIFY_DEBUG("\r\n");
 
             /* If the signature is valid go ahead and process the signed*/
@@ -5920,7 +5925,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Attribute Value Offset: %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeValueOffset);
             BOT_NOTIFY_DEBUG("    Data Length:            %u\r\n", EventData->EventData.PrepareWriteRequestEventData.DataLength);
             BOT_NOTIFY_DEBUG("    Value:                  \r\n");
-            gatt->DumpData(false, EventData->EventData.PrepareWriteRequestEventData.DataLength, EventData->EventData.PrepareWriteRequestEventData.Data);
+            gatt->DumpData(FALSE, EventData->EventData.PrepareWriteRequestEventData.DataLength, EventData->EventData.PrepareWriteRequestEventData.Data);
             BOT_NOTIFY_DEBUG("\r\n");
 
             /* Go ahead and process the Prepare Write Request.          */
@@ -6031,18 +6036,18 @@ void GattSrv::DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_
             BOT_NOTIFY_DEBUG("Device Name:  %s\r\n", (LocalDeviceProperties->DeviceNameLength)?LocalDeviceProperties->DeviceName:"");
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DISCOVERABLE_MODE))
-            BOT_NOTIFY_DEBUG("Disc. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->DiscoverableMode?"true ":"false", LocalDeviceProperties->DiscoverableModeTimeout);
+            BOT_NOTIFY_DEBUG("Disc. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->DiscoverableMode?"TRUE ":"FALSE", LocalDeviceProperties->DiscoverableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_CONNECTABLE_MODE))
-            BOT_NOTIFY_DEBUG("Conn. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->ConnectableMode?"true ":"false", LocalDeviceProperties->ConnectableModeTimeout);
+            BOT_NOTIFY_DEBUG("Conn. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->ConnectableMode?"TRUE ":"FALSE", LocalDeviceProperties->ConnectableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_PAIRABLE_MODE))
-            BOT_NOTIFY_DEBUG("Pair. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->PairableMode?"true ":"false", LocalDeviceProperties->PairableModeTimeout);
+            BOT_NOTIFY_DEBUG("Pair. Mode:   %s, 0x%08X\r\n", LocalDeviceProperties->PairableMode?"TRUE ":"FALSE", LocalDeviceProperties->PairableModeTimeout);
 
         if ((!UpdateMask) || (UpdateMask & DEVM_LOCAL_DEVICE_PROPERTIES_CHANGED_DEVICE_FLAGS))
         {
-            BOT_NOTIFY_DEBUG("LE Scan Mode:    %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_SCANNING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->ScanTimeout);
-            BOT_NOTIFY_DEBUG("LE Adv Mode:     %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_ADVERTISING_IN_PROGRESS)?"true":"false", LocalDeviceProperties->AdvertisingTimeout);
+            BOT_NOTIFY_DEBUG("LE Scan Mode:    %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_SCANNING_IN_PROGRESS)?"TRUE":"FALSE", LocalDeviceProperties->ScanTimeout);
+            BOT_NOTIFY_DEBUG("LE Adv Mode:     %s, 0x%08X\r\n", (LocalDeviceProperties->LocalDeviceFlags & DEVM_LOCAL_DEVICE_FLAGS_LE_ADVERTISING_IN_PROGRESS)?"TRUE":"FALSE", LocalDeviceProperties->AdvertisingTimeout);
         }
     }
 }
@@ -6053,7 +6058,7 @@ void GattSrv::DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_
 void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remote_Device_Properties_t *RemoteDeviceProperties)
 {
     char          Buffer[64];
-    bool     SingleMode;
+    Boolean_t     SingleMode;
     unsigned long LEFlags;
 
     if (RemoteDeviceProperties)
@@ -6118,16 +6123,16 @@ void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remot
                 BOT_NOTIFY_DEBUG("LE Trans. Power:     %d\r\n", RemoteDeviceProperties->LETransmitPower);
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_PAIRING_STATE))
-                BOT_NOTIFY_DEBUG("LE Paired State :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED_OVER_LE)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Paired State :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED_OVER_LE)?"TRUE":"FALSE");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_CONNECTION_STATE))
-                BOT_NOTIFY_DEBUG("LE Connect State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED_OVER_LE)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Connect State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED_OVER_LE)?"TRUE":"FALSE");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_ENCRYPTION_STATE))
-                BOT_NOTIFY_DEBUG("LE Encrypt State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("LE Encrypt State:    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_LINK_CURRENTLY_ENCRYPTED)?"TRUE":"FALSE");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_LE_SERVICES_STATE))
-                BOT_NOTIFY_DEBUG("GATT Services Known: %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_SERVICES_KNOWN)?"true":"false");
+                BOT_NOTIFY_DEBUG("GATT Services Known: %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LE_SERVICES_KNOWN)?"TRUE":"FALSE");
         }
 
         /* Print the BR/EDR Only information.                             */
@@ -6147,27 +6152,27 @@ void GattSrv::DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remot
             }
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_PAIRING_STATE))
-                BOT_NOTIFY_DEBUG("Paired State :       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Paired State :       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_PAIRED)?"TRUE":"FALSE");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_CONNECTION_STATE))
-                BOT_NOTIFY_DEBUG("Connect State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Connect State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_CURRENTLY_CONNECTED)?"TRUE":"FALSE");
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_ENCRYPTION_STATE))
-                BOT_NOTIFY_DEBUG("Encrypt State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_ENCRYPTED)?"true":"false");
+                BOT_NOTIFY_DEBUG("Encrypt State:       %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_ENCRYPTED)?"TRUE":"FALSE");
 
             if (((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_SNIFF_STATE)))
             {
                 if (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_LINK_CURRENTLY_SNIFF_MODE)
-                    BOT_NOTIFY_DEBUG("Sniff State  :       true (%u ms)\r\n", RemoteDeviceProperties->SniffInterval);
+                    BOT_NOTIFY_DEBUG("Sniff State  :       TRUE (%u ms)\r\n", RemoteDeviceProperties->SniffInterval);
                 else
-                    BOT_NOTIFY_DEBUG("Sniff State  :       false\r\n");
+                    BOT_NOTIFY_DEBUG("Sniff State  :       FALSE\r\n");
             }
 
             if (((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_CLASS_OF_DEVICE)))
                 BOT_NOTIFY_DEBUG("COD:                 0x%02X%02X%02X\r\n", RemoteDeviceProperties->ClassOfDevice.Class_of_Device0, RemoteDeviceProperties->ClassOfDevice.Class_of_Device1, RemoteDeviceProperties->ClassOfDevice.Class_of_Device2);
 
             if ((!UpdateMask) || (UpdateMask & DEVM_REMOTE_DEVICE_PROPERTIES_CHANGED_SERVICES_STATE))
-                BOT_NOTIFY_DEBUG("SDP Serv. Known :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SERVICES_KNOWN)?"true":"false");
+                BOT_NOTIFY_DEBUG("SDP Serv. Known :    %s\r\n", (RemoteDeviceProperties->RemoteDeviceFlags & DEVM_REMOTE_DEVICE_FLAGS_DEVICE_SERVICES_KNOWN)?"TRUE":"FALSE");
         }
     }
 }
@@ -6440,7 +6445,7 @@ void GattSrv::DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned in
         BOT_NOTIFY_DEBUG("%*s Type: Text String = %s\r\n", (Level*INDENT_LENGTH), "", Buffer);
         break;
     case deBoolean:
-        BOT_NOTIFY_DEBUG("%*s Type: Boolean = %s\r\n", (Level*INDENT_LENGTH), "", (SDPDataElement->SDP_Data_Element.Boolean)?"true":"false");
+        BOT_NOTIFY_DEBUG("%*s Type: boolean = %s\r\n", (Level*INDENT_LENGTH), "", (SDPDataElement->SDP_Data_Element.Boolean)?"TRUE":"FALSE");
         break;
     case deURL:
         /* First retrieve the Length of the URL String so that we can  */
@@ -6690,7 +6695,7 @@ void GattSrv::StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry)
 
 /* The following function is provided to allow a means of dumping    */
 /* data to the console.                                              */
-void GattSrv::DumpData(bool String, unsigned int Length, Byte_t *Data)
+void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
 {
     int  i, offset, ascidx;
     char Buf[256];
@@ -6818,7 +6823,7 @@ void GattSrv::CleanupServiceList(void)
                             BTPS_FreeMemory(CharacteristicInfo->Value);
 
                             CharacteristicInfo->Value          = NULL;
-                            CharacteristicInfo->AllocatedValue = false;
+                            CharacteristicInfo->AllocatedValue = FALSE;
                         }
                     }
                     break;
@@ -6830,7 +6835,7 @@ void GattSrv::CleanupServiceList(void)
                             BTPS_FreeMemory(DescriptorInfo->Value);
 
                             DescriptorInfo->Value          = NULL;
-                            DescriptorInfo->AllocatedValue = false;
+                            DescriptorInfo->AllocatedValue = FALSE;
                         }
                     }
                     break;
@@ -6882,7 +6887,7 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
     int               Result;
     Byte_t          **Value;
     Byte_t            ErrorCode;
-    bool        *AllocatedMemory;
+    Boolean_t        *AllocatedMemory;
     unsigned int     *ValueLength;
     unsigned int      MaximumValueLength;
     AttributeInfo_t  *AttributeInfo;
@@ -6930,7 +6935,7 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
                     {
                         BTPS_FreeMemory(*Value);
 
-                        *AllocatedMemory = false;
+                        *AllocatedMemory = FALSE;
                         *ValueLength     = 0;
                         *Value           = NULL;
                     }
@@ -6948,14 +6953,14 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
 
                             /* Save the Value Length and flag that a buffer is */
                             /* allocated for this attribute.                   */
-                            *AllocatedMemory = true;
+                            *AllocatedMemory = TRUE;
                             *ValueLength     = WriteRequestData->DataLength;
                         }
                         else
                         {
                             /* Simply reset the state since this is a 0 byte   */
                             /* write.                                          */
-                            *AllocatedMemory = false;
+                            *AllocatedMemory = FALSE;
                             *ValueLength     = 0;
                             *Value           = NULL;
                         }
@@ -7005,7 +7010,7 @@ void GattSrv::ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteReq
 void GattSrv::ProcessSignedWriteEvent(GATM_Signed_Write_Event_Data_t *SignedWriteData)
 {
     Byte_t          **Value;
-    bool        *AllocatedMemory;
+    Boolean_t        *AllocatedMemory;
     unsigned int     *ValueLength;
     unsigned int      MaximumValueLength;
     AttributeInfo_t  *AttributeInfo;
@@ -7050,7 +7055,7 @@ void GattSrv::ProcessSignedWriteEvent(GATM_Signed_Write_Event_Data_t *SignedWrit
                     {
                         BTPS_FreeMemory(*Value);
 
-                        *AllocatedMemory = false;
+                        *AllocatedMemory = FALSE;
                         *ValueLength     = 0;
                         *Value           = NULL;
                     }
@@ -7068,14 +7073,14 @@ void GattSrv::ProcessSignedWriteEvent(GATM_Signed_Write_Event_Data_t *SignedWrit
 
                             /* Save the Value Length and flag that a buffer is */
                             /* allocated for this attribute.                   */
-                            *AllocatedMemory = true;
+                            *AllocatedMemory = TRUE;
                             *ValueLength     = SignedWriteData->DataLength;
                         }
                         else
                         {
                             /* Simply reset the state since this is a 0 byte   */
                             /* write.                                          */
-                            *AllocatedMemory = false;
+                            *AllocatedMemory = FALSE;
                             *ValueLength     = 0;
                             *Value           = NULL;
                         }
@@ -7242,7 +7247,7 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
 {
     Byte_t              **Value;
     Byte_t               *TempBuffer;
-    bool            *AllocatedMemory;
+    Boolean_t            *AllocatedMemory;
     unsigned int         *ValueLength;
     unsigned int          MaximumValueLength;
     unsigned int          QueuedValueLength;
@@ -7292,14 +7297,14 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
                         /* If we have not allocated a buffer for this entry go*/
                         /* ahead and do so (of the maximum length of this     */
                         /* attribute.                                         */
-                        if (*AllocatedMemory == false)
+                        if (*AllocatedMemory == FALSE)
                         {
                             if ((TempBuffer = (Byte_t*) BTPS_AllocateMemory(MaximumValueLength)) != NULL)
                             {
                                 BTPS_MemInitialize(TempBuffer, 0, MaximumValueLength);
                                 BTPS_MemCopy(TempBuffer, *Value, *ValueLength);
 
-                                *AllocatedMemory = true;
+                                *AllocatedMemory = TRUE;
                                 *Value           = TempBuffer;
                             }
                             else
@@ -7421,12 +7426,12 @@ PrepareWriteEntry_t *GattSrv::CombinePrepareWrite(PrepareWriteEntry_t **ListHead
 /* The following function adds the specified Entry to the specified  */
 /* List.  This function allocates and adds an entry to the list that */
 /* has the same attributes as the Entry passed into this function.   */
-/* This function will return false if NO Entry was added, otherwise  */
-/* it will return true.  This can occur if the element passed in was */
+/* This function will return FALSE if NO Entry was added, otherwise  */
+/* it will return TRUE.  This can occur if the element passed in was */
 /* deemed invalid or the actual List Head was invalid.               */
-bool GattSrv::AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteEntry_t *EntryToAdd)
+Boolean_t GattSrv::AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteEntry_t *EntryToAdd)
 {
-    bool            ret_val = false;
+    Boolean_t            ret_val = FALSE;
     PrepareWriteEntry_t *tmpEntry;
 
     /* First let's verify that values passed in are semi-valid.          */
@@ -7456,7 +7461,7 @@ bool GattSrv::AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteE
                         tmpEntry->NextPrepareWriteEntryPtr = EntryToAdd;
 
                         /* Return success to the caller.                      */
-                        ret_val                            = true;
+                        ret_val                            = TRUE;
                         break;
                     }
                 }
@@ -7467,7 +7472,7 @@ bool GattSrv::AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteE
                 *ListHead = EntryToAdd;
 
                 /* Return success to the caller.                            */
-                ret_val   = true;
+                ret_val   = TRUE;
             }
         }
     }
