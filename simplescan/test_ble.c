@@ -60,6 +60,7 @@ static int execute_cmd(eConfig_cmd_t aCmd);
 #define DEFAULT_TXT "hello ring 123!"
 #define COMM_BUF_LEN    1024
 
+#ifdef BLUEZ_TOOLS_SUPPORT
 int my_listen(void)
 {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
@@ -225,18 +226,21 @@ int my_scan(void)
     close( sock );
     return 0;
 }
+#endif // BLUEZ_TOOLS_SUPPORT
 
 void print_help(void)
 {
     printf("********************************************************\n");
     printf("* BT/LE test tool (date %s)\n", version_date);
     printf("********************************************************\n");
+#ifdef BLUEZ_TOOLS_SUPPORT
     printf("--scan                  scan for bluetooth device\n");
     printf("--listen                listen for incoming connection, read once\n");
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
     printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
-#if defined(s2lm_ironman) || defined(Linux_x86_64)
     printf("------------------------------------------------\n");
+#endif
+#if defined(s2lm_ironman) || defined(Linux_x86_64)
     printf("--up                    hciconfig hci0 up\n");
     printf("--down                  hciconfig hci0 down\n");
     printf("--piscan                hciconfig hci0 piscan\n");
@@ -246,22 +250,26 @@ void print_help(void)
     printf("--class                 hciconfig hci0 class 0x280430\n");
     printf("--hciinit               up, piscan, class 0x280430, leadv\n");
     printf("--hcishutdown           noleadv, noscan, down\n");
-#elif defined(hpcam2) || defined(Linux_x86_64)
     printf("------------------------------------------------\n");
+#endif  // not "else if"!
+#if defined(hpcam2) || defined(Linux_x86_64)
     printf("--gatt                  start Bluetopia GATT Server sample\n");
-#endif
     printf("------------------------------------------------\n");
+#endif
 
 }
 
 int main(int argc, char **argv)
 {
     int arg_idx, ret = 0;
-    char *dev_addr = NULL;
+    char *dev_addr __attribute__ ((unused)) = NULL;
 
     for (arg_idx = argc-1; arg_idx > 0; arg_idx--)
     {
-        if (!strcmp(argv[arg_idx], "--scan"))
+        if (0) {} // plaseholder for following "else if"
+
+#ifdef BLUEZ_TOOLS_SUPPORT
+        else if (!strcmp(argv[arg_idx], "--scan"))
         {
             ret = my_scan();
             break;
@@ -349,12 +357,16 @@ int main(int argc, char **argv)
             }
             break;
         }
+#endif // BLUEZ_TOOLS_SUPPORT
+
+
 #if defined(hpcam2) || defined(Linux_x86_64)
         else if (!strcmp(argv[arg_idx], "--gatt"))
         {
             ret = gatt_server_start("--autoinit");
         }
 #endif
+
         //------------------------------------------------
         else if (!strcmp(argv[arg_idx], "--up"))
         {
@@ -405,6 +417,7 @@ int main(int argc, char **argv)
 
 static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 {
+#ifdef  BLUEZ_TOOLS_SUPPORT
 #if defined(s2lm_ironman) // || defined(Linux_x86_64)
     int ctl;
     static struct hci_dev_info di;
@@ -457,6 +470,11 @@ static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 #else
     printf("hci commands are not available with this target. Abort\n");
 #endif
+#else
+    printf("hci commands are not available without -lbluetooth (Bluez). Abort\n");
+#endif //  BLUEZ_TOOLS_SUPPORT
+
+
     return 0;
 }
 
