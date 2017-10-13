@@ -1,4 +1,5 @@
 RING_NAME = Linux_x86_64
+BLUEZ_TOOLS_SUPPORT = 1
 $(info RING_NAME = [${RING_NAME}])
 
 # Makefile for hciconfig shared library and test_ble
@@ -30,6 +31,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g			    \
 	    -D$(RING_NAME)				    \
+	    -DBLUEZ_TOOLS_SUPPORT			    \
 	    -DTEST_CONSOLE_WRITE			    \
 	    -I$(RING_TOP) -I$(RING_BLE) -I$(RING_LOG)	    \
 	    -I$(BTPIA_SDK_INC)				    \

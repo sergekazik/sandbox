@@ -83,7 +83,7 @@ typedef struct _tagCharacteristicInfo_t
     unsigned long  CharacteristicPropertiesMask;
     unsigned long  SecurityPropertiesMask;
     UUID_128_t     CharacteristicUUID;
-    bool      AllocatedValue;
+    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
     unsigned int   MaximumValueLength;
     unsigned int   ValueLength;
     Byte_t        *Value;
@@ -96,7 +96,7 @@ typedef struct _tagDescriptorInfo_t
     unsigned long  DescriptorPropertiesMask;
     unsigned long  SecurityPropertiesMask;
     UUID_128_t     CharacteristicUUID;
-    bool      AllocatedValue;
+    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
     unsigned int   MaximumValueLength;
     unsigned int   ValueLength;
     Byte_t        *Value;
@@ -240,20 +240,20 @@ public:
     // configuration and get/set functions
     void SetCurrentRemoteBD_ADDR(BD_ADDR_t aCurrentRemoteBD_ADDR);
     BD_ADDR_t GetCurrentRemoteBD_ADDR();
-    void SetCurrentLowEnergy(bool aCurrentLowEnergy);
-    bool GetCurrentLowEnergy();
+    void SetCurrentLowEnergy(Boolean_t aCurrentLowEnergy);
+    Boolean_t GetCurrentLowEnergy();
     unsigned int GetDEVMCallbackID();
     unsigned int GetGATMCallbackID();
     unsigned int GetAuthenticationCallbackID();
     GAP_IO_Capability_t GetIOCapability();
     GAP_LE_IO_Capability_t GetLEIOCapability();
     GAP_LE_Bonding_Type_t GetBondingType();
-    bool GetOOBSupport();
-    bool GetSC();
-    bool GetKeypress();
-    bool GetMITMProtection();
-    bool GetLEMITMProtection();
-    bool GetP256DebugMode();
+    Boolean_t GetOOBSupport();
+    Boolean_t GetSC();
+    Boolean_t GetKeypress();
+    Boolean_t GetMITMProtection();
+    Boolean_t GetLEMITMProtection();
+    Boolean_t GetP256DebugMode();
 
     void CopyRandomValues();
     void CopyConfirmValues();
@@ -278,7 +278,7 @@ public:
     void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr);
     void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address);
     void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry);
-    void DumpData(bool String, unsigned int Length, Byte_t *Data);
+    void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data);
 
 private:
     unsigned int   mDEVMCallbackID;            // callback ID of the currently registered Device Manager
@@ -287,17 +287,17 @@ private:
     unsigned int   mServiceCount;              // the current number of services passed to register
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
                                                // client registers for Authentication.
-    bool           mOOBSupport;                // whether or not Out of Band Secure Simple Pairing exchange is supported.
-    bool           mSC;                        // whether or not SC protection is to be requested during a Pairing procedure.
+    Boolean_t           mOOBSupport;                // whether or not Out of Band Secure Simple Pairing exchange is supported.
+    Boolean_t           mSC;                        // whether or not SC protection is to be requested during a Pairing procedure.
     BD_ADDR_t      mCurrentRemoteBD_ADDR;      // current BD_ADDR of the device which is currently pairing or authenticating.
-    bool           mCurrentLowEnergy;          // current LE state of the device  which is currently pairing or authenticating.
+    Boolean_t           mCurrentLowEnergy;          // current LE state of the device  which is currently pairing or authenticating.
     GAP_IO_Capability_t mIOCapability;         // current I/O Capabilities that are to be used for Secure SimplePairing.
     GAP_LE_IO_Capability_t	mLEIOCapability;   // current I/O Capabilities that are to be used for LE pairing
     GAP_LE_Bonding_Type_t	mBondingType;      // Variable which holds the currentBonding Type that is going to   be used for LE pairing
-    bool           mKeypress;                  // Variable which flags whether or not sending and recieving Keypress notification during pairing is supported.
-    bool           mMITMProtection;            // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Secure Simple Pairing procedure.
-    bool           mLEMITMProtection;          // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Simple Pairing procedure.
-    bool           mP256DebugMode;             // Variable which flags whether or not to use P-256 debug key during a SC Pairing procedure.
+    Boolean_t           mKeypress;                  // Variable which flags whether or not sending and recieving Keypress notification during pairing is supported.
+    Boolean_t           mMITMProtection;            // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Secure Simple Pairing procedure.
+    Boolean_t           mLEMITMProtection;          // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Simple Pairing procedure.
+    Boolean_t           mP256DebugMode;             // Variable which flags whether or not to use P-256 debug key during a SC Pairing procedure.
     Mutex_t        mServiceMutex = NULL;       // Mutex which guards access to theService List.
 
     PrepareWriteEntry_t *mPrepareWriteList = NULL;   // Pointer to head of list containing all currently pendingprepared writes.
@@ -314,7 +314,7 @@ private:
     void FreePrepareWriteEntryEntryMemory(PrepareWriteEntry_t *EntryToFree);
     void FreePrepareWriteEntryList(PrepareWriteEntry_t **ListHead);
     PrepareWriteEntry_t *CombinePrepareWrite(PrepareWriteEntry_t **ListHead, GATM_Prepare_Write_Request_Event_Data_t *PrepareWriteRequestData);
-    bool AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteEntry_t *EntryToAdd);
+    Boolean_t AddPrepareWriteEntry(PrepareWriteEntry_t **ListHead, PrepareWriteEntry_t *EntryToAdd);
     PrepareWriteEntry_t *DeletePrepareWriteEntry(PrepareWriteEntry_t **ListHead, GATT_Connection_Type_t ConnectionType, BD_ADDR_t RemoteDeviceAddress, unsigned int ServiceID);
     PrepareWriteEntry_t *DeletePrepareWriteEntryByPtr(PrepareWriteEntry_t **ListHead, PrepareWriteEntry_t *PrepareWriteEntry);
 
