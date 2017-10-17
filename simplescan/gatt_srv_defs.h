@@ -9,7 +9,7 @@
 
 #ifdef RING_BLE_DEF_CPP_WRAPPER
 #undef RING_BLE_DEF_CPP_WRAPPER
-#define RING_BLE_GATT_SERVER_TEST_DEFINE(__arg1, __arg2) static int __arg2(ParameterList_t *aParams) { return gGattSrvInst ? gGattSrvInst->__arg2(aParams) : BleApi::NOT_INITIALIZED_ERROR; }
+#define RING_BLE_GATT_SERVER_TEST_DEFINE(__arg1, __arg2) static int __arg2(ParameterList_t *aParams) { return gGattSrvInst ? ((GattSrv*)gGattSrvInst)->__arg2(aParams) : BleApi::NOT_INITIALIZED_ERROR; }
 #endif
 
 #ifdef RING_BLE_DEF_CMD
@@ -23,7 +23,7 @@
 #endif
 
 RING_BLE_GATT_SERVER_TEST_DEFINE("Initialize"                              ,Initialize)
-RING_BLE_GATT_SERVER_TEST_DEFINE("Cleanup"                                 ,Cleanup)
+RING_BLE_GATT_SERVER_TEST_DEFINE("Shutdown"                                ,Shutdown)
 RING_BLE_GATT_SERVER_TEST_DEFINE("QueryDebugZoneMask"                      ,QueryLocalRemoteDebugZoneMask)
 RING_BLE_GATT_SERVER_TEST_DEFINE("SetDebugZoneMask"                        ,SetLocalRemoteDebugZoneMask)
 RING_BLE_GATT_SERVER_TEST_DEFINE("SetDebugZoneMaskPID"                     ,SetDebugZoneMaskPID)

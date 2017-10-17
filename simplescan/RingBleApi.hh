@@ -139,6 +139,28 @@ typedef struct _tagCommandTable_t
     CommandFunction_t  CommandFunction;
 } CommandTable_t;
 
+enum ConfigTag
+{
+    Config_EOL                  = 0, // End of list
+    Config_ServiceTable,
+    Config_LocalDeviceName,
+    Config_LocalClassOfDevice,
+    Config_Discoverable,
+    Config_Connectable,
+    Config_Pairable,
+    Config_RemoteDeviceLinkActive,
+    Config_LocalDeviceAppearance,
+    Config_AdvertisingInterval,
+    Config_AndUpdateConnectionAndScanBLEParameters,
+    Config_AuthenticatedPayloadTimeout,
+};
+
+typedef struct _tagDeviceConfig_t
+{
+    ConfigTag       tag;
+    ParameterList_t params;
+} DeviceConfig_t;
+
 class BleApi
 {
 public:
@@ -154,6 +176,27 @@ public:
         UNDEFINED_ERROR                           = -8, // Initial value; denotes that not all paths of the function modify return value
     };
 
+    // some Bluetooth Appearance values
+    // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.gap.appearance.xml
+    enum Appearance {
+        BLE_APPEARANCE_UNKNOWN                  = 0,
+        BLE_APPEARANCE_GENERIC_PHONE            = 64,
+        BLE_APPEARANCE_GENERIC_COMPUTER         = 128,
+        BLE_APPEARANCE_GENERIC_WATCH            = 192,
+        BLE_APPEARANCE_GENERIC_SENSOR           = 1344,
+        BLE_APPEARANCE_MOTION_SENSOR            = 1345,
+    };
+
+    enum Power {
+        PowerOff = 0,
+        PowerOn = 1,
+    };
+
+    enum Register {
+        RegisterCallback = 1,
+    };
+
+
     ~BleApi();
 
 protected:
@@ -161,26 +204,21 @@ protected:
     bool          mInitialized;      // initialization state
 
 public:
+    virtual int Initialize() = 0;
+    virtual int SetDevicePower(bool aPowerOn) = 0;
+    virtual int ShutdownService() = 0;
+    virtual int Shutdown() = 0;
+
+    // local device state queries
+    virtual int QueryDevicePower() = 0;
+    virtual int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+
     // configuration
-    virtual int Initialize(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetDevicePower(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetConnectable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetPairable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int ShutdownService(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int Cleanup(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int Configure(DeviceConfig_t* aConfig) = 0;
 
     virtual int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-
-    virtual int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((unused))) = 0;
 
     // discovery
     virtual int StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused))) = 0;

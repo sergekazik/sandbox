@@ -78,7 +78,12 @@ static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information
 static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)));
 
 /* Initialization.                 */
+int GattSrv::Initialize()
+{
+    ParameterList_t params = {1, {{NULL, BleApi::RegisterCallback}}};
+    return Initialize(&params);
 
+}
 /* The following function is responsible for Initializing the        */
 /* Bluetopia Platform Manager Framework.  This function returns      */
 /* zero if successful and a negative value if an error occurred.     */
@@ -150,10 +155,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
                 {
                     mServiceCount = aParams->Params[1].intParam;
                     mServiceTable = (ServiceInfo_t *) aParams->Params[1].strParam;
-                }
-                else
-                {
-                    BOT_NOTIFY_ERROR("Failed to initialize Service Table, ret=%d\r\n", ret_val);
+                    BOT_NOTIFY_DEBUG("Service Table configured, ret=%d\r\n", ret_val);
                 }
             }
             else
@@ -186,7 +188,12 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
 /* down the Bluetopia Platform Manager Framework.  This function     */
 /* returns zero if successful and a negative value if an error       */
 /* occurred.                                                         */
-int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribute__ ((unused)) )
+int GattSrv::Shutdown()
+{
+    return Shutdown(NULL);
+}
+
+int GattSrv::Shutdown(ParameterList_t *aParams __attribute__ ((unused)) __attribute__ ((unused)) )
 {
     int ret_val = UNDEFINED_ERROR;
 
@@ -340,6 +347,16 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
     return ret_val;
 }
 
+////
+/// \brief GattSrv::SetDevicePower
+/// \return
+///
+int GattSrv::SetDevicePower(bool aPowerOn)
+{
+    ParameterList_t params = {1, {{NULL, aPowerOn ? BleApi::PowerOn : BleApi::PowerOff}}};
+    return SetDevicePower(&params);
+}
+
 /* The following function is responsible for Setting the Device Power*/
 /* of the Local Device.  This function returns zero if successful and*/
 /* a negative value if an error occurred.                            */
@@ -403,6 +420,11 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
     }
 
     return ret_val;
+}
+
+int GattSrv::QueryDevicePower()
+{
+    return QueryDevicePower(NULL);
 }
 
 /* The following function is responsible for querying the current    */
@@ -589,9 +611,15 @@ int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused
     return ret_val;
 }
 
+int GattSrv::ShutdownService()
+{
+    return ShutdownService(NULL);
+}
+
 /* The following function is responsible for shutting down the remote*/
 /* server.  This function returns zero if successful and a negative  */
 /* value if an error occurred.                                       */
+/* WARNING - resident SS1BTPM service will exit!                     */
 int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int Result;
@@ -664,6 +692,82 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
+    return ret_val;
+}
+
+int GattSrv::Configure(DeviceConfig_t* aConfig)
+{
+    int ret_val = UNDEFINED_ERROR;
+
+    while (aConfig != NULL && aConfig->tag != Config_EOL)
+    {
+        switch (aConfig->tag)
+        {
+        case Config_ServiceTable:
+            if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.Params[0].strParam != NULL))
+            {
+                mServiceCount = aConfig->params.Params[0].intParam;
+                mServiceTable = (ServiceInfo_t *) aConfig->params.Params[0].strParam;
+                BOT_NOTIFY_DEBUG("Service Table configure succeeded, count=%d\r\n", mServiceCount);
+                ret_val = NO_ERROR;
+            }
+            else
+            {
+                /* One or more of the necessary parameters is/are invalid.     */
+                BOT_NOTIFY_ERROR("Usage: Config_ServiceTable: ServiceInfo_t *ptr, int numOfSvc\r\n");
+                ret_val = INVALID_PARAMETERS_ERROR;
+            }
+            break;
+
+        case Config_LocalDeviceName:
+            ret_val = SetLocalDeviceName(&aConfig->params);
+            break;
+
+        case Config_LocalClassOfDevice:
+            ret_val = SetLocalClassOfDevice(&aConfig->params);
+            break;
+
+        case Config_Discoverable:
+            ret_val = SetDiscoverable(&aConfig->params);
+            break;
+
+        case Config_Connectable:
+            ret_val = SetConnectable(&aConfig->params);
+            break;
+
+        case Config_Pairable:
+            ret_val = SetPairable(&aConfig->params);
+            break;
+
+        case Config_RemoteDeviceLinkActive:
+            ret_val = SetRemoteDeviceLinkActive(&aConfig->params);
+            break;
+
+        case Config_LocalDeviceAppearance:
+            ret_val = SetLocalDeviceAppearance(&aConfig->params);
+            break;
+
+        case Config_AdvertisingInterval:
+            ret_val = SetAdvertisingInterval(&aConfig->params);
+            break;
+
+        case Config_AndUpdateConnectionAndScanBLEParameters:
+            ret_val = SetAndUpdateConnectionAndScanBLEParameters(&aConfig->params);
+            break;
+
+        case Config_AuthenticatedPayloadTimeout:
+            ret_val = SetAuthenticatedPayloadTimeout(&aConfig->params);
+            break;
+
+        default:
+            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d\n", aConfig->tag);
+            ret_val = INVALID_PARAMETERS_ERROR;
+            break;
+        }
+        if (ret_val != NO_ERROR)
+            break;
+        aConfig++;
+    }
     return ret_val;
 }
 
@@ -6590,19 +6694,26 @@ void GattSrv::StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address)
 
     if ((BoardStr) && (strlen(BoardStr) == sizeof(BD_ADDR_t)*2) && (Board_Address))
     {
-        sscanf(BoardStr, "%02X%02X%02X%02X%02X%02X", &(Address[5]), &(Address[4]), &(Address[3]), &(Address[2]), &(Address[1]), &(Address[0]));
+        if ((6 == sscanf(BoardStr, "%02X%02X%02X%02X%02X%02X", &(Address[5]), &(Address[4]), &(Address[3]), &(Address[2]), &(Address[1]), &(Address[0]))) ||
+            (6 == sscanf(BoardStr, "%02X:%02X:%02X:%02X:%02X:%02X", &(Address[5]), &(Address[4]), &(Address[3]), &(Address[2]), &(Address[1]), &(Address[0]))))
+        {
+            Board_Address->BD_ADDR5 = (Byte_t)Address[5];
+            Board_Address->BD_ADDR4 = (Byte_t)Address[4];
+            Board_Address->BD_ADDR3 = (Byte_t)Address[3];
+            Board_Address->BD_ADDR2 = (Byte_t)Address[2];
+            Board_Address->BD_ADDR1 = (Byte_t)Address[1];
+            Board_Address->BD_ADDR0 = (Byte_t)Address[0];
 
-        Board_Address->BD_ADDR5 = (Byte_t)Address[5];
-        Board_Address->BD_ADDR4 = (Byte_t)Address[4];
-        Board_Address->BD_ADDR3 = (Byte_t)Address[3];
-        Board_Address->BD_ADDR2 = (Byte_t)Address[2];
-        Board_Address->BD_ADDR1 = (Byte_t)Address[1];
-        Board_Address->BD_ADDR0 = (Byte_t)Address[0];
+            // store for further use
+            mLastRemoteAddress = *Board_Address;
+            return;
+        }
     }
-    else
+
+    if (Board_Address)
     {
-        if (Board_Address)
-            BTPS_MemInitialize(Board_Address, 0, sizeof(BD_ADDR_t));
+        BTPS_MemInitialize(Board_Address, 0, sizeof(BD_ADDR_t));
+        *Board_Address = mLastRemoteAddress;
     }
 }
 

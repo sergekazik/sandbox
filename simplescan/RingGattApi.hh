@@ -149,6 +149,15 @@ private:
     GattSrv();
 
 public:
+    int Initialize();
+    int Configure(DeviceConfig_t* aConfig);
+
+    int QueryDevicePower();
+    int SetDevicePower(bool aPowerOn);
+
+    int ShutdownService();  // shutdown SS1BTPM
+    int Shutdown();         // cleanup the session and de-init before exit
+
     int Initialize(ParameterList_t *aParams __attribute__ ((unused)));
     int SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)));
     int QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)));
@@ -158,7 +167,7 @@ public:
     int SetConnectable(ParameterList_t *aParams __attribute__ ((unused)));
     int SetPairable(ParameterList_t *aParams __attribute__ ((unused)));
     int ShutdownService(ParameterList_t *aParams __attribute__ ((unused)));
-    int Cleanup(ParameterList_t *aParams __attribute__ ((unused)));
+    int Shutdown(ParameterList_t *aParams __attribute__ ((unused)));
 
     int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
     int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
@@ -287,18 +296,20 @@ private:
     unsigned int   mServiceCount;              // the current number of services passed to register
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
                                                // client registers for Authentication.
-    Boolean_t           mOOBSupport;                // whether or not Out of Band Secure Simple Pairing exchange is supported.
-    Boolean_t           mSC;                        // whether or not SC protection is to be requested during a Pairing procedure.
-    BD_ADDR_t      mCurrentRemoteBD_ADDR;      // current BD_ADDR of the device which is currently pairing or authenticating.
-    Boolean_t           mCurrentLowEnergy;          // current LE state of the device  which is currently pairing or authenticating.
     GAP_IO_Capability_t mIOCapability;         // current I/O Capabilities that are to be used for Secure SimplePairing.
     GAP_LE_IO_Capability_t	mLEIOCapability;   // current I/O Capabilities that are to be used for LE pairing
     GAP_LE_Bonding_Type_t	mBondingType;      // Variable which holds the currentBonding Type that is going to   be used for LE pairing
-    Boolean_t           mKeypress;                  // Variable which flags whether or not sending and recieving Keypress notification during pairing is supported.
-    Boolean_t           mMITMProtection;            // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Secure Simple Pairing procedure.
-    Boolean_t           mLEMITMProtection;          // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Simple Pairing procedure.
-    Boolean_t           mP256DebugMode;             // Variable which flags whether or not to use P-256 debug key during a SC Pairing procedure.
-    Mutex_t        mServiceMutex = NULL;       // Mutex which guards access to theService List.
+
+    Boolean_t       mOOBSupport;                // whether or not Out of Band Secure Simple Pairing exchange is supported.
+    Boolean_t       mSC;                        // whether or not SC protection is to be requested during a Pairing procedure.
+    BD_ADDR_t       mCurrentRemoteBD_ADDR;      // current BD_ADDR of the device which is currently pairing or authenticating.
+    BD_ADDR_t       mLastRemoteAddress;         // last remote BD_ADDR requested
+    Boolean_t       mCurrentLowEnergy;          // current LE state of the device  which is currently pairing or authenticating.
+    Boolean_t       mKeypress;                  // Variable which flags whether or not sending and recieving Keypress notification during pairing is supported.
+    Boolean_t       mMITMProtection;            // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Secure Simple Pairing procedure.
+    Boolean_t       mLEMITMProtection;          // Variable which flags whether or not Man in the Middle (MITM) protection is to be requested during a Simple Pairing procedure.
+    Boolean_t       mP256DebugMode;             // Variable which flags whether or not to use P-256 debug key during a SC Pairing procedure.
+    Mutex_t         mServiceMutex = NULL;       // Mutex which guards access to theService List.
 
     PrepareWriteEntry_t *mPrepareWriteList = NULL;   // Pointer to head of list containing all currently pendingprepared writes.
 

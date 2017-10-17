@@ -58,7 +58,7 @@ static void ClearCommands(void);
 
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
 
-static GattSrv* gGattSrvInst = NULL;
+static BleApi* gGattSrvInst = NULL;
 #define RING_BLE_DEF_CPP_WRAPPER
 #include "gatt_srv_defs.h"
 
@@ -67,25 +67,6 @@ static GattSrv* gGattSrvInst = NULL;
 static char gCommands[][CMD_LEN_MAX] = {
 #include "gatt_srv_defs.h"
 };
-
-static const StartUpCommands_t gStartUpCommandList[] =
-{
-    {"Initialize 1",                        2},
-    {"SetDevicePower 1",                    2},
-    {"SetLocalDeviceName Ampak-WL18",       1},
-    {"SetLocalClassOfDevice  0x280430",     1},
-    {"SetAdvertisingInterval 2000 3000",    1},
-    {"RegisterGATTCallback",                1},
-    {"RegisterService 0",                   1},
-    {"RegisterService 1",                   1},
-    {"ListCharacteristics",                 1},
-    {"ListDescriptors",                     1},
-    {"RegisterAuthentication",              1},
-    {"ChangeSimplePairingParameters 0 0",   1},
-    {"StartAdvertising 118 300",            1},
-    {"QueryLocalDeviceProperties",          1},
-};
-static const int gStartUpCommandListMax = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
 
 static char* UpperCaseUpdate(int &idx)
 {
@@ -1469,7 +1450,8 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
             if((CommandFunction = FindCommand(TempCommand->Command)) != NULL)
             {
                 /* Check if the command is Initialize and requires special handling */
-                if(memcmp(TempCommand->Command, "INITIALIZE", strlen("INITIALIZE")) == 0)
+                if ((memcmp(TempCommand->Command, "INITIALIZE", strlen("INITIALIZE")) == 0) ||
+                    (memcmp(TempCommand->Command, "1", 1) == 0))
                 {
                     TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].intParam = PREDEFINED_SERVICES_COUNT;
                     TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam =(char*) ServiceTable;
@@ -1691,11 +1673,7 @@ static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
     printf("* HH, Help, Quit.                               \r\n");
     printf("*****************************************************************\r\n");
 
-    for (int idx = 0; idx < gStartUpCommandListMax; idx++)
-    {
-        printf("%s\n", gStartUpCommandList[idx].mCmd);
-    }
-    return(0);
+    return 0;
 }
 
 /*****************************************************************************
@@ -1853,7 +1831,7 @@ extern "C" int gatt_server_start(const char* arguments)
 {
 
 #ifndef Linux_x86_64
-    gGattSrvInst = (GattSrv*) GattSrv::getInstance();
+    gGattSrvInst = GattSrv::getInstance();
     if (gGattSrvInst == NULL)
     {
         printf("error creating gGattSrvInst!! Abort. \n");
@@ -1865,15 +1843,63 @@ extern "C" int gatt_server_start(const char* arguments)
 
     if (arguments != NULL)
     {
-        if (!strcmp(arguments, "--autoinit"))
+        printf("---starting in a sec...---\n");
+        sleep(2);
+
+        if (!strcmp(arguments, "--autoinit") && gGattSrvInst)
         {
+            int ret_val = BleApi::UNDEFINED_ERROR;
+
+            ret_val = gGattSrvInst->Initialize();
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->Initialize(&params[0]) failed, Abort.\n");
+                goto autodone;
+            }
+
+            ret_val = gGattSrvInst->SetDevicePower(true);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->SetDevicePower(&params[1]) failed, Abort.\n");
+                goto autodone;
+            }
+
+            // example of Config usage
+            DeviceConfig_t config[] =
+            {   // config tag               num of params       params
+                {Config_ServiceTable,           {1, {{(char*) ServiceTable, PREDEFINED_SERVICES_COUNT}}}},
+                {Config_LocalDeviceName,        {1, {{(char*) "Ampak-WL18", 0}}}},
+                {Config_LocalClassOfDevice,     {1, {{NULL, 0x280430}}}},
+                {Config_AdvertisingInterval,    {2, {{NULL, 2000}, {NULL, 3000}}}},
+                {Config_LocalDeviceAppearance,  {1, {{NULL, BleApi::BLE_APPEARANCE_GENERIC_COMPUTER}}}},
+                {Config_Discoverable,           {1, {{NULL, 1}}}},
+                {Config_Connectable,            {1, {{NULL, 1}}}},
+                {Config_Pairable,               {1, {{NULL, 1}}}},
+                {Config_EOL,                    {0, {{NULL, 0}}}},
+            };
+
+            ret_val = gGattSrvInst->Configure(config);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->Configure(&config) failed, Abort.\n");
+                goto autodone;
+            }
+
+            // list of commands example
+            const StartUpCommands_t gStartUpCommandList[] =
+            {
+                {"RegisterGATTCallback",                1},
+                {"RegisterService 0",                   1},
+                {"RegisterService 1",                   1},
+                {"ListCharacteristics",                 1},
+                {"ListDescriptors",                     1},
+                {"RegisterAuthentication",              1},
+                {"ChangeSimplePairingParameters 0 0",   1},
+                {"StartAdvertising 118 300",            1},
+                {"QueryLocalDeviceProperties",          1},
+            };
             char UserInput[MAX_COMMAND_LENGTH];
             int nCmds = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
-
-            printf("---starting in a sec...---\n");
-            sleep(2);
-
-            int nRepeat = 2;
 
             for (int i = 0; i < nCmds; i++)
             {
@@ -1884,24 +1910,16 @@ extern "C" int gatt_server_start(const char* arguments)
                 printf("cmd[%d]: [%s] ret = %d\n", i+1, UserInput, ret);
                 sleep(gStartUpCommandList[i].mDelay);
 
-                if (ret != 0)
+                if (ret != BleApi::NO_ERROR)
                 {
-                    if (nRepeat-- > 0)
-                    {
-                        // try one more time same operation
-                        i--;
-                    }
-                    else
-                    {
-                        // abort sequence
-                        printf("cmd[%d]: %s failed - Abort the series.\n", i+1, UserInput);
-                        break;
-                    }
+                    // abort sequence
+                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, UserInput);
+                    break;
                 }
             }
         }
     }
-
+autodone:
     UserInterface();
 
     return 0;
