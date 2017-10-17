@@ -87,7 +87,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (!mInitialized)
     {
         BOT_NOTIFY_DEBUG("GattSrv::Initialize, %d params\n", aParams->NumberofParameters);
@@ -107,7 +107,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
             {
                 /* Initialization successful, go ahead and inform the user  */
                 /* that it was successful and flag that the Platform Manager*/
-                /* has been mInitialized.                                    */
+                /* has been Initialized.                                    */
                 BOT_NOTIFY_INFO("BTPM_Initialize() Success: %d.\r\n", Result);
 
                 mInitialized = TRUE;
@@ -173,8 +173,8 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Already mInitialized, flag an error.                            */
-        BOT_NOTIFY_ERROR("Initialization Failure: Already mInitialized.\r\n");
+        /* Already Initialized, flag an error.                            */
+        BOT_NOTIFY_ERROR("Initialization Failure: Already Initialized.\r\n");
 
         ret_val = NO_ERROR;
     }
@@ -190,7 +190,7 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* If there was an Event Callback Registered, then we need to     */
@@ -202,7 +202,7 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
             GATM_UnRegisterEventCallback(mGATMCallbackID);
 
         /* Nothing to do other than to clean up the Bluetopia Platform    */
-        /* Manager Service and flag that it is no longer mInitialized.     */
+        /* Manager Service and flag that it is no longer Initialized.     */
         BTPM_Cleanup();
 
         mInitialized    = FALSE;
@@ -229,8 +229,8 @@ int GattSrv::Cleanup(ParameterList_t *aParams __attribute__ ((unused)) __attribu
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_WARNING("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_WARNING("Platform Manager has not been Initialized.\r\n");
 
         // setting NO_ERROR since it doesn't really affect anything
         // ret_val = NOT_INITIALIZED_ERROR;
@@ -249,7 +249,7 @@ int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unus
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* If there is an Event Callback Registered, then we need to flag */
@@ -286,8 +286,8 @@ int GattSrv::RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -302,7 +302,7 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Next, check to make sure that there is an Event Callback       */
@@ -329,8 +329,8 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_WARNING("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_WARNING("Platform Manager has not been Initialized.\r\n");
 
         // setting NO_ERROR since it doesn't really do anything bad
         // ret_val = NOT_INITIALIZED_ERROR;
@@ -348,7 +348,7 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (mInitialized)
     {
         /* Determine if the user would like to Power On or Off the Local  */
@@ -357,14 +357,26 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
         {
             /* Now actually Perform the command.                           */
             if (aParams->Params[0].intParam)
-                Result = DEVM_PowerOnDevice();
-            else
-                Result = DEVM_PowerOffDevice();
-
-            if (!Result)
             {
-                /* Device Power request was successful, go ahead and inform */
-                /* the User.                                                */
+                Result = DEVM_QueryDevicePowerState();
+                if (Result > 0) // On
+                {
+                    BOT_NOTIFY_INFO("DEVM_QueryDevicePowerState(): Local Device is already Powered Up\r\n");
+                    Result = NO_ERROR;
+                }
+                else
+                {
+                    Result = DEVM_PowerOnDevice();
+                }
+            }
+            else
+            {
+                Result = DEVM_PowerOffDevice();
+            }
+
+            if (Result == NO_ERROR)
+            {
+                /* Device Power request was successful, go ahead and inform the User. */
                 BOT_NOTIFY_INFO("DEVM_Power%sDevice() Success: %d.\r\n", aParams->Params[0].intParam?"On":"Off", Result);
 
                 /* Return success to the caller.                            */
@@ -385,8 +397,8 @@ int GattSrv::SetDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -401,10 +413,10 @@ int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
     int ret_val = UNDEFINED_ERROR;
     int Result;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
-        /* Framework has been mInitialized, go ahead and query the current */
+        /* Framework has been Initialized, go ahead and query the current */
         /* Power state.                                                   */
         Result = DEVM_QueryDevicePowerState();
 
@@ -418,8 +430,8 @@ int GattSrv::QueryDevicePower(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -434,7 +446,7 @@ int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ 
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (mInitialized)
     {
         /* Determine if the user would like to set the Local Library Debug*/
@@ -468,8 +480,8 @@ int GattSrv::SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ 
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -485,7 +497,7 @@ int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute_
     int           ret_val = UNDEFINED_ERROR;
     unsigned long DebugZoneMask;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (mInitialized)
     {
         /* Determine if the user would like to query the Local Library    */
@@ -519,8 +531,8 @@ int GattSrv::QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute_
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -536,7 +548,7 @@ int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (mInitialized)
     {
         /* Make sure the input parameters have been specified.            */
@@ -569,8 +581,8 @@ int GattSrv::SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -585,10 +597,10 @@ int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
-        /* mInitialized, go ahead and attempt to shutdown the server.      */
+        /* Initialized, go ahead and attempt to shutdown the server.      */
         if ((Result = BTPM_ShutdownService()) == 0)
         {
             BOT_NOTIFY_INFO("BTPM_ShutdownService() Success: %d.\r\n", Result);
@@ -606,8 +618,8 @@ int GattSrv::ShutdownService(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -623,10 +635,10 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
-        /* mInitialized, go ahead and query the Local Device Properties.   */
+        /* Initialized, go ahead and query the Local Device Properties.   */
         if ((Result = DEVM_QueryLocalDeviceProperties(&LocalDeviceProperties)) >= 0)
         {
             BOT_NOTIFY_INFO("DEVM_QueryLocalDeviceProperties() Success: %d.\r\n", Result);
@@ -647,8 +659,8 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -664,7 +676,7 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -694,8 +706,8 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -711,7 +723,7 @@ int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((u
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -738,8 +750,8 @@ int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((u
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -756,7 +768,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -793,8 +805,8 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -811,7 +823,7 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -859,8 +871,8 @@ int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -877,7 +889,7 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -920,8 +932,8 @@ int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -938,7 +950,7 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
     int                            ret_val = UNDEFINED_ERROR;
     DEVM_Local_Device_Properties_t LocalDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         BTPS_MemInitialize(&LocalDeviceProperties, 0, sizeof(LocalDeviceProperties));
@@ -981,8 +993,8 @@ int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -997,7 +1009,7 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1055,8 +1067,8 @@ int GattSrv::StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unuse
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1071,7 +1083,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1081,7 +1093,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
             /* Check to see what type of discovery should be stopped.      */
             if ((Boolean_t)aParams->Params[0].intParam)
             {
-                /* mInitialized, go ahead and attempt to stop LE Device      */
+                /* Initialized, go ahead and attempt to stop LE Device      */
                 /* Discovery.                                               */
                 if ((Result = DEVM_StopDeviceScan()) >= 0)
                 {
@@ -1100,7 +1112,7 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
             }
             else
             {
-                /* mInitialized, go ahead and attempt to stop BR/EDR Device  */
+                /* Initialized, go ahead and attempt to stop BR/EDR Device  */
                 /* Discovery.                                               */
                 if ((Result = DEVM_StopDeviceDiscovery()) >= 0)
                 {
@@ -1127,8 +1139,8 @@ int GattSrv::StopDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1149,7 +1161,7 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
     unsigned int       TotalNumberDevices;
     Class_of_Device_t  ClassOfDevice;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1228,8 +1240,8 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1248,7 +1260,7 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
     unsigned long                   QueryFlags;
     DEVM_Remote_Device_Properties_t RemoteDeviceProperties;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1296,8 +1308,8 @@ int GattSrv::QueryRemoteDeviceProperties(ParameterList_t *aParams __attribute__ 
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1315,7 +1327,7 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
     Class_of_Device_t                     ClassOfDevice;
     DEVM_Remote_Device_Application_Data_t ApplicationData;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1374,8 +1386,8 @@ int GattSrv::AddRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1391,7 +1403,7 @@ int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
     int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1427,8 +1439,8 @@ int GattSrv::DeleteRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1445,7 +1457,7 @@ int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attrib
     BD_ADDR_t                             BD_ADDR;
     DEVM_Remote_Device_Application_Data_t ApplicationData;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1502,8 +1514,8 @@ int GattSrv::UpdateRemoteDeviceApplicationData(ParameterList_t *aParams __attrib
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1518,7 +1530,7 @@ int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1551,8 +1563,8 @@ int GattSrv::DeleteRemoteDevices(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1569,7 +1581,7 @@ int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unuse
     BD_ADDR_t     BD_ADDR;
     unsigned long Flags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1613,8 +1625,8 @@ int GattSrv::PairWithRemoteDevice(ParameterList_t *aParams __attribute__ ((unuse
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1631,7 +1643,7 @@ int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ (
     int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1667,8 +1679,8 @@ int GattSrv::CancelPairWithRemoteDevice(ParameterList_t *aParams __attribute__ (
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1685,7 +1697,7 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
     BD_ADDR_t     BD_ADDR;
     unsigned long UnPairFlags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1726,8 +1738,8 @@ int GattSrv::UnPairRemoteDevice(ParameterList_t *aParams __attribute__ ((unused)
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1747,7 +1759,7 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
     Boolean_t EnableSCOnly;
     char     *mode;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -1804,8 +1816,8 @@ int GattSrv::EnableSCOnly(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1822,7 +1834,7 @@ int GattSrv::RegenerateP256LocalKeys(ParameterList_t *aParams __attribute__ ((un
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         ret_val = DEVM_RegenerateP256LocalKeys();
@@ -1844,8 +1856,8 @@ int GattSrv::RegenerateP256LocalKeys(ParameterList_t *aParams __attribute__ ((un
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1862,7 +1874,7 @@ int GattSrv::OOBGenerateParameters(ParameterList_t *aParams __attribute__ ((unus
 {
     int ret_val = NO_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* In order to be able to perform LE mSC pairing in OOB method       */
@@ -1891,8 +1903,8 @@ int GattSrv::OOBGenerateParameters(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -1915,7 +1927,7 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
     DEVM_Parsed_SDP_Data_t       ParsedSDPData;
     DEVM_Parsed_Services_Data_t  ParsedGATTData;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2051,8 +2063,8 @@ int GattSrv::QueryRemoteDeviceServices(ParameterList_t *aParams __attribute__ ((
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2070,7 +2082,7 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
     BD_ADDR_t        BD_ADDR;
     SDP_UUID_Entry_t ServiceUUID;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2121,8 +2133,8 @@ int GattSrv::QueryRemoteDeviceServiceSupported(ParameterList_t *aParams __attrib
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2143,7 +2155,7 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
     unsigned int      TotalNumberDevices;
     SDP_UUID_Entry_t  ServiceUUID;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2221,8 +2233,8 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2242,7 +2254,7 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
     unsigned int      TotalNumberServiceClasses;
     SDP_UUID_Entry_t *ServiceClassList;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2323,8 +2335,8 @@ int GattSrv::QueryRemoteDeviceServiceClasses(ParameterList_t *aParams __attribut
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2341,7 +2353,7 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
     BD_ADDR_t     BD_ADDR;
     unsigned long AuthenticateFlags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2383,8 +2395,8 @@ int GattSrv::AuthenticateRemoteDevice(ParameterList_t *aParams __attribute__ ((u
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2401,7 +2413,7 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
     BD_ADDR_t     BD_ADDR;
     unsigned long EncryptFlags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2443,8 +2455,8 @@ int GattSrv::EncryptRemoteDevice(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2461,7 +2473,7 @@ int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((un
     BD_ADDR_t     BD_ADDR;
     unsigned long ConnectFlags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2511,8 +2523,8 @@ int GattSrv::ConnectWithRemoteDevice(ParameterList_t *aParams __attribute__ ((un
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2529,7 +2541,7 @@ int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unu
     BD_ADDR_t     BD_ADDR;
     unsigned long DisconnectFlags;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2575,8 +2587,8 @@ int GattSrv::DisconnectRemoteDevice(ParameterList_t *aParams __attribute__ ((unu
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2592,7 +2604,7 @@ int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((
     int       ret_val = UNDEFINED_ERROR;
     BD_ADDR_t BD_ADDR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2628,8 +2640,8 @@ int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2654,7 +2666,7 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
     SDP_Data_Element_t SDP_Data_Element_RFCOMM[2];
     SDP_Data_Element_t SDP_Data_Element_Language[4];
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2774,8 +2786,8 @@ int GattSrv::CreateSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2791,7 +2803,7 @@ int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
     int           Result;
     unsigned long RecordHandle;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2826,8 +2838,8 @@ int GattSrv::DeleteSDPRecord(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2846,7 +2858,7 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
     unsigned long      RecordHandle;
     SDP_Data_Element_t SDP_Data_Element;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2890,8 +2902,8 @@ int GattSrv::AddSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2908,7 +2920,7 @@ int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)
     int           Result;
     unsigned long RecordHandle;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -2943,8 +2955,8 @@ int GattSrv::DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused)
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -2963,7 +2975,7 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
     unsigned int   ParameterDataLength;
     unsigned char *ParameterData;
 
-    /* First, check to make sure that we are not already mInitialized.    */
+    /* First, check to make sure that we are not Already Initialized.    */
     if (mInitialized)
     {
         /* Make sure the input parameters have been specified.            */
@@ -3045,8 +3057,8 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3062,10 +3074,10 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
-        /* mInitialized, go ahead and attempt to Register for              */
+        /* Initialized, go ahead and attempt to Register for              */
         /* Authentication.                                                */
         if ((Result = DEVM_RegisterAuthentication(DEVM_Authentication_Callback, NULL)) >= 0)
         {
@@ -3087,8 +3099,8 @@ int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unu
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3103,10 +3115,10 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
-        /* mInitialized, go ahead and attempt to Register for              */
+        /* Initialized, go ahead and attempt to Register for              */
         /* Authentication.                                                */
         DEVM_UnRegisterAuthentication(mAuthenticationCallbackID);
 
@@ -3120,8 +3132,8 @@ int GattSrv::UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((u
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3142,7 +3154,7 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
 
     ASSIGN_BD_ADDR(NullADDR, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* First, check to see if there is an on-going Pairing operation  */
@@ -3212,8 +3224,8 @@ int GattSrv::PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3233,7 +3245,7 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
 
     ASSIGN_BD_ADDR(NullADDR, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* First, check to see if there is an on-going Pairing operation  */
@@ -3299,8 +3311,8 @@ int GattSrv::PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3317,7 +3329,7 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
     int                               ret_val = UNDEFINED_ERROR;
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* First, check to see if there is an on-going Pairing operation  */
@@ -3389,8 +3401,8 @@ int GattSrv::UserConfirmationResponse(ParameterList_t *aParams __attribute__ ((u
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3406,7 +3418,7 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -3448,8 +3460,8 @@ int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute_
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3465,7 +3477,7 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
 {
     int ret_val = NO_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that at least 5 of the parameters required for this  */
@@ -3586,8 +3598,8 @@ int GattSrv::ChangeLEPairingParameters(ParameterList_t *aParams __attribute__ ((
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3604,7 +3616,7 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
     int Result;
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* If there is an Event Callback Registered, then we need to flag */
@@ -3639,8 +3651,8 @@ int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3656,7 +3668,7 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Next, check to make sure that there is an Event Callback       */
@@ -3689,8 +3701,8 @@ int GattSrv::UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ 
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3709,7 +3721,7 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
     unsigned int                   TotalConnected;
     GATM_Connection_Information_t *ConnectionList;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* First determine the total number of connected devices.         */
@@ -3766,8 +3778,8 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3782,7 +3794,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     int                              ret_val = NO_ERROR;
     DEVM_Advertising_Information_t   AdvertisingInfo;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -3864,8 +3876,8 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3879,7 +3891,7 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -3910,8 +3922,8 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3930,7 +3942,7 @@ int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute
     BD_ADDR_t     BD_ADDR;
     Word_t        PayloadTimeout;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -3964,8 +3976,8 @@ int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -3983,7 +3995,7 @@ int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribu
     BD_ADDR_t     BD_ADDR;
     Word_t        PayloadTimeout;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -4014,8 +4026,8 @@ int GattSrv::QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribu
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4032,7 +4044,7 @@ int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unu
     Word_t        Advertising_Interval_Min;
     Word_t        Advertising_Interval_Max;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -4062,8 +4074,8 @@ int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unu
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4085,7 +4097,7 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
     Word_t                         ScanInterval;
     Word_t                         ScanWindow;
 
-    /* First, check to make sure that we have already been mInitialized. */
+    /* First, check to make sure that we have already been Initialized. */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this       */
@@ -4143,8 +4155,8 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
     }
     else
     {
-        /* Not mInitialized, flag an error.                              */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                              */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4590,7 +4602,7 @@ int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -4610,8 +4622,8 @@ int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4625,7 +4637,7 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
 {
     int ret_val = UNDEFINED_ERROR;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Make sure that all of the parameters required for this function*/
@@ -4645,8 +4657,8 @@ int GattSrv::GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4668,7 +4680,7 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
     CharacteristicInfo_t *CharacteristicInfo;
     char                 *DataString = aParams->Params[3].strParam;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized && mServiceTable)
     {
         /* Verify that a GATM Event Callback is registered.               */
@@ -4767,8 +4779,8 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4790,7 +4802,7 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
     CharacteristicInfo_t *CharacteristicInfo;
     char                 *DataString = aParams->Params[3].strParam;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized && mServiceTable)
     {
         /* Verify that a GATM Event Callback is registered.               */
@@ -4887,8 +4899,8 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -4908,7 +4920,7 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
     unsigned int          Index2;
     CharacteristicInfo_t *CharacteristicInfo;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized && mServiceTable)
     {
         /* Verify that a GATM Event Callback is registered.               */
@@ -5051,8 +5063,8 @@ int GattSrv::ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5072,7 +5084,7 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
     unsigned int      Index2;
     DescriptorInfo_t *DescriptorInfo;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized && mServiceTable)
     {
         /* Verify that a GATM Event Callback is registered.               */
@@ -5166,8 +5178,8 @@ int GattSrv::ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 
@@ -5196,7 +5208,7 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
     GATM_Service_Information_t *PublishedServiceList = NULL;
     GATM_Service_Information_t *tempPtr = NULL;
 
-    /* First, check to make sure that we have already been mInitialized.  */
+    /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized)
     {
         /* Verify that a GATM Event Callback is registered.               */
@@ -5308,8 +5320,8 @@ int GattSrv::GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ (
     }
     else
     {
-        /* Not mInitialized, flag an error.                                */
-        BOT_NOTIFY_ERROR("Platform Manager has not been mInitialized.\r\n");
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.\r\n");
         ret_val = NOT_INITIALIZED_ERROR;
     }
 

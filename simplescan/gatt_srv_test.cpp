@@ -62,6 +62,42 @@ static GattSrv* gGattSrvInst = NULL;
 #define RING_BLE_DEF_CPP_WRAPPER
 #include "gatt_srv_defs.h"
 
+#define CMD_LEN_MAX                 44
+#define RING_BLE_DEF_CMD
+static char gCommands[][CMD_LEN_MAX] = {
+#include "gatt_srv_defs.h"
+};
+
+static const StartUpCommands_t gStartUpCommandList[] =
+{
+    {"Initialize 1",                        2},
+    {"SetDevicePower 1",                    2},
+    {"SetLocalDeviceName Ampak-WL18",       1},
+    {"SetLocalClassOfDevice  0x280430",     1},
+    {"SetAdvertisingInterval 2000 3000",    1},
+    {"RegisterGATTCallback",                1},
+    {"RegisterService 0",                   1},
+    {"RegisterService 1",                   1},
+    {"ListCharacteristics",                 1},
+    {"ListDescriptors",                     1},
+    {"RegisterAuthentication",              1},
+    {"ChangeSimplePairingParameters 0 0",   1},
+    {"StartAdvertising 118 300",            1},
+    {"QueryLocalDeviceProperties",          1},
+};
+static const int gStartUpCommandListMax = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
+
+static char* UpperCaseUpdate(int &idx)
+{
+    for (int i = 0; i < (int) strlen(gCommands[idx]); i++)
+    {
+        if ((gCommands[idx][i] >= 'a') && (gCommands[idx][i] <= 'z'))
+            gCommands[idx][i] = gCommands[idx][i]-'a' + 'A';
+    }
+    printf("AddCommand: [%s]\n", gCommands[idx]);
+    return gCommands[idx++];
+}
+
 /*********************************************************************
  * Temp. "HARDCODED" Services Declaration.
  *********************************************************************/
@@ -1566,80 +1602,99 @@ static void ClearCommands(void)
 /* zero.                                                             */
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)))
 {
+
+    int idx = 1;
+    /* Note the order they are listed here *MUST* match the order in     */
+    /* which then are added to the Command Table.                        */
+    printf("*******************************************************************\r\n");
+    printf("* Command Options:                                                *\r\n");
+    #define RING_BLE_PRINT_HELP
+    #include "gatt_srv_defs.h"
+    printf("*                  Help, Quit.                                    *\r\n");
+    printf("*******************************************************************\r\n");
+    return(0);
+}
+
+static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
+{
     /* Note the order they are listed here *MUST* match the order in     */
     /* which then are added to the Command Table.                        */
     printf("******************************************************************\r\n");
-    printf("* Command Options: 1) Initialize                                 *\r\n");
-    printf("*                  2) Cleanup                                    *\r\n");
-    printf("*                  3) QueryDebugZoneMask                         *\r\n");
-    printf("*                  4) SetDebugZoneMask                           *\r\n");
-    printf("*                  5) SetDebugZoneMaskPID                        *\r\n");
-    printf("*                  6) ShutdownService                            *\r\n");
-    printf("*                  7) RegisterEventCallback,                     *\r\n");
-    printf("*                  8) UnRegisterEventCallback,                   *\r\n");
-    printf("*                  9) QueryDevicePower                           *\r\n");
-    printf("*                  10)SetDevicePower                             *\r\n");
-    printf("*                  11)QueryLocalDeviceProperties                 *\r\n");
-    printf("*                  12)SetLocalDeviceName                         *\r\n");
-    printf("*                  13)SetLocalClassOfDevice                      *\r\n");
-    printf("*                  14)SetDiscoverable                            *\r\n");
-    printf("*                  15)SetConnectable                             *\r\n");
-    printf("*                  16)SetPairable                                *\r\n");
-    printf("*                  17)StartDeviceDiscovery                       *\r\n");
-    printf("*                  18)StopDeviceDiscovery                        *\r\n");
-    printf("*                  19)QueryRemoteDeviceList                      *\r\n");
-    printf("*                  20)QueryRemoteDeviceProperties                *\r\n");
-    printf("*                  21)AddRemoteDevice                            *\r\n");
-    printf("*                  22)DeleteRemoteDevice                         *\r\n");
-    printf("*                  23)UpdateRemoteDeviceAppData                  *\r\n");
-    printf("*                  24)DeleteRemoteDevices                        *\r\n");
-    printf("*                  25)PairWithRemoteDevice                       *\r\n");
-    printf("*                  26)CancelPairWithRemoteDevice                 *\r\n");
-    printf("*                  27)UnPairRemoteDevice                         *\r\n");
-    printf("*                  28)QueryRemoteDeviceServices                  *\r\n");
-    printf("*                  29)QueryRemoteDeviceServiceSupported          *\r\n");
-    printf("*                  30)QueryRemoteDevicesForService               *\r\n");
-    printf("*                  31)QueryRemoteDeviceServiceClasses            *\r\n");
-    printf("*                  32)AuthenticateRemoteDevice                   *\r\n");
-    printf("*                  33)EncryptRemoteDevice                        *\r\n");
-    printf("*                  34)ConnectWithRemoteDevice                    *\r\n");
-    printf("*                  35)DisconnectRemoteDevice                     *\r\n");
-    printf("*                  36)SetRemoteDeviceLinkActive                  *\r\n");
-    printf("*                  37)CreateSDPRecord                            *\r\n");
-    printf("*                  38)DeleteSDPRecord                            *\r\n");
-    printf("*                  39)AddSDPAttribute                            *\r\n");
-    printf("*                  40)DeleteSDPAttribute                         *\r\n");
-    printf("*                  41)EnableBluetoothDebug                       *\r\n");
-    printf("*                  42)RegisterAuthentication                     *\r\n");
-    printf("*                  43)UnRegisterAuthentication                   *\r\n");
-    printf("*                  44)PINCodeResponse                            *\r\n");
-    printf("*                  45)PassKeyResponse                            *\r\n");
-    printf("*                  46)UserConfirmationResponse                   *\r\n");
-    printf("*                  47)ChangeSimplePairingParameters              *\r\n");
-    printf("*                  48)RegisterGATTCallback                       *\r\n");
-    printf("*                  49)UnRegisterGATTCallback                     *\r\n");
-    printf("*                  50)QueryGATTConnections                       *\r\n");
-    printf("*                  51)SetLocalDeviceAppearance                   *\r\n");
-    printf("*                  52)StartAdvertising                           *\r\n");
-    printf("*                  53)StopAdvertising                            *\r\n");
-    printf("*                  54)RegisterService                            *\r\n");
-    printf("*                  55)UnRegisterService                          *\r\n");
-    printf("*                  56)IndicateCharacteristic                     *\r\n");
-    printf("*                  57)NotifyCharacteristic                       *\r\n");
-    printf("*                  58)ListCharacteristics                        *\r\n");
-    printf("*                  59)ListDescriptors                            *\r\n");
-    printf("*                  60)QueryPublishedServices                     *\r\n");
-    printf("*                  61)SetAdvertisingInterval                     *\r\n");
-    printf("*                  62)SetAndUpdateConnectionAndScanBLEParameters *\r\n");
-    printf("*                  63)SetAuthenticatedPayloadTimeout             *\r\n");
-    printf("*                  64)QueryAuthenticatedPayloadTimeout           *\r\n");
-    printf("*                  65)EnableSCOnly                               *\r\n");
-    printf("*                  66)RegenerateP256LocalKeys                    *\r\n");
-    printf("*                  67)OOBGenerateParameters                      *\r\n");
-    printf("*                  68)ChangeLEPairingParameters                  *\r\n");
-    printf("*                  Help, Quit.                                   *\r\n");
-    printf("******************************************************************\r\n");
+    printf("* 1) Initialize [0/1 - Register for Events].\r\n");
+    printf("* 2) Cleanup                                    \r\n");
+    printf("* 3) QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
+    printf("* 4) SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
+    printf("* 5) SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");
+    printf("* 6) ShutdownService                            \r\n");
+    printf("* 7) RegisterEventCallback,                     \r\n");
+    printf("* 8) UnRegisterEventCallback,                   \r\n");
+    printf("* 9) QueryDevicePower                           \r\n");
+    printf("* 10)SetDevicePower [0/1 - Power Off/Power On].\r\n");
+    printf("* 11)QueryLocalDeviceProperties                 \r\n");
+    printf("* 12)SetLocalDeviceName                         \r\n");
+    printf("* 13)SetLocalClassOfDevice [Class of Device].\r\n");
+    printf("* 14)SetDiscoverable [Enable/Disable] [Timeout (Enable only)].\r\n");
+    printf("* 15)SetConnectable [Enable/Disable] [Timeout (Enable only)].\r\n");
+    printf("* 16)SetPairable [Enable/Disable] [Timeout (Enable only)].\r\n");
+    printf("* 17)StartDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)] [Duration].\r\n");
+    printf("* 18)StopDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)].\r\n");
+    printf("* 19)QueryRemoteDeviceList [Number of Devices] [Filter (Optional)] [COD Filter (Optional)].\r\n");
+    printf("* 20)QueryRemoteDeviceProperties [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update].\r\n");
+    printf("* 21)AddRemoteDevice [BD_ADDR] [[COD (Optional)] [Friendly Name (Optional)] [Application Info (Optional)]].\r\n");
+    printf("* 22)DeleteRemoteDevice [BD_ADDR].\r\n");
+    printf("* 23)UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
+    printf("* 24)DeleteRemoteDevices [Device Delete Filter].\r\n");
+    printf("* 25)PairWithRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Pair Flags (optional)].\r\n");
+    printf("* 26)CancelPairWithRemoteDevice [BD_ADDR].\r\n");
+    printf("* 27)UnPairRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] .\r\n");
+    printf("* 28)QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
+    printf("* 29)QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
+    printf("* 30)QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
+    printf("* 31)QueryRemoteDeviceServiceClasses [BD_ADDR] [Number of Service Classes].\r\n");
+    printf("* 32)AuthenticateRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
+    printf("* 33)EncryptRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
+    printf("* 34)ConnectWithRemoteDevice [BD_ADDR] [Connect LE (1 = LE, 0 = BR/EDR)] [ConnectFlags (Optional)].\r\n");
+    printf("* 35)DisconnectRemoteDevice [BD_ADDR] [LE Device (1= LE, 0 = BR/EDR)] [Force Flag (Optional)].\r\n");
+    printf("* 36)SetRemoteDeviceLinkActive [BD_ADDR].\r\n");
+    printf("* 37)CreateSDPRecord                            \r\n");
+    printf("* 38)DeleteSDPRecord [Service Record Handle].\r\n");
+    printf("* 39)AddSDPAttribute [Service Record Handle] [Attribute ID] [Attribute Value (optional)].\r\n");
+    printf("* 40)DeleteSDPAttribute [Service Record Handle] [Attribute ID].\r\n");
+    printf("* 41)EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
+    printf("* 42)RegisterAuthentication                     \r\n");
+    printf("* 43)UnRegisterAuthentication                   \r\n");
+    printf("* 44)PINCodeResponse [PIN Code].\r\n");
+    printf("* 45)PassKeyResponse [Numeric Passkey (0 - 999999)].\r\n");
+    printf("* 46)UserConfirmationResponse [Confirmation (0 = No, 1 = Yes)].\r\n");
+    printf("* 47)ChangeSimplePairingParameters [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, 3 = No Input/Output)] [MITM Requirement (0 = No, 1 = Yes)].\r\n");
+    printf("* 48)RegisterGATTCallback                       \r\n");
+    printf("* 49)UnRegisterGATTCallback                     \r\n");
+    printf("* 50)QueryGATTConnections                       \r\n");
+    printf("* 51)SetLocalDeviceAppearance                   \r\n");
+    printf("* 52)StartAdvertising [Flags] [Duration] [BD ADDR].\r\n");
+    printf("* 53)StopAdvertising [Flags].\r\n");
+    printf("* 54)RegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
+    printf("* 55)UnRegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
+    printf("* 56)IndicateCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
+    printf("* 57)NotifyCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
+    printf("* 58)ListCharacteristics                        \r\n");
+    printf("* 59)ListDescriptors                            \r\n");
+    printf("* 60)QueryPublishedServices                     \r\n");
+    printf("* 61)SetAdvertisingInterval [Advertising Interval Min] [Advertising Interval Max] (Range: 20..10240 in ms).\r\n");
+    printf("* 62)SetAndUpdateConnectionAndScanBLEParameters\r\n");
+    printf("* 63)SetAuthenticatedPayloadTimeout [BD_ADDR] [Authenticated Payload Timout (In ms)].\r\n");
+    printf("* 64)QueryAuthenticatedPayloadTimeout [BD_ADDR].\r\n");
+    printf("* 65)EnableSCOnly [mode (0 = mSC Only mode is off, 1 = mSC Only mode is on].\r\n");
+    printf("* 66)RegenerateP256LocalKeys                    \r\n");
+    printf("* 67)OOBGenerateParameters                      \r\n");
+    printf("* 68)ChangeLEPairingParameters:\r\n");
+    printf("* HH, Help, Quit.                               \r\n");
+    printf("*****************************************************************\r\n");
 
+    for (int idx = 0; idx < gStartUpCommandListMax; idx++)
+    {
+        printf("%s\n", gStartUpCommandList[idx].mCmd);
+    }
     return(0);
 }
 
@@ -1650,6 +1705,7 @@ static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)))
 static void GATM_Init(void)
 {
     struct sigaction SignalAction;
+    int idx = 0;
 
     static int bInited = FALSE;
     if (bInited)
@@ -1659,14 +1715,15 @@ static void GATM_Init(void)
     /* First let's make sure that we start on new line.                  */
     printf("\r\n");
 
-    /* Next display the available commands.                              */
-    DisplayHelp(NULL);
-
     ClearCommands();
     #define RING_BLE_DEF_ADD_COMMAND
     #include "gatt_srv_defs.h"
 
     AddCommand((char*) "HELP", DisplayHelp);
+    AddCommand((char*) "HH", HelpParam);
+
+    /* Next display the available commands.                              */
+    DisplayHelp(NULL);
 
     /* Configure the SIGTTIN signal so that this application can run in  */
     /* the background.                                                   */
@@ -1794,23 +1851,6 @@ static int ValidateAndExecCommand(char *UserInput)
 ///
 extern "C" int gatt_server_start(const char* arguments)
 {
-    static const StartUpCommands_t gStartUpCommandList[] =
-    {
-        {"Initialize 1",                        2},
-        {"SetDevicePower 1",                    2},
-        {"SetLocalDeviceName Ampak-WL18",       1},
-        {"SetLocalClassOfDevice  0x280430",     1},
-        {"SetAdvertisingInterval 2000 3000",    1},
-        {"RegisterGATTCallback",                1},
-        {"RegisterService 0",                   1},
-        {"RegisterService 1",                   1},
-        {"ListCharacteristics",                 1},
-        {"ListDescriptors",                     1},
-        {"RegisterAuthentication",              1},
-        {"ChangeSimplePairingParameters 0 0",   1},
-        {"StartAdvertising 118 300",            1},
-        {"QueryLocalDeviceProperties",          1},
-    };
 
 #ifndef Linux_x86_64
     gGattSrvInst = (GattSrv*) GattSrv::getInstance();

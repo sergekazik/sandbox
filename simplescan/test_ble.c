@@ -253,7 +253,8 @@ void print_help(void)
     printf("------------------------------------------------\n");
 #endif  // not "else if"!
 #if defined(hpcam2) || defined(Linux_x86_64)
-    printf("--gatt                  start Bluetopia GATT Server sample\n");
+    printf("--gattauto              run Bluetopia GATT Server sample\n");
+    printf("--gatt                  load Bluetopia GATT Server sample\n");
     printf("------------------------------------------------\n");
 #endif
 
@@ -361,9 +362,13 @@ int main(int argc, char **argv)
 
 
 #if defined(hpcam2) || defined(Linux_x86_64)
-        else if (!strcmp(argv[arg_idx], "--gatt"))
+        else if (!strcmp(argv[arg_idx], "--gattauto"))
         {
             ret = gatt_server_start("--autoinit");
+        }
+        else if (!strcmp(argv[arg_idx], "--gatt"))
+        {
+            ret = gatt_server_start(NULL);
         }
 #endif
 
