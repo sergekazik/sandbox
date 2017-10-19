@@ -8,6 +8,60 @@
 #include <signal.h>
 #include <unistd.h>
 
+#ifndef __BTTYPESH_INC__
+typedef unsigned char Byte_t;
+typedef char Boolean_t;
+typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
+typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
+#endif
+
+#ifndef __GATTAPIH__
+typedef enum
+{
+   gctLE,
+   gctBR_EDR
+} GATT_Connection_Type_t;
+
+typedef struct _tagGATT_Attribute_Handle_Group_t
+{
+   Word_t Starting_Handle;
+   Word_t Ending_Handle;
+} GATT_Attribute_Handle_Group_t;
+
+#endif
+
+#if !defined(__BNEPTYPEH__) && !defined(__BTBTYPESH__)
+typedef struct _tagUUID_128_t
+{
+   Byte_t UUID_Byte0;
+   Byte_t UUID_Byte1;
+   Byte_t UUID_Byte2;
+   Byte_t UUID_Byte3;
+   Byte_t UUID_Byte4;
+   Byte_t UUID_Byte5;
+   Byte_t UUID_Byte6;
+   Byte_t UUID_Byte7;
+   Byte_t UUID_Byte8;
+   Byte_t UUID_Byte9;
+   Byte_t UUID_Byte10;
+   Byte_t UUID_Byte11;
+   Byte_t UUID_Byte12;
+   Byte_t UUID_Byte13;
+   Byte_t UUID_Byte14;
+   Byte_t UUID_Byte15;
+} UUID_128_t;
+
+typedef struct _tagBD_ADDR_t
+{
+   Byte_t BD_ADDR0;
+   Byte_t BD_ADDR1;
+   Byte_t BD_ADDR2;
+   Byte_t BD_ADDR3;
+   Byte_t BD_ADDR4;
+   Byte_t BD_ADDR5;
+} BD_ADDR_t;
+#endif
+
 namespace Ring { namespace Ble {
 
 #define MAX_SUPPORTED_COMMANDS                     (75)  /* Denotes the       */
@@ -206,60 +260,6 @@ typedef struct _tagDeviceConfig_t
 /*                               (Include, Characteristic or         */
 /*                               Descriptor) that is being added.    */
 /*-------------------------------------------------------------------*/
-#ifndef __BTTYPESH_INC__
-typedef unsigned char Byte_t;
-typedef char Boolean_t;
-typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
-typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
-#endif
-
-#ifndef __GATTAPIH__
-typedef enum
-{
-   gctLE,
-   gctBR_EDR
-} GATT_Connection_Type_t;
-
-typedef struct _tagGATT_Attribute_Handle_Group_t
-{
-   Word_t Starting_Handle;
-   Word_t Ending_Handle;
-} GATT_Attribute_Handle_Group_t;
-
-#endif
-
-#ifndef __BTTYPESH_INC__
-typedef struct _tagUUID_128_t
-{
-   Byte_t UUID_Byte0;
-   Byte_t UUID_Byte1;
-   Byte_t UUID_Byte2;
-   Byte_t UUID_Byte3;
-   Byte_t UUID_Byte4;
-   Byte_t UUID_Byte5;
-   Byte_t UUID_Byte6;
-   Byte_t UUID_Byte7;
-   Byte_t UUID_Byte8;
-   Byte_t UUID_Byte9;
-   Byte_t UUID_Byte10;
-   Byte_t UUID_Byte11;
-   Byte_t UUID_Byte12;
-   Byte_t UUID_Byte13;
-   Byte_t UUID_Byte14;
-   Byte_t UUID_Byte15;
-} UUID_128_t;
-
-typedef struct _tagBD_ADDR_t
-{
-   Byte_t BD_ADDR0;
-   Byte_t BD_ADDR1;
-   Byte_t BD_ADDR2;
-   Byte_t BD_ADDR3;
-   Byte_t BD_ADDR4;
-   Byte_t BD_ADDR5;
-} BD_ADDR_t;
-#endif
-
 /* The following type defintion represents the structure which holds */
 /* information on a pending prepare write queue entry.               */
 typedef struct _tagPrepareWriteEntry_t

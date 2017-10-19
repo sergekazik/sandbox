@@ -43,7 +43,7 @@ simplescan.creator
 simplescan.creator.user
 simplescan.files
 simplescan.includes
-test_ble.c
 test_stubs.cpp
 vergen.sh
 version.h
+test_ble.cpp

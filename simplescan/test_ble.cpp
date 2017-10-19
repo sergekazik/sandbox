@@ -41,21 +41,6 @@
 #include "gatt_srv_test.h"
 #endif
 
-typedef enum
-{
-    eConfig_UP,
-    eConfig_DOWN,
-    eConfig_PISCAN,
-    eConfig_NOSCAN,
-    eConfig_LEADV,
-    eConfig_NOLEADV,
-    eConfig_CLASS,
-
-    // ------- combos
-    eConfig_ALLUP,
-    eConfig_ALLDOWN,
-} eConfig_cmd_t;
-
 #define DEFAULT_TXT "hello ring 123!"
 #define COMM_BUF_LEN    1024
 #define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }
@@ -244,73 +229,6 @@ int raw_test_scan(void)
     return 0;
 }
 
-///
-/// \brief execute_hci_cmd
-/// \param aCmd
-/// \return
-///
-static int execute_hci_cmd(eConfig_cmd_t aCmd)
-{
-#if defined(BCM43) || defined(Linux_x86_64)
-    int ctl;
-    static struct hci_dev_info di;
-    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
-
-    /* Open HCI socket  */
-    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
-        perror("Can't open HCI socket.");
-        return errno;
-    }
-
-    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
-    {
-        perror("Can't get device info");
-        return errno;
-    }
-
-    di.dev_id = 0;
-
-    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
-        int dd = hci_open_dev(di.dev_id);
-        hci_read_bd_addr(dd, &di.bdaddr, 1000);
-        hci_close_dev(dd);
-    }
-
-    switch (aCmd)
-    {
-#ifndef Linux_x86_64 // TODO: WHY??
-        case eConfig_UP: hcitool_up(ctl, di.dev_id); break;
-        case eConfig_DOWN: hcitool_down(ctl, di.dev_id); break;
-        case eConfig_PISCAN: hcitool_scan(ctl, di.dev_id, "piscan"); break;
-        case eConfig_NOSCAN: hcitool_scan(ctl, di.dev_id, "noscan"); break;
-        case eConfig_LEADV: hcitool_le_adv(di.dev_id, NULL); break;
-        case eConfig_NOLEADV: hcitool_no_le_adv(di.dev_id); break;
-        case eConfig_CLASS: hcitool_class(di.dev_id, "0x280430"); break;
-
-        case eConfig_ALLUP:
-            hcitool_up(ctl, di.dev_id);
-            hcitool_scan(ctl, di.dev_id, "piscan");
-            hcitool_class(di.dev_id, "0x280430");
-            hcitool_le_adv(di.dev_id, NULL);
-            break;
-
-        case eConfig_ALLDOWN:
-            hcitool_no_le_adv(di.dev_id);
-            hcitool_scan(ctl, di.dev_id, "noscan");
-            hcitool_down(ctl, di.dev_id);
-            break;
-#endif
-    default:
-        printf("wrong command for target %s\n", RING_NAME);
-        break;
-    }
-
-    close(ctl);
-#else
-    printf("hci commands are not available with target %s. Abort\n", RING_NAME);
-#endif
-    return 0;
-}
 #endif //  BLUEZ_TOOLS_SUPPORT
 
 

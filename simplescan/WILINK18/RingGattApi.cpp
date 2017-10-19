@@ -33,8 +33,8 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "ipc/Bot_Notifier.h"
 #include "RingGattApi.hh"
+#include "ipc/Bot_Notifier.h"
 
 using namespace Ring::Ble;
 

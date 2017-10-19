@@ -451,7 +451,7 @@ void GattSrv::HCIlm(int ctl, int hdev, char *opt) {
 }
 
 void GattSrv::HCIaclmtu(int ctl, int hdev, char *opt) {
-    struct hci_dev_req dr = { .dev_id = hdev };
+    struct hci_dev_req dr = { .dev_id = (uint16_t) hdev, .dev_opt = 0 };
     uint16_t mtu, mpkt;
     if (!opt)
     return;
@@ -465,7 +465,7 @@ void GattSrv::HCIaclmtu(int ctl, int hdev, char *opt) {
 }
 
 void GattSrv::HCIscomtu(int ctl, int hdev, char *opt) {
-    struct hci_dev_req dr = { .dev_id = hdev };
+    struct hci_dev_req dr = { .dev_id = (uint16_t) hdev, .dev_opt = 0 };
     uint16_t mtu, mpkt;
     if (!opt)
     return;

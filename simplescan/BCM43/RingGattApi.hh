@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
@@ -135,7 +136,7 @@ private:
     void print_le_states(uint64_t states);
     char *get_minor_device_name(int major, int minor);
 
-protected:
+public:
     // HCI methods
     void HCIrstat(int ctl, int hdev);
     void HCIscan(int ctl, int hdev, char *opt);

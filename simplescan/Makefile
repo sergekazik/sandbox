@@ -8,7 +8,7 @@ $(info BLE_CS = [${BLE_CS}])
 # Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
-CC = gcc
+CC = g++
 
 ################################################################################
 ## Third party path/defs/stabs
@@ -32,7 +32,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g			    \
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-write-strings 		    \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I$(BLE_CS)					    \
 	    -DBLUEZ_TOOLS_SUPPORT			    \
@@ -42,15 +42,16 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g			    \
 
 CXXFLAGS = $(CFLAGS)
 
-LDFLAGS_LIB = -shared -lbluetooth
-LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
+#LDFLAGS_LIB = -shared -lbluetooth
+#LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
+LDFLAGS_APP = -lbluetooth
 
 RM = rm -f
-TARGET_LIB = libRingBle.so
+TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp
-SRCS_APP = test_ble.c gatt_srv_test.cpp test_stubs.cpp
+SRCS_APP = test_ble.cpp gatt_srv_test.cpp test_stubs.cpp
 
 OBJS_LIB = RingBleApi.o RingGattApi.o
 OBJS_APP = test_ble.o gatt_srv_test.o test_stubs.o
@@ -62,14 +63,15 @@ RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 all: ${TARGET_LIB} $(TARGET_APP)
 
 $(TARGET_LIB): $(OBJS_LIB)
-	$(CC) $(OBJS_LIB) $(LDFLAGS_LIB) -o $@
+	$(AR) rcs $@ $(OBJS_LIB)
+	#$(CC) $(OBJS_LIB) $(LDFLAGS_LIB) -o $@
 
 $(TARGET_APP): $(OBJS_APP)
-	$(CC) $(OBJS_APP) $(LDFLAGS_APP) -o $@
+	$(CC) $(OBJS_APP) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u *.cpp *.c *.h *.hh -v $(RING_BLE)
+	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@echo "-----------------------------------------------------"

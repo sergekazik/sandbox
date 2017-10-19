@@ -28,14 +28,17 @@
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/param.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 
 extern "C" {
 #include "SS1BTPM.h"          /* BTPM Application Programming Interface.      */
 #include "BTPMMAPI.h"          /* BTPM Application Programming Interface.      */
 } // #ifdef __cplusplus
 
-#include "RingBleApi.hh"
 #include "RingGattApi.hh"
+
 #include "gatt_srv_test.h"    /* Main Application Prototypes and Constants.   */
 
 using namespace Ring::Ble;
@@ -1832,7 +1835,7 @@ static int ValidateAndExecCommand(char *UserInput)
 extern "C" int gatt_server_start(const char* arguments)
 {
 
-#ifndef Linux_x86_64
+#if !defined(Linux_x86_64) || !defined(WILINK18)
     gGattSrvInst = GattSrv::getInstance();
     if (gGattSrvInst == NULL)
     {
@@ -1927,3 +1930,71 @@ autodone:
     return 0;
 }
 
+///
+/// \brief execute_hci_cmd
+/// \param aCmd
+/// \return
+///
+extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
+{
+#if defined(BCM43) || defined(Linux_x86_64)
+    int ctl;
+    static struct hci_dev_info di;
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+
+    /* Open HCI socket  */
+    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
+        perror("Can't open HCI socket.");
+        return errno;
+    }
+
+    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
+    {
+        perror("Can't get device info");
+        return errno;
+    }
+
+    di.dev_id = 0;
+
+    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
+        int dd = hci_open_dev(di.dev_id);
+        hci_read_bd_addr(dd, &di.bdaddr, 1000);
+        hci_close_dev(dd);
+    }
+
+    if (gGattSrvInst == NULL)
+    {
+        switch (aCmd)
+        {
+            case eConfig_UP: ((GattSrv*)gGattSrvInst)->HCIup(ctl, di.dev_id); break;
+            case eConfig_DOWN: ((GattSrv*)gGattSrvInst)->HCIdown(ctl, di.dev_id); break;
+            case eConfig_PISCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan"); break;
+            case eConfig_NOSCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan"); break;
+            case eConfig_LEADV: ((GattSrv*)gGattSrvInst)->HCIle_adv(di.dev_id, NULL); break;
+            case eConfig_NOLEADV: ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id); break;
+            case eConfig_CLASS: ((GattSrv*)gGattSrvInst)->HCIclass(di.dev_id, (char*) "0x280430"); break;
+
+            case eConfig_ALLUP:
+                ((GattSrv*)gGattSrvInst)->HCIup(ctl, di.dev_id);
+                ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan");
+                ((GattSrv*)gGattSrvInst)->HCIclass(di.dev_id, (char*) "0x280430");
+                ((GattSrv*)gGattSrvInst)->HCIle_adv(di.dev_id, NULL);
+                break;
+
+            case eConfig_ALLDOWN:
+                ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id);
+                ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan");
+                ((GattSrv*)gGattSrvInst)->HCIdown(ctl, di.dev_id);
+                break;
+        default:
+            printf("wrong command for target %s\n", RING_NAME);
+            break;
+        }
+    }
+
+    close(ctl);
+#else
+    printf("hci commands are not available with target %s. Abort\n", RING_NAME);
+#endif
+    return 0;
+}
