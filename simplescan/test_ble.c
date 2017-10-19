@@ -1,26 +1,27 @@
-/*---------------------------------------------------------------------------
- *                     ------------------      -----------------            *
- *                     | Ring App Setup |      |   test_ble    |            *
- *                     ------------------      -----------------            *
- *                                |                |        |               *
- *                                |   --------------------  |               *
- *                                |   |gatt_src_test.cpp |  |               *
- *                                |   --------------------  |               *
- *                                |          |              |               *
- *                  --------------------------------        |               *
- *                  |   RingBleApi.cpp abstract    |        |               *
- *                  --------------------------------        |               *
- *                  | RingGattSrv.cpp | ?(BCM).cpp |        |               *
- *                  --------------------------------        |               *
- *                        |                                 |               *
- *       ------------------------                    ---------------        *
- *       |      TIBT lib        |                    | hcitools.c  |        *
- *       ------------------------                    ---------------        *
- *                  |                                       |               *
- *       ------------------------                    ---------------        *
- *       | TI WiLink18xx BlueTP |                    |   BlueZ     |        *
- *       ------------------------                    ---------------        *
- *--------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------
+ *               ------------------      -----------------            *
+ *               | Ring App Setup |      |   test_ble    |            *
+ *               ------------------      -----------------            *
+ *                          |                |                        *
+ *                          |   --------------------                  *
+ *                          |   |gatt_src_test.cpp |                  *
+ *                          |   --------------------                  *
+ *                          |          |                              *
+ *                  ---------------------------------                 *
+ *                  |    RingBleApi.cpp abstract    |                 *
+ *                  ---------------------------------                 *
+ *                  |  RingGattSrv  |  RingGattSrv  |                 *
+ *                  |   WILINK18    |    BCM43      |                 *
+ *                  --------------------------------                  *
+ *                        |                  |                        *
+ *       ------------------------       ---------------               *
+ *       |      TIBT lib        |       |   BlueZ     |               *
+ *       ------------------------       ---------------               *
+ *                  |                        |                        *
+ *       ------------------------       ----------------              *
+ *       | TI WiLink18xx BlueTP |       | libbluetooth |              *
+ *       ------------------------       ----------------              *
+ *--------------------------------------------------------------------*/
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,6 @@
 #include <bluetooth/rfcomm.h>
 
 #include "version.h"
-#include "hcitools.h"
 
 #if defined(WILINK18) || defined(Linux_x86_64)
 #include "gatt_srv_test.h"
@@ -56,13 +56,17 @@ typedef enum
     eConfig_ALLDOWN,
 } eConfig_cmd_t;
 
-static int execute_cmd(eConfig_cmd_t aCmd);
-
 #define DEFAULT_TXT "hello ring 123!"
 #define COMM_BUF_LEN    1024
+#define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }
 
 #ifdef BLUEZ_TOOLS_SUPPORT
-int my_listen(void)
+
+///
+/// \brief raw_test_listen
+/// \return
+///
+int raw_test_listen(void)
 {
     struct sockaddr_rc loc_addr = { 0 }, rem_addr = { 0 };
     char buf[COMM_BUF_LEN] = { 0 };
@@ -110,7 +114,15 @@ int my_listen(void)
     return 0;
 }
 
-int my_connect(char *dest, const char *data, int nLen, int nRepeat)
+///
+/// \brief raw_test_connect
+/// \param dest
+/// \param data
+/// \param nLen
+/// \param nRepeat
+/// \return
+///
+int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
 {
     char buf[COMM_BUF_LEN] = { 0 };
     struct sockaddr_rc addr = { 0 };
@@ -190,7 +202,11 @@ int my_connect(char *dest, const char *data, int nLen, int nRepeat)
     return status >= 0 ? 0 : status;
 }
 
-int my_scan(void)
+///
+/// \brief raw_test_scan
+/// \return
+///
+int raw_test_scan(void)
 {
     inquiry_info *ii = NULL;
     int max_rsp, num_rsp;
@@ -227,203 +243,14 @@ int my_scan(void)
     close( sock );
     return 0;
 }
-#endif // BLUEZ_TOOLS_SUPPORT
 
-void print_help(void)
+///
+/// \brief execute_hci_cmd
+/// \param aCmd
+/// \return
+///
+static int execute_hci_cmd(eConfig_cmd_t aCmd)
 {
-    printf("********************************************************\n");
-    printf("* BT/LE test tool (date %s)\n", version_date);
-    printf("********************************************************\n");
-#ifdef BLUEZ_TOOLS_SUPPORT
-    printf("--scan                  scan for bluetooth device\n");
-    printf("--listen                listen for incoming connection, read once\n");
-    printf("--conn <dev_addr>       connect to device MAC address, write once\n");
-    printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
-    printf("------------------------------------------------\n");
-#endif
-#if defined(BCM43) || defined(Linux_x86_64)
-    printf("--up                    hciconfig hci0 up\n");
-    printf("--down                  hciconfig hci0 down\n");
-    printf("--piscan                hciconfig hci0 piscan\n");
-    printf("--noscan                hciconfig hci0 noscan\n");
-    printf("--leadv                 hciconfig hci0 leadv\n");
-    printf("--noleadv               hciconfig hci0 noleadv\n");
-    printf("--class                 hciconfig hci0 class 0x280430\n");
-    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
-    printf("--hcishutdown           noleadv, noscan, down\n");
-    printf("------------------------------------------------\n");
-#endif  // not "else if"!
-#if defined(WILINK18) || defined(Linux_x86_64)
-    printf("--gattauto              run Bluetopia GATT Server sample\n");
-    printf("--gatt                  load Bluetopia GATT Server sample\n");
-    printf("------------------------------------------------\n");
-#endif
-
-}
-
-int main(int argc, char **argv)
-{
-    int arg_idx, ret = 0;
-    char *dev_addr __attribute__ ((unused)) = NULL;
-
-    for (arg_idx = argc-1; arg_idx > 0; arg_idx--)
-    {
-        if (0) {} // plaseholder for following "else if"
-
-#ifdef BLUEZ_TOOLS_SUPPORT
-        else if (!strcmp(argv[arg_idx], "--scan"))
-        {
-            ret = my_scan();
-            break;
-        }
-        else if (!strcmp(argv[arg_idx], "--listen"))
-        {
-            ret = my_listen();
-            break;
-        }
-        else if (!strcmp(argv[arg_idx], "--conn"))
-        {
-            if (arg_idx + 1 < argc)
-            {
-                dev_addr = argv[arg_idx+1];
-                ret = my_connect(dev_addr, DEFAULT_TXT, 0, 1);
-            }
-            else
-            {
-                printf("--conn missing <dev_addr>...\n");
-                ret = -100;
-            }
-            break;
-        }
-        else if (!strcmp(argv[arg_idx], "--send"))
-        {
-            if (arg_idx + 1 < argc)
-            {
-                char *dt = DEFAULT_TXT;
-
-                char mac_addr[32];
-                char command[COMM_BUF_LEN];
-                int repeat = 1;
-                int rx = 0;
-                int ll = 0;
-
-                dev_addr = argv[arg_idx+1];
-                if (!strchr(dev_addr, ':')) // if not : separated add it
-                {
-                    memset(mac_addr, 0, sizeof(mac_addr));
-                    for (int a = 0, b = 0; b < (int) strlen(dev_addr); b++)
-                    {
-                        mac_addr[a++] = dev_addr[b];
-                        if ((b % 2) && (b+1 < (int) strlen(dev_addr)))
-                            mac_addr[a++] = ':';
-                    }
-                    dev_addr = mac_addr;
-                }
-
-                if (arg_idx + 2 < argc)
-                {
-                    if (argv[arg_idx + 2][0] == '"')
-                    {
-                        dt = &argv[arg_idx + 2][1];
-                    }
-                    else if (argv[arg_idx + 2][0] == '\'')
-                    {
-                        //Frame 4: 7 bytes on wire (56 bits), 7 bytes captured (56 bits) on interface 0
-                        //Bluetooth
-                        //    [Source: controller]
-                        //    [Destination: host]
-                        //Bluetooth HCI H4
-                        //    [Direction: Rcvd (0x01)]
-                        command[0] = 0x04; //    HCI Packet Type: HCI Event (0x04)
-                        // Bluetooth HCI Event - Command Status
-                        command[1] = 0x0f; //     Event Code: Command Status (0x0f)
-                        command[2] = 0x04; //     Parameter Total Length: 4
-                        command[3] = 0x00; //    Status: Pending (0x00)
-                        command[4] = 0x01; //    Number of Allowed Command Packets: 1
-                        command[5] = 0x1b; //    Command Opcode: Read Remote Supported Features (0x041b)
-                        command[6] = 0x04; //    Command Opcode: Read Remote Supported Features (0x041b)
-                        dt = command;
-                        ll = 7;
-                    }
-                    else if (1 == sscanf(argv[arg_idx + 2], "%d", &rx))
-                    {
-                        repeat = rx;
-                    }
-                }
-                ret = my_connect(dev_addr, (const char*) dt, ll, repeat);
-            }
-            else
-            {
-                printf("--conn missing <dev_addr>...\n");
-                ret = -100;
-            }
-            break;
-        }
-#endif // BLUEZ_TOOLS_SUPPORT
-
-
-#if defined(WILINK18) || defined(Linux_x86_64)
-        else if (!strcmp(argv[arg_idx], "--gattauto"))
-        {
-            ret = gatt_server_start("--autoinit");
-        }
-        else if (!strcmp(argv[arg_idx], "--gatt"))
-        {
-            ret = gatt_server_start(NULL);
-        }
-#endif
-
-        //------------------------------------------------
-        else if (!strcmp(argv[arg_idx], "--up"))
-        {
-            execute_cmd(eConfig_UP); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--down"))
-        {
-            execute_cmd(eConfig_DOWN); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--piscan"))
-        {
-            execute_cmd(eConfig_PISCAN); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--noscan"))
-        {
-            execute_cmd(eConfig_NOSCAN); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--leadv"))
-        {
-            execute_cmd(eConfig_LEADV); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--noleadv"))
-        {
-            execute_cmd(eConfig_NOLEADV); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--class"))
-        {
-            execute_cmd(eConfig_CLASS); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--hciinit"))
-        {
-            execute_cmd(eConfig_ALLUP); break;
-        }
-        else if (!strcmp(argv[arg_idx], "--hcishutdown"))
-        {
-            execute_cmd(eConfig_ALLDOWN); break;
-        }
-    }
-
-    if (!arg_idx)
-    {
-        print_help();
-    }
-
-    printf("%s ----- done; ret val=%d\n", argv[0], ret);
-    return ret;
-}
-
-static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
-{
-#ifdef  BLUEZ_TOOLS_SUPPORT
 #if defined(BCM43) || defined(Linux_x86_64)
     int ctl;
     static struct hci_dev_info di;
@@ -482,11 +309,164 @@ static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 #else
     printf("hci commands are not available with target %s. Abort\n", RING_NAME);
 #endif
-#else
-    printf("hci commands are not available without -lbluetooth (Bluez). Abort\n");
+    return 0;
+}
 #endif //  BLUEZ_TOOLS_SUPPORT
 
 
-    return 0;
+///
+/// \brief print_help
+///
+void print_help(void)
+{
+    printf("********************************************************\n");
+    printf("* BT/LE test tool (date %s)\n", version_date);
+    printf("********************************************************\n");
+#ifdef BLUEZ_TOOLS_SUPPORT
+    printf("--scan                  scan for bluetooth device\n");
+    printf("--listen                listen for incoming connection, read once\n");
+    printf("--conn <dev_addr>       connect to device MAC address, write once\n");
+    printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
+    printf("------------------------------------------------\n");
+#endif
+#if defined(BCM43) || defined(Linux_x86_64)
+    printf("--up                    hciconfig hci0 up\n");
+    printf("--down                  hciconfig hci0 down\n");
+    printf("--piscan                hciconfig hci0 piscan\n");
+    printf("--noscan                hciconfig hci0 noscan\n");
+    printf("--leadv                 hciconfig hci0 leadv\n");
+    printf("--noleadv               hciconfig hci0 noleadv\n");
+    printf("--class                 hciconfig hci0 class 0x280430\n");
+    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
+    printf("--hcishutdown           noleadv, noscan, down\n");
+    printf("------------------------------------------------\n");
+#endif  // not "else if"!
+#if defined(WILINK18) || defined(Linux_x86_64)
+    printf("--gattauto              run Bluetopia GATT Server sample\n");
+    printf("--gatt                  load Bluetopia GATT Server sample\n");
+    printf("------------------------------------------------\n");
+#endif
+
+}
+
+///
+/// \brief main
+/// \param argc
+/// \param argv
+/// \return
+///
+int main(int argc, char **argv)
+{
+    int arg_idx, ret = 0;
+
+    for (arg_idx = argc-1; arg_idx > 0; arg_idx--)
+    {
+        if (0) {;} // plaseholder for following "else if"
+
+#ifdef BLUEZ_TOOLS_SUPPORT
+        else if (!strcmp(argv[arg_idx], "--scan"))
+        {
+            ret = raw_test_scan();
+            break;
+        }
+        else if (!strcmp(argv[arg_idx], "--listen"))
+        {
+            ret = raw_test_listen();
+            break;
+        }
+        else if (!strcmp(argv[arg_idx], "--conn"))
+        {
+            if (arg_idx + 1 < argc)
+            {
+                char *dev_addr = argv[arg_idx+1];
+                ret = raw_test_connect(dev_addr, DEFAULT_TXT, 0, 1);
+            }
+            else
+            {
+                printf("--conn missing <dev_addr>...\n");
+                ret = -100;
+            }
+            break;
+        }
+        else if (!strcmp(argv[arg_idx], "--send"))
+        {
+            if (arg_idx + 1 < argc)
+            {
+                char *dt = DEFAULT_TXT;
+
+                char mac_addr[32];
+                int repeat = 1;
+                int rx = 0;
+                int ll = 0;
+
+                char *dev_addr = argv[arg_idx+1];
+
+                // if address is not :-separated add ':'
+                if (!strchr(dev_addr, ':'))
+                {
+                    memset(mac_addr, 0, sizeof(mac_addr));
+                    for (int a = 0, b = 0; b < (int) strlen(dev_addr); b++)
+                    {
+                        mac_addr[a++] = dev_addr[b];
+                        if ((b % 2) && (b+1 < (int) strlen(dev_addr)))
+                            mac_addr[a++] = ':';
+                    }
+                    dev_addr = mac_addr;
+                }
+
+                if (arg_idx + 2 < argc)
+                {
+                    // send text payload if the argument is starting \"helloxxx
+                    if (argv[arg_idx + 2][0] == '"')
+                    {
+                        dt = &argv[arg_idx + 2][1];
+                    }
+                    // repeat n times
+                    else if (1 == sscanf(argv[arg_idx + 2], "%d", &rx))
+                    {
+                        repeat = rx;
+                    }
+                }
+                ret = raw_test_connect(dev_addr, (const char*) dt, ll, repeat);
+            }
+            else
+            {
+                printf("--conn missing <dev_addr>...\n");
+                ret = -100;
+            }
+            break;
+        }
+        // perform HCI commands:
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--up", eConfig_UP)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--down", eConfig_DOWN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--piscan", eConfig_PISCAN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noscan", eConfig_NOSCAN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--leadv", eConfig_LEADV)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noleadv", eConfig_NOLEADV)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--class", eConfig_CLASS)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hciinit", eConfig_ALLUP)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hcishutdown", eConfig_ALLDOWN)
+
+#endif // BLUEZ_TOOLS_SUPPORT
+
+#if defined(WILINK18) || defined(Linux_x86_64)
+        else if (!strcmp(argv[arg_idx], "--gattauto"))
+        {
+            ret = gatt_server_start("--autoinit");
+        }
+        else if (!strcmp(argv[arg_idx], "--gatt"))
+        {
+            ret = gatt_server_start(NULL);
+        }
+#endif // defined(WILINK18) || defined(Linux_x86_64)
+    }
+
+    if (!arg_idx)
+    {
+        print_help();
+    }
+
+    printf("%s ----- done; ret val=%d\n", argv[0], ret);
+    return ret;
 }
 

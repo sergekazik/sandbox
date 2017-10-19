@@ -1,10 +1,13 @@
 #ifndef _RING_GATT_API_H_
 #define _RING_GATT_API_H_
 
+#ifndef WILINK18
+#error WRONG RingGattSrv platform-related file included into build
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "RingBleApi.hh"
 extern "C" {
 
 #include "SS1BTPM.h"
@@ -15,126 +18,6 @@ extern "C" {
 #include "RingBleApi.hh"
 
 namespace Ring { namespace Ble {
-
-/* The following type defintion represents the structure which holds */
-/* information on a pending prepare write queue entry.               */
-typedef struct _tagPrepareWriteEntry_t
-{
-    GATT_Connection_Type_t          ConnectionType;
-    BD_ADDR_t                       RemoteDeviceAddress;
-    unsigned int                    ServiceID;
-    unsigned int                    AttributeOffset;
-    unsigned int                    AttributeValueOffset;
-    unsigned int                    MaximumValueLength;
-    unsigned int                    ValueLength;
-    Byte_t                         *Value;
-    struct _tagPrepareWriteEntry_t *NextPrepareWriteEntryPtr;
-} PrepareWriteEntry_t;
-
-/*********************************************************************/
-/* Service Table Structures.                                         */
-/*********************************************************************/
-
-#define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                 0x00000001
-#define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                  0x00000002
-
-/*********************************************************************/
-/* Service Tables.                                                   */
-/*********************************************************************/
-/* * NOTE * For simplicity this application will not include Client  */
-/*          Characteristic Configuration Descriptors (CCCD) for      */
-/*          characteristics that are indicatable/notifiable.  This is*/
-/*          because the CCCD is a per client value that is stored    */
-/*          persistently for bonded devices.  This application, whose*/
-/*          only purpose is showing the usage of the APIs, does not  */
-/*          store per client values and also does not store values   */
-/*          persistently.                                            */
-/* * NOTE * To Calculate the AttributeOffset apply the following     */
-/*          formula:                                                 */
-/*                                                                   */
-/*             AttributeOffset = 1 + (NumPrevIncludes * 1) +         */
-/*                               (NumPrevCharacteristics * 2) +      */
-/*                               (NumPrevDescriptors * 1)            */
-/*                                                                   */
-/*          where:                                                   */
-/*                                                                   */
-/*             NumPrevIncludes = The number of previous Include      */
-/*                               Definition that exist in the        */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-/*                                                                   */
-/*             NumPrevCharacteristics = The number of previous       */
-/*                               Characteristics that exist in the   */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-/*                                                                   */
-/*             NumPrevDescriptors = The number of previous           */
-/*                               Descriptors that exist in the       */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-
-/* The following type definition represents the container structure  */
-/* for a Characteristic Attribute.                                   */
-typedef struct _tagCharacteristicInfo_t
-{
-    unsigned long  CharacteristicPropertiesMask;
-    unsigned long  SecurityPropertiesMask;
-    UUID_128_t     CharacteristicUUID;
-    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
-    unsigned int   MaximumValueLength;
-    unsigned int   ValueLength;
-    Byte_t        *Value;
-} CharacteristicInfo_t;
-
-/* The following type definition represents the container structure  */
-/* for a Descriptor Attribute.                                       */
-typedef struct _tagDescriptorInfo_t
-{
-    unsigned long  DescriptorPropertiesMask;
-    unsigned long  SecurityPropertiesMask;
-    UUID_128_t     CharacteristicUUID;
-    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
-    unsigned int   MaximumValueLength;
-    unsigned int   ValueLength;
-    Byte_t        *Value;
-} DescriptorInfo_t;
-
-/* The following enumeration represents all of the different         */
-/* attributes that may be added in a service table.                  */
-typedef enum
-{
-    atInclude,
-    atCharacteristic,
-    atDescriptor
-} AttributeType_t;
-
-/* The following type definition represents the container structure  */
-/* for a Service Table.                                              */
-/* * NOTE * For an AttributeType of atInclude the AttributeParameter */
-/*          is not used (the include will automatically reference the*/
-/*          previous service that was registered).                   */
-typedef struct _tagAttributeInfo_t
-{
-    AttributeType_t  AttributeType;
-    unsigned int     AttributeOffset;
-    void            *Attribute;
-} AttributeInfo_t;
-
-/* The following type definition represents the container structure  */
-/* for an dynamically allocated service.                             */
-typedef struct _tagServiceInfo_t
-{
-    unsigned long                  Flags;
-    unsigned int                   ServiceID;
-    DWord_t                        PersistentUID;
-    UUID_128_t                     ServiceUUID;
-    GATT_Attribute_Handle_Group_t  ServiceHandleRange;
-    unsigned int                   NumberAttributes;
-    AttributeInfo_t               *AttributeList;
-} ServiceInfo_t;
 
 class GattSrv : BleApi
 {

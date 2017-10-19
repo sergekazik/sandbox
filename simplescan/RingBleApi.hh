@@ -91,7 +91,7 @@ namespace Ring { namespace Ble {
 #define LOW_DUTY_CYCLE_DIRECT_CONNECTABLE      (0x0400)  /* Denotes that the  */
                                                          /* connectabillity   */
                                                          /* mode is Low Duty  */
-                                                         /* Cycle Directed    */
+                                                          /* Cycle Directed    */
                                                          /* Connectable.      */
 
 /* The following MACRO is used to convert an ASCII character into the*/
@@ -141,7 +141,7 @@ typedef struct _tagCommandTable_t
 
 enum ConfigTag
 {
-    Config_EOL                  = 0, // End of list
+    Config_EOL                  = 0, // End of l ist
     Config_ServiceTable,
     Config_LocalDeviceName,
     Config_LocalClassOfDevice,
@@ -161,6 +161,181 @@ typedef struct _tagDeviceConfig_t
     ParameterList_t params;
 } DeviceConfig_t;
 
+/*********************************************************************/
+/* Service Table Structures.                                         */
+/*********************************************************************/
+
+#define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                 0x00000001
+#define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                  0x00000002
+
+/*********************************************************************/
+/* Service Tables.                                                   */
+/*********************************************************************/
+/* * NOTE * For simplicity this application will not include Client  */
+/*          Characteristic Configuration Descriptors (CCCD) for      */
+/*          characteristics that are indicatable/notifiable.  This is*/
+/*          because the CCCD is a per client value that is stored    */
+/*          persistently for bonded devices.  This application, whose*/
+/*          only purpose is showing the usage of the APIs, does not  */
+/*          store per client values and also does not store values   */
+/*          persistently.                                            */
+/* * NOTE * To Calculate the AttributeOffset apply the following     */
+/*          formula:                                                 */
+/*                                                                   */
+/*             AttributeOffset = 1 + (NumPrevIncludes * 1) +         */
+/*                               (NumPrevCharacteristics * 2) +      */
+/*                               (NumPrevDescriptors * 1)            */
+/*                                                                   */
+/*          where:                                                   */
+/*                                                                   */
+/*             NumPrevIncludes = The number of previous Include      */
+/*                               Definition that exist in the        */
+/*                               service table prior to the attribute*/
+/*                               (Include, Characteristic or         */
+/*                               Descriptor) that is being added.    */
+/*                                                                   */
+/*             NumPrevCharacteristics = The number of previous       */
+/*                               Characteristics that exist in the   */
+/*                               service table prior to the attribute*/
+/*                               (Include, Characteristic or         */
+/*                               Descriptor) that is being added.    */
+/*                                                                    */
+/*             NumPrevDescriptors = The number of previous           */
+/*                               Descriptors that exist in the       */
+/*                               service table prior to the attribute*/
+/*                               (Include, Characteristic or         */
+/*                               Descriptor) that is being added.    */
+/*-------------------------------------------------------------------*/
+#ifndef __BTTYPESH_INC__
+typedef unsigned char Byte_t;
+typedef char Boolean_t;
+typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
+typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
+#endif
+
+#ifndef __GATTAPIH__
+typedef enum
+{
+   gctLE,
+   gctBR_EDR
+} GATT_Connection_Type_t;
+
+typedef struct _tagGATT_Attribute_Handle_Group_t
+{
+   Word_t Starting_Handle;
+   Word_t Ending_Handle;
+} GATT_Attribute_Handle_Group_t;
+
+#endif
+
+#ifndef __BTTYPESH_INC__
+typedef struct _tagUUID_128_t
+{
+   Byte_t UUID_Byte0;
+   Byte_t UUID_Byte1;
+   Byte_t UUID_Byte2;
+   Byte_t UUID_Byte3;
+   Byte_t UUID_Byte4;
+   Byte_t UUID_Byte5;
+   Byte_t UUID_Byte6;
+   Byte_t UUID_Byte7;
+   Byte_t UUID_Byte8;
+   Byte_t UUID_Byte9;
+   Byte_t UUID_Byte10;
+   Byte_t UUID_Byte11;
+   Byte_t UUID_Byte12;
+   Byte_t UUID_Byte13;
+   Byte_t UUID_Byte14;
+   Byte_t UUID_Byte15;
+} UUID_128_t;
+
+typedef struct _tagBD_ADDR_t
+{
+   Byte_t BD_ADDR0;
+   Byte_t BD_ADDR1;
+   Byte_t BD_ADDR2;
+   Byte_t BD_ADDR3;
+   Byte_t BD_ADDR4;
+   Byte_t BD_ADDR5;
+} BD_ADDR_t;
+#endif
+
+/* The following type defintion represents the structure which holds */
+/* information on a pending prepare write queue entry.               */
+typedef struct _tagPrepareWriteEntry_t
+{
+    GATT_Connection_Type_t          ConnectionType;
+    BD_ADDR_t                       RemoteDeviceAddress;
+    unsigned int                    ServiceID;
+    unsigned int                    AttributeOffset;
+    unsigned int                    AttributeValueOffset;
+    unsigned int                    MaximumValueLength;
+    unsigned int                    ValueLength;
+    Byte_t                         *Value;
+    struct _tagPrepareWriteEntry_t *NextPrepareWriteEntryPtr;
+} PrepareWriteEntry_t;
+
+
+/* The following type definition represents the container structure  */
+/* for a Characteristic Attribute.                                   */
+typedef struct _tagCharacteristicInfo_t
+{
+    unsigned long  CharacteristicPropertiesMask;
+    unsigned long  SecurityPropertiesMask;
+    UUID_128_t     CharacteristicUUID;
+    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
+    unsigned int   MaximumValueLength;
+    unsigned int   ValueLength;
+    Byte_t        *Value;
+} CharacteristicInfo_t;
+
+/* The following type definition represents the container structure  */
+/* for a Descriptor Attribute.                                       */
+typedef struct _tagDescriptorInfo_t
+{
+    unsigned long  DescriptorPropertiesMask;
+    unsigned long  SecurityPropertiesMask;
+    UUID_128_t     CharacteristicUUID;
+    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
+    unsigned int   MaximumValueLength;
+    unsigned int   ValueLength;
+    Byte_t        *Value;
+} DescriptorInfo_t;
+
+/* The following enumeration represents all of the different         */
+/* attributes that may be added in a service table.                  */
+typedef enum
+{
+    atInclude,
+    atCharacteristic,
+    atDescriptor
+} AttributeType_t;
+
+/* The following type definition represents the container structure  */
+/* for a Service Table.                                              */
+/* * NOTE * For an AttributeType of atInclude the AttributeParameter */
+/*          is not used (the include will automatically reference the*/
+/*          previous service that was registered).                   */
+typedef struct _tagAttributeInfo_t
+{
+    AttributeType_t  AttributeType;
+    unsigned int     AttributeOffset;
+    void            *Attribute;
+} AttributeInfo_t;
+
+/* The following type definition represents the container structure  */
+/* for an dynamically allocated service.                             */
+typedef struct _tagServiceInfo_t
+{
+    unsigned long                  Flags;
+    unsigned int                   ServiceID;
+    DWord_t                        PersistentUID;
+    UUID_128_t                     ServiceUUID;
+    GATT_Attribute_Handle_Group_t  ServiceHandleRange;
+    unsigned int                   NumberAttributes;
+    AttributeInfo_t               *AttributeList;
+} ServiceInfo_t;
+
 class BleApi
 {
 public:
@@ -173,7 +348,8 @@ public:
         TO_MANY_PARAMS                            = -5, // Denotes that there are more parameters then will fit in the UserCommand.
         INVALID_PARAMETERS_ERROR                  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
         NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
-        UNDEFINED_ERROR                           = -8, // Initial value; denotes that not all paths of the function modify return value
+        UNDEFINED_ERROR                           = -8, // Not initialized value; denotes that not all paths of the function modify return value
+        NOT_IMPLEMENTER_ERROR                     = -9, // Not yet implemented or not supported for this target
     };
 
     // some Bluetooth Appearance values

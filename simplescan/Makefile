@@ -1,6 +1,7 @@
+# set the proper target for the test
 BLUEZ_TOOLS_SUPPORT = 1
 RING_NAME = Linux_x86_64
-BLE_CS = BCM43
+
 $(info RING_NAME = [${RING_NAME}])
 $(info BLE_CS = [${BLE_CS}])
 
@@ -32,7 +33,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g			    \
-	    -D$(RING_NAME) -DRING_NAME=\"$(RING_NAME)\"	    \
+	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I$(BLE_CS)					    \
 	    -DBLUEZ_TOOLS_SUPPORT			    \
 	    -DTEST_CONSOLE_WRITE			    \
@@ -48,17 +49,17 @@ RM = rm -f
 TARGET_LIB = libRingBle.so
 TARGET_APP = test_ble
 
-SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp hcitools.c
+SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp
 SRCS_APP = test_ble.c gatt_srv_test.cpp test_stubs.cpp
 
-OBJS_LIB = RingBleApi.o RingGattApi.o hcitools.o
+OBJS_LIB = RingBleApi.o RingGattApi.o
 OBJS_APP = test_ble.o gatt_srv_test.o test_stubs.o
 
 RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP) cpringble
+all: ${TARGET_LIB} $(TARGET_APP)
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(CC) $(OBJS_LIB) $(LDFLAGS_LIB) -o $@
@@ -69,8 +70,8 @@ $(TARGET_APP): $(OBJS_APP)
 cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u *.cpp *.c *.h *.hh -v $(RING_BLE)
-	@cp -u BCM43/*.cpp -v $(RING_BLE)/BCM43
-	@cp -u WILINK18/*.cpp -v $(RING_BLE)/WILINK18
+	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
+	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@echo "-----------------------------------------------------"
 
 .PHONY: clean
