@@ -888,6 +888,7 @@ void hcitool_voice(int hdev, char *opt)
 void hcitool_delkey(int hdev, char *opt)
 {
     bdaddr_t bdaddr;
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
     uint8_t all;
     int dd;
     if (!opt)
@@ -899,7 +900,7 @@ void hcitool_delkey(int hdev, char *opt)
         exit(1);
     }
     if (!strcasecmp(opt, "all")) {
-        bacpy(&bdaddr, BDADDR_ANY);
+        bacpy(&bdaddr, &_BDADDR_ANY);
         all = 1;
     } else {
         str2ba(opt, &bdaddr);
@@ -1143,7 +1144,7 @@ void hcitool_inq_data(int hdev, char *opt)
                 break;
             case 0x08:
             case 0x09:
-                str = malloc(len);
+                str = (char*) malloc(len);
                 if (str) {
                     snprintf(str, len, "%s", ptr);
                     for (i = 0; i < len - 1; i++) {
@@ -1470,7 +1471,9 @@ void hcitool_block(int hdev, char *opt)
 
 void hcitool_unblock(int hdev, char *opt)
 {
-    bdaddr_t bdaddr;
+    bdaddr_t bdaddr = {{0, 0, 0, 0, 0, 0}};
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+
     int dd;
     if (!opt)
         return;
@@ -1481,7 +1484,7 @@ void hcitool_unblock(int hdev, char *opt)
         exit(1);
     }
     if (!strcasecmp(opt, "all"))
-        bacpy(&bdaddr, BDADDR_ANY);
+        bacpy(&bdaddr, &_BDADDR_ANY);
     else
         str2ba(opt, &bdaddr);
     if (ioctl(dd, HCIUNBLOCKADDR, &bdaddr) < 0) {

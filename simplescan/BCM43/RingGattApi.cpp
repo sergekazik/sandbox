@@ -3905,6 +3905,9 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
         /* appear to be at least semi-valid.                              */
         if ((aParams) && (aParams->NumberofParameters >= 2) && (aParams->Params[1].intParam))
         {
+            BOT_NOTIFY_TRACE("StartAdvertising: aParams->NumberofParameters = %d\n", aParams->NumberofParameters);
+            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingFlags    = %d\n", aParams->Params[0].intParam);
+            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingDuration = %d\n", aParams->Params[1].intParam);
             /* Format the Advertising Information.                         */
             BTPS_MemInitialize(&AdvertisingInfo, 0, sizeof(DEVM_Advertising_Information_t));
 

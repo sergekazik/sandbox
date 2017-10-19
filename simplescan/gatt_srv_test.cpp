@@ -1603,7 +1603,7 @@ static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
     /* which then are added to the Command Table.                        */
     printf("******************************************************************\r\n");
     printf("* 1) Initialize [0/1 - Register for Events].\r\n");
-    printf("* 2) Cleanup                                    \r\n");
+    printf("* 2) Shutdown                                    \r\n");
     printf("* 3) QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
     printf("* 4) SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
     printf("* 5) SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");

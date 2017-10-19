@@ -21,6 +21,7 @@
  *       | TI WiLink18xx BlueTP |                    |   BlueZ     |        *
  *       ------------------------                    ---------------        *
  *--------------------------------------------------------------------------*/
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -36,7 +37,7 @@
 #include "version.h"
 #include "hcitools.h"
 
-#if defined(hpcam2) || defined(Linux_x86_64)
+#if defined(WILINK18) || defined(Linux_x86_64)
 #include "gatt_srv_test.h"
 #endif
 
@@ -240,7 +241,7 @@ void print_help(void)
     printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
     printf("------------------------------------------------\n");
 #endif
-#if defined(s2lm_ironman) || defined(Linux_x86_64)
+#if defined(BCM43) || defined(Linux_x86_64)
     printf("--up                    hciconfig hci0 up\n");
     printf("--down                  hciconfig hci0 down\n");
     printf("--piscan                hciconfig hci0 piscan\n");
@@ -252,7 +253,7 @@ void print_help(void)
     printf("--hcishutdown           noleadv, noscan, down\n");
     printf("------------------------------------------------\n");
 #endif  // not "else if"!
-#if defined(hpcam2) || defined(Linux_x86_64)
+#if defined(WILINK18) || defined(Linux_x86_64)
     printf("--gattauto              run Bluetopia GATT Server sample\n");
     printf("--gatt                  load Bluetopia GATT Server sample\n");
     printf("------------------------------------------------\n");
@@ -361,7 +362,7 @@ int main(int argc, char **argv)
 #endif // BLUEZ_TOOLS_SUPPORT
 
 
-#if defined(hpcam2) || defined(Linux_x86_64)
+#if defined(WILINK18) || defined(Linux_x86_64)
         else if (!strcmp(argv[arg_idx], "--gattauto"))
         {
             ret = gatt_server_start("--autoinit");
@@ -423,9 +424,10 @@ int main(int argc, char **argv)
 static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 {
 #ifdef  BLUEZ_TOOLS_SUPPORT
-#if defined(s2lm_ironman) // || defined(Linux_x86_64)
+#if defined(BCM43) || defined(Linux_x86_64)
     int ctl;
     static struct hci_dev_info di;
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
 
     /* Open HCI socket  */
     if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
@@ -441,7 +443,7 @@ static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 
     di.dev_id = 0;
 
-    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, BDADDR_ANY)) {
+    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
         int dd = hci_open_dev(di.dev_id);
         hci_read_bd_addr(dd, &di.bdaddr, 1000);
         hci_close_dev(dd);
@@ -449,6 +451,7 @@ static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
 
     switch (aCmd)
     {
+#ifndef Linux_x86_64 // TODO: WHY??
         case eConfig_UP: hcitool_up(ctl, di.dev_id); break;
         case eConfig_DOWN: hcitool_down(ctl, di.dev_id); break;
         case eConfig_PISCAN: hcitool_scan(ctl, di.dev_id, "piscan"); break;
@@ -469,11 +472,15 @@ static int execute_cmd(eConfig_cmd_t aCmd __attribute__ ((unused)) )
             hcitool_scan(ctl, di.dev_id, "noscan");
             hcitool_down(ctl, di.dev_id);
             break;
+#endif
+    default:
+        printf("wrong command for target %s\n", RING_NAME);
+        break;
     }
 
     close(ctl);
 #else
-    printf("hci commands are not available with this target. Abort\n");
+    printf("hci commands are not available with target %s. Abort\n", RING_NAME);
 #endif
 #else
     printf("hci commands are not available without -lbluetooth (Bluez). Abort\n");

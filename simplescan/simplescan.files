@@ -26,7 +26,6 @@ RingBleApi.hh
 test_ble.c
 vergen.sh
 version.h
-RingGattApi.cpp
 RingGattApi.hh
 gatt_srv_test.cpp
 gatt_srv_test.h
@@ -72,3 +71,6 @@ test_stubs.cpp
 ../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include/SPPMType.h
 ../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include/SS1BTPM.h
 ../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include/TMRAPI.h
+GATT_test_scenario.txt
+BCM43/RingGattApi.cpp
+WILINK18/RingGattApi.cpp
