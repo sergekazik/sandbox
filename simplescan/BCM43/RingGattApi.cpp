@@ -48,15 +48,150 @@ using namespace Ring::Ble;
 
 GattSrv* GattSrv::instance = NULL;
 
-BleApi* GattSrv::getInstance()
-{
+BleApi* GattSrv::getInstance() {
     if (instance == NULL)
         instance = new GattSrv();
     return (BleApi*) instance;
 }
 
-GattSrv::GattSrv()
+GattSrv::GattSrv() :
+   mDeviceClass("0x280430")
+  ,mDeviceName("Ring Doorbell Ampak BCM43")
 {
+}
+
+int GattSrv::open_socket(struct hci_dev_info &di) {
+    int ctl = -1;
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+
+    /* Open HCI socket  */
+    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
+        perror("Can't open HCI socket.");
+        return errno;
+    }
+
+    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
+    {
+        perror("Can't get device info");
+        return errno;
+    }
+
+    di.dev_id = 0;
+
+    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
+        int dd = hci_open_dev(di.dev_id);
+        hci_read_bd_addr(dd, &di.bdaddr, 1000);
+        hci_close_dev(dd);
+    }
+    return ctl;
+}
+
+int GattSrv::Initialize() {
+    struct hci_dev_info di;
+    int ctl;
+
+    if (0 <= (ctl = open_socket(di)))
+    {
+        HCIup(ctl, di.dev_id);
+        HCIscan(ctl, di.dev_id, (char*) "piscan");
+        HCIclass(di.dev_id, mDeviceClass);
+        HCIle_adv(di.dev_id, NULL);
+
+        close(ctl);
+        ctl = NO_ERROR;
+    }
+    return ctl;
+}
+
+int GattSrv::Shutdown() {
+    struct hci_dev_info di;
+    int ctl;
+
+    if (0 <= (ctl = open_socket(di)))
+    {
+        HCIno_le_adv(di.dev_id);
+        HCIscan(ctl, di.dev_id, (char*) "noscan");
+        HCIdown(ctl, di.dev_id);
+
+        close(ctl);
+        ctl = NO_ERROR;
+    }
+    return ctl;
+}
+
+int GattSrv::Configure(DeviceConfig_t* aConfig) {
+    int ret_val = UNDEFINED_ERROR;
+
+    struct hci_dev_info di;
+    int ctl;
+
+    ctl = open_socket(di);
+
+    while (0 <= ctl && aConfig != NULL && aConfig->tag != Config_EOL)
+    {
+        switch (aConfig->tag)
+        {
+        case Config_ServiceTable:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_LocalDeviceName:
+            HCIname(di.dev_id, mDeviceName);
+            ret_val = NO_ERROR;
+            break;
+
+        case Config_LocalClassOfDevice:
+            HCIclass(di.dev_id, mDeviceClass);
+            ret_val = NO_ERROR;
+            break;
+
+        case Config_Discoverable:
+            HCIle_adv(di.dev_id, NULL);
+            ret_val = NO_ERROR;
+            break;
+
+        case Config_Connectable:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_Pairable:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_RemoteDeviceLinkActive:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_LocalDeviceAppearance:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_AdvertisingInterval:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_AndUpdateConnectionAndScanBLEParameters:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        case Config_AuthenticatedPayloadTimeout:
+            ret_val = NOT_IMPLEMENTED_ERROR;
+            break;
+
+        default:
+            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d\n", aConfig->tag);
+            ret_val = INVALID_PARAMETERS_ERROR;
+            break;
+        }
+
+        if (ret_val != NO_ERROR)
+            break;
+
+        aConfig++;
+    }
+
+    close(ctl);
+    return ret_val;
 }
 
 /**************************** HCI ******************************/

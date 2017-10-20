@@ -38,7 +38,6 @@ extern "C" {
 } // #ifdef __cplusplus
 
 #include "RingGattApi.hh"
-
 #include "gatt_srv_test.h"    /* Main Application Prototypes and Constants.   */
 
 using namespace Ring::Ble;
@@ -1163,11 +1162,7 @@ static int ReadLine(char *Buffer, unsigned int BufferSize)
                 /* foreground.                                              */
                 while(getpgrp() != tcgetpgrp(STDOUT_FILENO))
                 {
-#ifdef Linux_x86_64
                     sleep(1);
-#else
-                    BTPS_Delay(500);
-#endif
                 }
             }
             else
@@ -1964,30 +1959,35 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 
     if (gGattSrvInst == NULL)
     {
+        DeviceConfig_t dc[] = {{.tag = Config_EOL},{.tag = Config_EOL}};
         switch (aCmd)
         {
             case eConfig_UP: ((GattSrv*)gGattSrvInst)->HCIup(ctl, di.dev_id); break;
             case eConfig_DOWN: ((GattSrv*)gGattSrvInst)->HCIdown(ctl, di.dev_id); break;
             case eConfig_PISCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan"); break;
             case eConfig_NOSCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan"); break;
-            case eConfig_LEADV: ((GattSrv*)gGattSrvInst)->HCIle_adv(di.dev_id, NULL); break;
             case eConfig_NOLEADV: ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id); break;
-            case eConfig_CLASS: ((GattSrv*)gGattSrvInst)->HCIclass(di.dev_id, (char*) "0x280430"); break;
 
             case eConfig_ALLUP:
-                ((GattSrv*)gGattSrvInst)->HCIup(ctl, di.dev_id);
-                ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan");
-                ((GattSrv*)gGattSrvInst)->HCIclass(di.dev_id, (char*) "0x280430");
-                ((GattSrv*)gGattSrvInst)->HCIle_adv(di.dev_id, NULL);
+                gGattSrvInst->Initialize();
                 break;
 
             case eConfig_ALLDOWN:
-                ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id);
-                ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan");
-                ((GattSrv*)gGattSrvInst)->HCIdown(ctl, di.dev_id);
+                gGattSrvInst->Shutdown();
                 break;
-        default:
-            printf("wrong command for target %s\n", RING_NAME);
+
+            case eConfig_LEADV:
+                dc->tag = Config_Discoverable;
+                gGattSrvInst->Configure(dc);
+                break;
+
+            case eConfig_CLASS:
+                dc->tag = Config_LocalClassOfDevice;
+                gGattSrvInst->Configure(dc);
+                break;
+
+            default:
+                printf("wrong command for target %s\n", RING_NAME);
             break;
         }
     }

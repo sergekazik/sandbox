@@ -36,12 +36,8 @@
 #include <bluetooth/rfcomm.h>
 
 #include "version.h"
-
-#if defined(WILINK18) || defined(Linux_x86_64)
 #include "gatt_srv_test.h"
-#endif
 
-#define DEFAULT_TXT "hello ring 123!"
 #define COMM_BUF_LEN    1024
 #define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }
 
@@ -297,7 +293,7 @@ int main(int argc, char **argv)
             if (arg_idx + 1 < argc)
             {
                 char *dev_addr = argv[arg_idx+1];
-                ret = raw_test_connect(dev_addr, DEFAULT_TXT, 0, 1);
+                ret = raw_test_connect(dev_addr, "hello ring 123!", 0, 1);
             }
             else
             {
@@ -310,7 +306,8 @@ int main(int argc, char **argv)
         {
             if (arg_idx + 1 < argc)
             {
-                char *dt = DEFAULT_TXT;
+                char dtdf[] = {"hello ring 123!"};
+                char *dt = dtdf;
 
                 char mac_addr[32];
                 int repeat = 1;

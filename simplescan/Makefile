@@ -34,10 +34,10 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-write-strings 		    \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
-	    -I$(BLE_CS)					    \
+	    -I. -I$(BLE_CS)					    \
 	    -DBLUEZ_TOOLS_SUPPORT			    \
 	    -DTEST_CONSOLE_WRITE			    \
-	    -I$(RING_TOP) -I$(RING_BLE) -I$(RING_LOG)	    \
+	    -I$(RING_TOP) -I$(RING_LOG)	    \
 	     $(BTPIA_SDK_INC)
 
 CXXFLAGS = $(CFLAGS)

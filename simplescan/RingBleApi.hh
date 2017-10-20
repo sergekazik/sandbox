@@ -8,60 +8,6 @@
 #include <signal.h>
 #include <unistd.h>
 
-#ifndef __BTTYPESH_INC__
-typedef unsigned char Byte_t;
-typedef char Boolean_t;
-typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
-typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
-#endif
-
-#ifndef __GATTAPIH__
-typedef enum
-{
-   gctLE,
-   gctBR_EDR
-} GATT_Connection_Type_t;
-
-typedef struct _tagGATT_Attribute_Handle_Group_t
-{
-   Word_t Starting_Handle;
-   Word_t Ending_Handle;
-} GATT_Attribute_Handle_Group_t;
-
-#endif
-
-#if !defined(__BNEPTYPEH__) && !defined(__BTBTYPESH__)
-typedef struct _tagUUID_128_t
-{
-   Byte_t UUID_Byte0;
-   Byte_t UUID_Byte1;
-   Byte_t UUID_Byte2;
-   Byte_t UUID_Byte3;
-   Byte_t UUID_Byte4;
-   Byte_t UUID_Byte5;
-   Byte_t UUID_Byte6;
-   Byte_t UUID_Byte7;
-   Byte_t UUID_Byte8;
-   Byte_t UUID_Byte9;
-   Byte_t UUID_Byte10;
-   Byte_t UUID_Byte11;
-   Byte_t UUID_Byte12;
-   Byte_t UUID_Byte13;
-   Byte_t UUID_Byte14;
-   Byte_t UUID_Byte15;
-} UUID_128_t;
-
-typedef struct _tagBD_ADDR_t
-{
-   Byte_t BD_ADDR0;
-   Byte_t BD_ADDR1;
-   Byte_t BD_ADDR2;
-   Byte_t BD_ADDR3;
-   Byte_t BD_ADDR4;
-   Byte_t BD_ADDR5;
-} BD_ADDR_t;
-#endif
-
 namespace Ring { namespace Ble {
 
 #define MAX_SUPPORTED_COMMANDS                     (75)  /* Denotes the       */
@@ -145,13 +91,70 @@ namespace Ring { namespace Ble {
 #define LOW_DUTY_CYCLE_DIRECT_CONNECTABLE      (0x0400)  /* Denotes that the  */
                                                          /* connectabillity   */
                                                          /* mode is Low Duty  */
-                                                          /* Cycle Directed    */
+                                                         /* Cycle Directed    */
                                                          /* Connectable.      */
+#define DEV_CLASS_LEN                               16   /* device class bitmask as a string */
+#define DEV_NAME_LEN                                64   /* text string = device name */
 
 /* The following MACRO is used to convert an ASCII character into the*/
 /* equivalent decimal value.  The MACRO converts lower case          */
 /* characters to upper case before the conversion.                   */
 #define ToInt(_x) (((_x) > 0x39)?(((_x) & ~0x20)-0x37):((_x)-0x30))
+
+#ifndef __BTTYPESH_INC__
+typedef unsigned char Byte_t;
+typedef char Boolean_t;
+typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
+typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
+#endif
+
+#ifndef __GATTAPIH__
+typedef enum
+{
+   gctLE,
+   gctBR_EDR
+} GATT_Connection_Type_t;
+
+typedef struct _tagGATT_Attribute_Handle_Group_t
+{
+   Word_t Starting_Handle;
+   Word_t Ending_Handle;
+} GATT_Attribute_Handle_Group_t;
+
+#endif
+
+#if !defined(__BNEPTYPEH__) && !defined(__BTBTYPESH__)
+typedef struct _tagUUID_128_t
+{
+   Byte_t UUID_Byte0;
+   Byte_t UUID_Byte1;
+   Byte_t UUID_Byte2;
+   Byte_t UUID_Byte3;
+   Byte_t UUID_Byte4;
+   Byte_t UUID_Byte5;
+   Byte_t UUID_Byte6;
+   Byte_t UUID_Byte7;
+   Byte_t UUID_Byte8;
+   Byte_t UUID_Byte9;
+   Byte_t UUID_Byte10;
+   Byte_t UUID_Byte11;
+   Byte_t UUID_Byte12;
+   Byte_t UUID_Byte13;
+   Byte_t UUID_Byte14;
+   Byte_t UUID_Byte15;
+} UUID_128_t;
+
+typedef struct _tagBD_ADDR_t
+{
+   Byte_t BD_ADDR0;
+   Byte_t BD_ADDR1;
+   Byte_t BD_ADDR2;
+   Byte_t BD_ADDR3;
+   Byte_t BD_ADDR4;
+   Byte_t BD_ADDR5;
+} BD_ADDR_t;
+#endif
+
 
 /* The following type definition represents the structure which holds*/
 /* all information about the parameter, in particular the parameter  */
@@ -349,7 +352,7 @@ public:
         INVALID_PARAMETERS_ERROR                  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
         NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
         UNDEFINED_ERROR                           = -8, // Not initialized value; denotes that not all paths of the function modify return value
-        NOT_IMPLEMENTER_ERROR                     = -9, // Not yet implemented or not supported for this target
+        NOT_IMPLEMENTED_ERROR                     = -9, // Not yet implemented or not supported for this target
     };
 
     // some Bluetooth Appearance values
