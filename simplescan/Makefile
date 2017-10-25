@@ -76,6 +76,9 @@ cpringble:
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@echo "-----------------------------------------------------"
 
+prepro:
+	$(CC) -E $(CFLAGS) gatt_srv_test.cpp -o gatt_srv_test.prep
+
 .PHONY: clean
 clean_obj:
 	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d

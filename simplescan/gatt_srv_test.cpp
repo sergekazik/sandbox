@@ -84,7 +84,52 @@ static char* UpperCaseUpdate(int &idx)
 }
 
 /*********************************************************************
- * Temp. "HARDCODED" Services Declaration.
+ * Pairing Services Declaration.
+ *
+ * The following define the flags that are valid with the            *
+ * SecurityProperties member of the                                  *
+ * GATM_Add_Service_Characteristic_Request_t and                     *
+ * GATM_Add_Service_Descriptor_Request_t structures.                 *
+
+#define GATM_SECURITY_PROPERTIES_NO_SECURITY                         0x00000000
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE    0x00000001
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE      0x00000002
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ     0x00000004
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ       0x00000008
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_SIGNED_WRITES       0x00000010
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_SIGNED_WRITES         0x00000020
+
+ * The following define the flags that are valid with the            *
+ * CharacteristicProperties member of the                            *
+ * GATM_Add_Service_Characteristic_Request_t structure.              *
+
+#define GATM_CHARACTERISTIC_PROPERTIES_BROADCAST                     0x00000001
+#define GATM_CHARACTERISTIC_PROPERTIES_READ                          0x00000002
+#define GATM_CHARACTERISTIC_PROPERTIES_WRITE_WO_RESP                 0x00000004
+#define GATM_CHARACTERISTIC_PROPERTIES_WRITE                         0x00000008
+#define GATM_CHARACTERISTIC_PROPERTIES_NOTIFY                        0x00000010
+#define GATM_CHARACTERISTIC_PROPERTIES_INDICATE                      0x00000020
+#define GATM_CHARACTERISTIC_PROPERTIES_AUTHENTICATED_SIGNED_WRITES   0x00000040
+#define GATM_CHARACTERISTIC_PROPERTIES_EXT_PROPERTIES                0x00000080
+ *
+ *
+ *********************************************************************/
+#define RING_PAIRING_TABLE_SERVICE_DECL
+#define GATM_SECURITY_PROPERTIES_ENCRYPTED (GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE \
+                                            |GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE    \
+                                            |GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ \
+                                            |GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ)
+#include "gatt_srv_defs.h"
+
+#define RING_PAIRING_TABLE_SERVICE_DEFINE_TABLE
+static AttributeInfo_t SrvTable0[] =
+{
+    #include "gatt_srv_defs.h"
+};
+#define PAIRING_SERVICE_TABLE_NUM_ENTRIES   sizeof(SrvTable0)/sizeof(AttributeInfo_t)
+
+/*********************************************************************
+ * Test Services Declaration.
  *********************************************************************/
 
 static CharacteristicInfo_t Srv1Attr1=
@@ -981,6 +1026,29 @@ static AttributeInfo_t SrvTable6[] =
 /* registered by this service.                                       */
 static ServiceInfo_t ServiceTable[] =
 {
+    {
+        /* Service Flags.                                                 */
+        0,
+
+        /* Service ID.                                                    */
+        0,
+
+        /* PersistentUID.                                                 */
+        0,
+
+        /* Service UUID.
+        9760d077-a234-4686-9e00-fcbbee3373f7 */
+        MAKEUUID16(97,60,D0,77,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7),
+
+        /* Service Handle Range.                                          */
+        {0, 0},
+
+        /* Number of Service Table Entries.                               */
+        PAIRING_SERVICE_TABLE_NUM_ENTRIES,
+
+        /* Service Attribute List.                                        */
+        SrvTable0
+    },
     {
         /* Service Flags.                                                 */
         0,
