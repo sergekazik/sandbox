@@ -1660,9 +1660,28 @@ static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)))
     printf("* Command Options:                                                *\r\n");
     #define RING_BLE_PRINT_HELP
     #include "gatt_srv_defs.h"
-    printf("*                  Help, Quit.                                    *\r\n");
+    printf("*                  HH, MM, Help, Quit.                            *\r\n");
     printf("*******************************************************************\r\n");
     return(0);
+}
+static int AutoHelp(ParameterList_t *p)
+{
+    (void)p;
+    static const char *mmHelp[] = {
+        "48 - RegisterGATTCallback",
+        "54 - RegisterService 0",
+        "58 - ListCharacteristics",
+        "59 - ListDescriptors",
+        "42 - RegisterAuthentication",
+        "47 - ChangeSimplePairingParameters 0 0",
+        "52 - StartAdvertising 118 300",
+        "11 - QueryLocalDeviceProperties",
+    };
+    for(int i = 0; i < (int) sizeof(mmHelp)/sizeof(char*); i++)
+    {
+        printf("%s\n", mmHelp[i]);
+    }
+    return BleApi::NO_ERROR;
 }
 
 static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
@@ -1671,17 +1690,17 @@ static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
     /* which then are added to the Command Table.                        */
     printf("******************************************************************\r\n");
     printf("* 1) Initialize [0/1 - Register for Events].\r\n");
-    printf("* 2) Shutdown                                    \r\n");
+    printf("* 2) Shutdown\r\n");
     printf("* 3) QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
     printf("* 4) SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
     printf("* 5) SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");
-    printf("* 6) ShutdownService                            \r\n");
-    printf("* 7) RegisterEventCallback,                     \r\n");
-    printf("* 8) UnRegisterEventCallback,                   \r\n");
-    printf("* 9) QueryDevicePower                           \r\n");
+    printf("* 6) ShutdownService\r\n");
+    printf("* 7) RegisterEventCallback, \r\n");
+    printf("* 8) UnRegisterEventCallback, \r\n");
+    printf("* 9) QueryDevicePower \r\n");
     printf("* 10)SetDevicePower [0/1 - Power Off/Power On].\r\n");
-    printf("* 11)QueryLocalDeviceProperties                 \r\n");
-    printf("* 12)SetLocalDeviceName                         \r\n");
+    printf("* 11)QueryLocalDeviceProperties \r\n");
+    printf("* 12)SetLocalDeviceName \r\n");
     printf("* 13)SetLocalClassOfDevice [Class of Device].\r\n");
     printf("* 14)SetDiscoverable [Enable/Disable] [Timeout (Enable only)].\r\n");
     printf("* 15)SetConnectable [Enable/Disable] [Timeout (Enable only)].\r\n");
@@ -1706,39 +1725,39 @@ static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
     printf("* 34)ConnectWithRemoteDevice [BD_ADDR] [Connect LE (1 = LE, 0 = BR/EDR)] [ConnectFlags (Optional)].\r\n");
     printf("* 35)DisconnectRemoteDevice [BD_ADDR] [LE Device (1= LE, 0 = BR/EDR)] [Force Flag (Optional)].\r\n");
     printf("* 36)SetRemoteDeviceLinkActive [BD_ADDR].\r\n");
-    printf("* 37)CreateSDPRecord                            \r\n");
+    printf("* 37)CreateSDPRecord\r\n");
     printf("* 38)DeleteSDPRecord [Service Record Handle].\r\n");
     printf("* 39)AddSDPAttribute [Service Record Handle] [Attribute ID] [Attribute Value (optional)].\r\n");
     printf("* 40)DeleteSDPAttribute [Service Record Handle] [Attribute ID].\r\n");
     printf("* 41)EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
-    printf("* 42)RegisterAuthentication                     \r\n");
-    printf("* 43)UnRegisterAuthentication                   \r\n");
+    printf("* 42)RegisterAuthentication \r\n");
+    printf("* 43)UnRegisterAuthentication \r\n");
     printf("* 44)PINCodeResponse [PIN Code].\r\n");
     printf("* 45)PassKeyResponse [Numeric Passkey (0 - 999999)].\r\n");
     printf("* 46)UserConfirmationResponse [Confirmation (0 = No, 1 = Yes)].\r\n");
     printf("* 47)ChangeSimplePairingParameters [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, 3 = No Input/Output)] [MITM Requirement (0 = No, 1 = Yes)].\r\n");
-    printf("* 48)RegisterGATTCallback                       \r\n");
-    printf("* 49)UnRegisterGATTCallback                     \r\n");
-    printf("* 50)QueryGATTConnections                       \r\n");
-    printf("* 51)SetLocalDeviceAppearance                   \r\n");
+    printf("* 48)RegisterGATTCallback \r\n");
+    printf("* 49)UnRegisterGATTCallback \r\n");
+    printf("* 50)QueryGATTConnections \r\n");
+    printf("* 51)SetLocalDeviceAppearance \r\n");
     printf("* 52)StartAdvertising [Flags] [Duration] [BD ADDR].\r\n");
     printf("* 53)StopAdvertising [Flags].\r\n");
     printf("* 54)RegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
     printf("* 55)UnRegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
     printf("* 56)IndicateCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
     printf("* 57)NotifyCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
-    printf("* 58)ListCharacteristics                        \r\n");
-    printf("* 59)ListDescriptors                            \r\n");
-    printf("* 60)QueryPublishedServices                     \r\n");
+    printf("* 58)ListCharacteristics\r\n");
+    printf("* 59)ListDescriptors\r\n");
+    printf("* 60)QueryPublishedServices \r\n");
     printf("* 61)SetAdvertisingInterval [Advertising Interval Min] [Advertising Interval Max] (Range: 20..10240 in ms).\r\n");
     printf("* 62)SetAndUpdateConnectionAndScanBLEParameters\r\n");
     printf("* 63)SetAuthenticatedPayloadTimeout [BD_ADDR] [Authenticated Payload Timout (In ms)].\r\n");
     printf("* 64)QueryAuthenticatedPayloadTimeout [BD_ADDR].\r\n");
     printf("* 65)EnableSCOnly [mode (0 = mSC Only mode is off, 1 = mSC Only mode is on].\r\n");
-    printf("* 66)RegenerateP256LocalKeys                    \r\n");
-    printf("* 67)OOBGenerateParameters                      \r\n");
+    printf("* 66)RegenerateP256LocalKeys\r\n");
+    printf("* 67)OOBGenerateParameters\r\n");
     printf("* 68)ChangeLEPairingParameters:\r\n");
-    printf("* HH, Help, Quit.                               \r\n");
+    printf("* HH, MM, Help, Quit. \r\n");
     printf("*****************************************************************\r\n");
 
     return 0;
@@ -1767,6 +1786,7 @@ static void GATM_Init(void)
 
     AddCommand((char*) "HELP", DisplayHelp);
     AddCommand((char*) "HH", HelpParam);
+    AddCommand((char*) "MM", AutoHelp);
 
     /* Next display the available commands.                              */
     DisplayHelp(NULL);
