@@ -32,7 +32,7 @@ public:
     int Configure(DeviceConfig_t* aConfig);
 
     int QueryDevicePower() { return NOT_IMPLEMENTED_ERROR; }
-    int SetDevicePower(bool aPowerOn) { return NOT_IMPLEMENTED_ERROR; }
+    int SetDevicePower(bool aPowerOn) { (void) aPowerOn; return NOT_IMPLEMENTED_ERROR; }
 
     int ShutdownService() { return NOT_IMPLEMENTED_ERROR; }
     int Shutdown();

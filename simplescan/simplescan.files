@@ -47,3 +47,4 @@ test_stubs.cpp
 vergen.sh
 version.h
 test_ble.cpp
+gatt_attr_def.h

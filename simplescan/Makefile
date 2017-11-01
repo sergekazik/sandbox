@@ -32,7 +32,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-write-strings 		    \
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-write-strings -Wno-missing-field-initializers    \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I. -I$(BLE_CS)					    \
 	    -DBLUEZ_TOOLS_SUPPORT			    \

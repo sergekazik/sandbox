@@ -6828,9 +6828,10 @@ void GattSrv::StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry)
 /* data to the console.                                              */
 void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
 {
-    int  i, offset, ascidx;
-    char Buf[256];
-    char Ascii[256];
+    int  offset, ascidx;
+    #define buf_len 0xff
+    char Buf[buf_len];
+    char Ascii[buf_len];
 
     if ((Length) && (Data))
     {
@@ -6839,11 +6840,9 @@ void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
         BTPS_MemInitialize(Ascii, 0, (sizeof(Ascii)/sizeof(char)));
 
         offset = 0;
-        i      = 0;
         ascidx = 0;
-        int first_line_len = 0;
 
-        while(Length-i)
+        for (int i = 0; i < (int) (Length && i < buf_len); i++)
         {
             if (!String)
             {
@@ -6854,28 +6853,14 @@ void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
             {
                 offset += sprintf(&Buf[offset], "%c", (char)Data[i]);
             }
-
-            if (!(++i % 16))
-            {
-                offset = 0;
-                BOT_NOTIFY_DEBUG("%s | ", Buf);
-                BOT_NOTIFY_DEBUG("%s\n", Ascii);
-
-                ascidx = 0;
-                BTPS_MemInitialize(Ascii, 0, (sizeof(Ascii)/sizeof(char)));
-                first_line_len  = strlen(Buf);
-            }
         }
-
-        if (i % 16)
+        BOT_NOTIFY_DEBUG("%s\n", Buf);
+        if (!String)
         {
-            BOT_NOTIFY_DEBUG("%s", Buf);
-            for (int j = 0; j < (first_line_len - (int ) strlen(Buf)); BOT_NOTIFY_DEBUG(" "), j++);
-            BOT_NOTIFY_DEBUG(" | %s\n", Ascii);
+            BOT_NOTIFY_DEBUG("%s\n", Ascii);
         }
     }
 }
-
 /* The following function is used to search the Service Info list to */
 /* return an attribute based on the ServiceID and the                */
 /* AttributeOffset.  This function returns a pointer to the attribute*/
