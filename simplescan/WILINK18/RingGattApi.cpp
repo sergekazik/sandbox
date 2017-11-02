@@ -34,7 +34,7 @@
 #include <unistd.h>
 
 #include "RingGattApi.hh"
-#include "ipc/Bot_Notifier.h"
+#include "Bot_Notifier.h"
 
 using namespace Ring::Ble;
 
@@ -103,7 +103,7 @@ int GattSrv::Initialize(ParameterList_t *aParams __attribute__ ((unused)))
         BOT_NOTIFY_DEBUG("GattSrv::Initialize, %d params\n", aParams->NumberofParameters);
         for (int i = 0; i < aParams->NumberofParameters; i++)
         {
-            BOT_NOTIFY_TRACE("aParams[%d] = {0x%08X, 0x%08X [%s]}\n", i, aParams->Params[i].intParam, (unsigned long) aParams->Params[i].strParam, aParams->Params[i].strParam);
+            BOT_NOTIFY_TRACE("aParams[%d] = {0x%08X, 0x%08lX [%s]}\n", i, aParams->Params[i].intParam, (unsigned long) aParams->Params[i].strParam, aParams->Params[i].strParam);
         }
 
         /* Determine if the user would like to Register an Event Callback */
@@ -4413,8 +4413,8 @@ int GattSrv::RegisterService(unsigned int ServiceIndex)
 
                                         BOT_NOTIFY_TRACE("mServiceTable[ServiceIndex].ServiceID = %d\n", mServiceTable[ServiceIndex].ServiceID);
                                         BOT_NOTIFY_TRACE("mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset = 0x%08X \n", mServiceTable[ServiceIndex].AttributeList[Index].AttributeOffset);
-                                        BOT_NOTIFY_TRACE("CharacteristicInfo->CharacteristicPropertiesMask = 0x%08X \n", CharacteristicInfo->CharacteristicPropertiesMask);
-                                        BOT_NOTIFY_TRACE("CharacteristicInfo->SecurityPropertiesMask = 0x%08X \n", CharacteristicInfo->SecurityPropertiesMask);
+                                        BOT_NOTIFY_TRACE("CharacteristicInfo->CharacteristicPropertiesMask = 0x%08lX \n", CharacteristicInfo->CharacteristicPropertiesMask);
+                                        BOT_NOTIFY_TRACE("CharacteristicInfo->SecurityPropertiesMask = 0x%08lX \n", CharacteristicInfo->SecurityPropertiesMask);
                                         ret_val = FUNCTION_ERROR;
                                     }
                                 }
@@ -6836,13 +6836,13 @@ void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
     if ((Length) && (Data))
     {
         /* Initialize the temporary buffer.                               */
-        BTPS_MemInitialize(Buf, 0, (sizeof(Buf)/sizeof(char)));
-        BTPS_MemInitialize(Ascii, 0, (sizeof(Ascii)/sizeof(char)));
+        BTPS_MemInitialize(Buf, 0, buf_len);
+        BTPS_MemInitialize(Ascii, 0, buf_len);
 
         offset = 0;
         ascidx = 0;
 
-        for (int i = 0; i < (int) (Length && i < buf_len); i++)
+        for (int i = 0; (i < (int) Length) && (i < buf_len); i++)
         {
             if (!String)
             {

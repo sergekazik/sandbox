@@ -676,7 +676,8 @@ static int AutoHelp(ParameterList_t *p)
         "47 - ChangeSimplePairingParameters 0 0",
         "52 - StartAdvertising 118 300",
         "11 - QueryLocalDeviceProperties",
-        "57 - NotifyCharacteristic 0 17 STATE_WIFI_SET"
+        "57 - NotifyCharacteristic 0 17 STATE_WIFI_SET",
+        "41 - EnableBluetoothDebug 1 2",
     };
     for(int i = 0; i < (int) (sizeof(mmHelp)/sizeof(char*)); i++)
     {
@@ -984,6 +985,7 @@ extern "C" int gatt_server_start(const char* arguments)
                 {"RegisterAuthentication",              1},
                 {"ChangeSimplePairingParameters 0 0",   1},
                 {"StartAdvertising 118 300",            1},
+                {"EnableBluetoothDebug 1 2",            1},
                 {"QueryLocalDeviceProperties",          1},
             };
             char UserInput[MAX_COMMAND_LENGTH];

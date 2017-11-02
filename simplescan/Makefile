@@ -18,6 +18,7 @@ BLUEZ_INC = -I$(PREBUILD_3RD_PARTY_DIR)/bluez5/include
 
 RING_TOP = $(AMB_TOPDIR)/ring
 RING_BLE = $(AMB_TOPDIR)/ring/ble
+RING_COM = $(AMB_TOPDIR)/ring/common
 RING_LOG = $(AMB_TOPDIR)/ring/ding/include
 
 TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
@@ -37,7 +38,7 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-write-strings -Wno-missing-field-ini
 	    -I. -I$(BLE_CS)					    \
 	    -DBLUEZ_TOOLS_SUPPORT			    \
 	    -DTEST_CONSOLE_WRITE			    \
-	    -I$(RING_TOP) -I$(RING_LOG)	    \
+	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
 	     $(BTPIA_SDK_INC)
 
 CXXFLAGS = $(CFLAGS)

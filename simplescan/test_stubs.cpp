@@ -10,11 +10,13 @@
  * be resolved depending on what it is linked with - either libRingIPC.so or test_stubs.cpp
  * ----------------------------------------------------------------------------------------*/
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include <string.h>
+#include <stdarg.h>
 
-#include "ipc/Bot_Notifier.h"
+#include "Bot_Notifier.h"
 
 #define BUF_LEN 1024
 #define CASE_FORM_TYPE(__type) case BOT_NOTIFY_##__type##_T: sprintf(typeString, #__type ":"); break;
@@ -30,11 +32,14 @@ BOT_RET_CODE_T Bot_Notify(BOT_NOTIFY_TYPE_T type, uint32_t line, char const *fnN
     char argBuffer[BUF_LEN];
 
     switch (type) {
-        CASE_FORM_TYPE(TRACE);
-        CASE_FORM_TYPE(DEBUG);
-        CASE_FORM_TYPE(INFO);
-        CASE_FORM_TYPE(WARNING);
-        CASE_FORM_TYPE(ERROR);
+        CASE_FORM_TYPE(TRACE)
+        CASE_FORM_TYPE(DEBUG)
+        CASE_FORM_TYPE(INFO)
+        CASE_FORM_TYPE(WARNING)
+        CASE_FORM_TYPE(ERROR)
+        CASE_FORM_TYPE(SILENT)
+            default:
+            sprintf(typeString, "-?-:");
     }
     va_start(argPtr, format);
     vsnprintf(argBuffer, BUF_LEN, format, argPtr);

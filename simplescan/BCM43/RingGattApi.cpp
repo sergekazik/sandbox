@@ -41,7 +41,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "ipc/Bot_Notifier.h"
+#include "Bot_Notifier.h"
 #include "RingGattApi.hh"
 
 using namespace Ring::Ble;
