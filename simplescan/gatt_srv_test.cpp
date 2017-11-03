@@ -179,7 +179,9 @@ static ServiceInfo_t ServiceTable[] =
         PAIRING_SERVICE_TABLE_NUM_ENTRIES,
 
         /* Service Attribute List.                                        */
-        SrvTable0
+        SrvTable0,
+
+        "PAIRING_SERVICE"
     },
 };
 #define PREDEFINED_SERVICES_COUNT                                     (sizeof(ServiceTable)/sizeof(ServiceInfo_t))

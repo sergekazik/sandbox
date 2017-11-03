@@ -50,6 +50,8 @@ public:
 
     int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return NOT_IMPLEMENTED_ERROR; }
     int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return NOT_IMPLEMENTED_ERROR; }
+    int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) { (void) aCb; return NOT_IMPLEMENTED_ERROR; }
+    int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) { (void) aCb; return NOT_IMPLEMENTED_ERROR; }
 
     int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return NOT_IMPLEMENTED_ERROR; }
     int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return NOT_IMPLEMENTED_ERROR; }

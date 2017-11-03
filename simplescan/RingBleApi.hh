@@ -324,6 +324,7 @@ typedef struct _tagAttributeInfo_t
     AttributeType_t  AttributeType;
     unsigned int     AttributeOffset;
     void            *Attribute;
+    char            *AttributeName;
 } AttributeInfo_t;
 
 /* The following type definition represents the container structure  */
@@ -337,7 +338,11 @@ typedef struct _tagServiceInfo_t
     GATT_Attribute_Handle_Group_t  ServiceHandleRange;
     unsigned int                   NumberAttributes;
     AttributeInfo_t               *AttributeList;
+    char                          *ServiceName;
 } ServiceInfo_t;
+
+#define RETURN_ERROR(_err) {BOT_NOTIFY_ERROR(#_err "\r\n"); return _err;}
+#define RETURN_WARNING(_err) {BOT_NOTIFY_WARNING(#_err "\r\n"); return NO_ERROR;}
 
 class BleApi
 {
@@ -353,6 +358,8 @@ public:
         NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
         UNDEFINED_ERROR                           = -8, // Not initialized value; denotes that not all paths of the function modify return value
         NOT_IMPLEMENTED_ERROR                     = -9, // Not yet implemented or not supported for this target
+        NOT_FOUND_ERROR                           = -10,// Search not found
+        INVALID_STATE_ERROR                       = -11,// Already set or single use error
     };
 
     // some Bluetooth Appearance values
@@ -372,9 +379,16 @@ public:
     };
 
     enum Register {
-        RegisterCallback = 1,
+        RegisterCallback                        = 1,
     };
 
+    enum CharacteristicAccessed {
+        CharacteristicRead  = 0,
+        CharacteristicWrite,
+        CharacteristicNotify,
+    };
+
+    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, CharacteristicAccessed aAccessType);
 
     ~BleApi();
 
@@ -398,6 +412,8 @@ public:
 
     virtual int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) = 0;
+    virtual int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) = 0;
 
     // discovery
     virtual int StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused))) = 0;

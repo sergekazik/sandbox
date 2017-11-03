@@ -5,3 +5,5 @@
 ../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include
 BCM43
 WILINK18
+../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include/client
+../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/BluetopiaPM/include/server

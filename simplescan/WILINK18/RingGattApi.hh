@@ -54,6 +54,8 @@ public:
 
     int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
     int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
+    int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
+    int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
     int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)));
     int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)));
@@ -171,6 +173,9 @@ public:
     void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address);
     void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry);
     void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data);
+    char *GetServiceNameById(unsigned int ServiceID);
+    int GetServiceIndexById(unsigned int ServiceID);
+    AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
 
 private:
     unsigned int   mDEVMCallbackID;            // callback ID of the currently registered Device Manager
@@ -178,7 +183,8 @@ private:
     unsigned int   mAuthenticationCallbackID;  // current Authentication Callback ID that is assigned from the Device Manager when the local
     unsigned int   mServiceCount;              // the current number of services passed to register
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
-                                               // client registers for Authentication.
+    onCharacteristicAccessCallback  mOnCharCb; // callback to client function on characteristic change - Note: single user only
+
     GAP_IO_Capability_t mIOCapability;         // current I/O Capabilities that are to be used for Secure SimplePairing.
     GAP_LE_IO_Capability_t	mLEIOCapability;   // current I/O Capabilities that are to be used for LE pairing
     GAP_LE_Bonding_Type_t	mBondingType;      // Variable which holds the currentBonding Type that is going to   be used for LE pairing
@@ -197,7 +203,6 @@ private:
     PrepareWriteEntry_t *mPrepareWriteList = NULL;   // Pointer to head of list containing all currently pendingprepared writes.
 
     // private helper functions
-    AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
     void CleanupServiceList(void);
     void FreeServerList();
 

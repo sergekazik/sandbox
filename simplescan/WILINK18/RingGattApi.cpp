@@ -57,12 +57,13 @@ BleApi* GattSrv::getInstance()
     return (BleApi*) instance;
 }
 
-GattSrv::GattSrv()
+GattSrv::GattSrv() : mServiceCount(0),
+                    mServiceTable(NULL),
+                    mServiceMutex(NULL),
+                    mPrepareWriteList(NULL)
 {
-    mServiceCount = 0;          // the current number of services passed to register
-    mServiceTable = NULL;       // pointer to populated service tbl
-    mServiceMutex = NULL;       // Mutex which guards access to theService List.
-    mPrepareWriteList = NULL;  // Pointer to head of list containing all currently pendingprepared writes.
+
+    mOnCharCb = NULL;
 
     /* Initialize the default Secure Simple Pairing parameters.          */
     mIOCapability    = DEFAULT_IO_CAPABILITY;
@@ -350,6 +351,32 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
     }
 
     return ret_val;
+}
+
+int GattSrv::RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
+{
+    if (!aCb)
+        RETURN_ERROR(INVALID_PARAMETERS_ERROR);
+    if (!mInitialized)
+        RETURN_ERROR(NOT_INITIALIZED_ERROR);
+    if (mOnCharCb)
+        RETURN_ERROR(INVALID_STATE_ERROR);
+
+    mOnCharCb = aCb;
+    return NO_ERROR;
+}
+
+int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
+{
+    if (!aCb)
+        RETURN_ERROR(INVALID_PARAMETERS_ERROR);
+    if (!mInitialized)
+        RETURN_ERROR(NOT_INITIALIZED_ERROR);
+    if (!mOnCharCb || mOnCharCb != aCb)
+        RETURN_WARNING(INVALID_STATE_ERROR);
+
+    mOnCharCb = NULL;
+    return NO_ERROR;
 }
 
 ////
@@ -3091,7 +3118,7 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
         if ((aParams) && (aParams->NumberofParameters >= 1))
         {
             /* Initialize no parameters.                                   */
-            ret_val             = 0;
+            ret_val             = NO_ERROR;
 
             Flags               = 0;
             ParameterDataLength = 0;
@@ -5936,6 +5963,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 {
     char Buffer[128];
     GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
+    AttributeInfo_t      *AttributeInfo;
 
     if (EventData)
     {
@@ -6040,12 +6068,13 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("\r\nGATT Prepare Write Request Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.PrepareWriteRequestEventData.RemoteDeviceAddress, Buffer);
+            AttributeInfo = gatt->SearchServiceListByOffset(EventData->EventData.PrepareWriteRequestEventData.ServiceID, EventData->EventData.PrepareWriteRequestEventData.AttributeOffset);
 
             BOT_NOTIFY_DEBUG("    Connection Type:        %s\r\n", (EventData->EventData.PrepareWriteRequestEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
             BOT_NOTIFY_DEBUG("    Remote Address:         %s\r\n", Buffer);
-            BOT_NOTIFY_DEBUG("    Service ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.ServiceID);
+            BOT_NOTIFY_DEBUG("    Service ID:             %u %s\r\n", EventData->EventData.PrepareWriteRequestEventData.ServiceID, gatt->GetServiceNameById(EventData->EventData.PrepareWriteRequestEventData.ServiceID));
             BOT_NOTIFY_DEBUG("    Request ID:             %u\r\n", EventData->EventData.PrepareWriteRequestEventData.RequestID);
-            BOT_NOTIFY_DEBUG("    Attribute Offset:       %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeOffset);
+            BOT_NOTIFY_DEBUG("    Attribute Offset:       %u %s\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeOffset, AttributeInfo->AttributeName);
             BOT_NOTIFY_DEBUG("    Attribute Value Offset: %u\r\n", EventData->EventData.PrepareWriteRequestEventData.AttributeValueOffset);
             BOT_NOTIFY_DEBUG("    Data Length:            %u\r\n", EventData->EventData.PrepareWriteRequestEventData.DataLength);
             BOT_NOTIFY_DEBUG("    Value:                  \r\n");
@@ -6854,44 +6883,71 @@ void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
                 offset += sprintf(&Buf[offset], "%c", (char)Data[i]);
             }
         }
-        BOT_NOTIFY_DEBUG("%s\n", Buf);
+        BOT_NOTIFY_TRACE("%s\n", Buf);
         if (!String)
         {
-            BOT_NOTIFY_DEBUG("%s\n", Ascii);
+            BOT_NOTIFY_TRACE("%s\n", Ascii);
         }
     }
 }
+
+char *GattSrv::GetServiceNameById(unsigned int ServiceID)
+{
+    int srvs_idx = GetServiceIndexById(ServiceID);
+
+    if (srvs_idx >= NO_ERROR && srvs_idx < (int) mServiceCount)
+    {
+        return mServiceTable[srvs_idx].ServiceName;
+    }
+
+    return NULL;
+}
+
+int GattSrv::GetServiceIndexById(unsigned int ServiceID)
+{
+    /* Loop through the services and find the correct attribute.      */
+    for (unsigned int Index=0; Index < mServiceCount; Index++)
+    {
+        if (mServiceTable[Index].ServiceID == ServiceID)
+        {
+            return (int) Index;
+        }
+    }
+    return NOT_FOUND_ERROR;
+}
+
 /* The following function is used to search the Service Info list to */
 /* return an attribute based on the ServiceID and the                */
 /* AttributeOffset.  This function returns a pointer to the attribute*/
 /* or NULL if not found.                                             */
 AttributeInfo_t* GattSrv::SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset)
 {
-    unsigned int     Index;
-    unsigned int     Index1;
     AttributeInfo_t *AttributeInfo = NULL;
 
     /* Verify that the input parameters are semi-valid.                  */
     if ((ServiceID) && (AttributeOffset) && mServiceTable)
     {
-        /* Loop through the services and find the correct attribute.      */
-        for (Index=0;(AttributeInfo==NULL)&&(Index<mServiceCount);Index++)
+        int srvs_idx = GetServiceIndexById(ServiceID);
+
+        if (srvs_idx >= NO_ERROR)
         {
-            if (mServiceTable[Index].ServiceID == ServiceID)
+            unsigned int attr_idx;
+
+            /* Loop through the attribute list for this service and     */
+            /* locate the correct attribute based on the Attribute      */
+            /* Offset.                                                  */
+            for (attr_idx=0; attr_idx < mServiceTable[srvs_idx].NumberAttributes; attr_idx++)
             {
-                /* Loop through the attribute list for this service and     */
-                /* locate the correct attribute based on the Attribute      */
-                /* Offset.                                                  */
-                for (Index1=0;(AttributeInfo==NULL)&&(Index1<mServiceTable[Index].NumberAttributes);Index1++)
+                if (mServiceTable[srvs_idx].AttributeList[attr_idx].AttributeOffset == AttributeOffset)
                 {
-                    if (mServiceTable[Index].AttributeList[Index1].AttributeOffset == AttributeOffset)
-                        AttributeInfo = &(mServiceTable[Index].AttributeList[Index1]);
+                    AttributeInfo = &(mServiceTable[srvs_idx].AttributeList[attr_idx]);
+                    break;
                 }
             }
         }
     }
 
-    return(AttributeInfo);
+    return AttributeInfo;
 }
 
 void GattSrv::FreeServerList()
@@ -7361,12 +7417,12 @@ void GattSrv::ProcessPrepareWriteRequestEvent(GATM_Prepare_Write_Request_Event_D
 /* process a GATM Commit Prepare Write Event.                        */
 void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Data_t *CommitPrepareWriteData)
 {
-    Byte_t              **Value;
+    Byte_t              **Value = NULL;
     Byte_t               *TempBuffer;
     Boolean_t            *AllocatedMemory;
     unsigned int         *ValueLength;
     unsigned int          MaximumValueLength;
-    unsigned int          QueuedValueLength;
+    unsigned int          QueuedValueLength = 0;
     AttributeInfo_t      *AttributeInfo;
     PrepareWriteEntry_t  *PrepareWriteEntry;
 
@@ -7453,6 +7509,11 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
 
                 /* Free the memory allocated for this entry.                */
                 FreePrepareWriteEntryEntryMemory(PrepareWriteEntry);
+            }
+
+            if ((Value) && (*Value)) {
+                BOT_NOTIFY_TRACE("Updated: %s\n", AttributeInfo->AttributeName);
+                DumpData(FALSE, QueuedValueLength, *Value);
             }
 
             /* Release the mutex that was previously acquired.             */
