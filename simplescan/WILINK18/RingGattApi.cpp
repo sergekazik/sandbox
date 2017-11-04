@@ -379,6 +379,52 @@ int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallba
     return NO_ERROR;
 }
 
+int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)
+{
+    if (!mOnCharCb)
+        RETURN_ERROR(NOT_REGISTERED_ERROR);
+
+    int ServiceIdx = GetServiceIndexById(aServiceID);
+    if (ServiceIdx == NOT_FOUND_ERROR)
+        RETURN_ERROR(NOT_FOUND_ERROR);
+
+    int AttribueIdx = GetAttrivuteIndexByOffset(aServiceID, aAttrOffset);
+    if (AttribueIdx == NOT_FOUND_ERROR)
+        RETURN_ERROR(NOT_FOUND_ERROR);
+
+    CharacteristicAccessed AccessType;
+
+    switch (aEventType)
+    {
+    case getGATTReadRequest:
+        AccessType = CharacteristicRead;
+        break;
+
+    case getGATTWriteRequest:
+    case getGATTSignedWrite:
+    case getGATTPrepareWriteRequest:
+    case getGATTCommitPrepareWrite:
+        AccessType = CharacteristicWrite;
+        break;
+
+    case getGATTHandleValueConfirmation:
+        AccessType = CharacteristicConfirmed;
+        break;
+
+    default:
+        RETURN_ERROR(INVALID_PARAMETERS_ERROR);
+    }
+
+    // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, CharacteristicAccessed aAccessType);
+    (*(mOnCharCb))(ServiceIdx, AttribueIdx, AccessType);
+    return NO_ERROR;
+}
+
+void GattSrv::SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress)
+{
+        mCurrentRemoteBD_ADDR = mLastRemoteAddress = aConnectedMACAddress;
+}
+
 ////
 /// \brief GattSrv::SetDevicePower
 /// \return
@@ -5974,6 +6020,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("\r\nGATT Connection Event\r\n");
 
             gatt->BD_ADDRToStr(EventData->EventData.ConnectedEventData.RemoteDeviceAddress, Buffer);
+            gatt->SaveRemoteDeviceAddress(EventData->EventData.ConnectedEventData.RemoteDeviceAddress);
 
             BOT_NOTIFY_DEBUG("    Connection Type: %s\r\n", (EventData->EventData.ConnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
             BOT_NOTIFY_DEBUG("    Remote Address:  %s\r\n", Buffer);
@@ -6011,6 +6058,11 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             break;
 
             /* GATM Server Events.                                         */
+            /* GATM Server Events.                                         */
+            /* GATM Server Events.                                         */
+            /* GATM Server Events.                                         */
+            /* GATM Server Events.                                         */
+            /* GATM Server Events.                                         */
         case getGATTWriteRequest:
             BOT_NOTIFY_DEBUG("\r\nGATT Write Request Event\r\n");
 
@@ -6028,7 +6080,9 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 
             /* Go ahead and process the Write Request.                  */
             gatt->ProcessWriteRequestEvent(&(EventData->EventData.WriteRequestData));
+            gatt->ProcessRegisteredCallback(getGATTReadRequest, EventData->EventData.WriteRequestData.ServiceID, EventData->EventData.WriteRequestData.AttributeOffset);
             break;
+
         case getGATTSignedWrite:
             BOT_NOTIFY_DEBUG("\r\nGATT Signed Write Event\r\n");
 
@@ -6047,8 +6101,12 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             /* If the signature is valid go ahead and process the signed*/
             /* write command.                                           */
             if (EventData->EventData.SignedWriteData.ValidSignature)
+            {
                 gatt->ProcessSignedWriteEvent(&(EventData->EventData.SignedWriteData));
+                gatt->ProcessRegisteredCallback(getGATTReadRequest, EventData->EventData.SignedWriteData.ServiceID, EventData->EventData.SignedWriteData.AttributeOffset);
+            }
             break;
+
         case getGATTReadRequest:
             BOT_NOTIFY_DEBUG("\r\nGATT Read Request Event\r\n");
 
@@ -6063,7 +6121,9 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 
             /* Go ahead and process the Read Request.                   */
             gatt->ProcessReadRequestEvent(&(EventData->EventData.ReadRequestData));
+            gatt->ProcessRegisteredCallback(getGATTReadRequest, EventData->EventData.ReadRequestData.ServiceID, EventData->EventData.ReadRequestData.AttributeOffset);
             break;
+
         case getGATTPrepareWriteRequest:
             BOT_NOTIFY_DEBUG("\r\nGATT Prepare Write Request Event\r\n");
 
@@ -6083,7 +6143,10 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 
             /* Go ahead and process the Prepare Write Request.          */
             gatt->ProcessPrepareWriteRequestEvent(&(EventData->EventData.PrepareWriteRequestEventData));
+            // don't callback here since the process is in progress - the callback will be called on getGATTCommitPrepareWrite
+            // gatt->ProcessRegisteredCallback(getGATTReadRequest, EventData->EventData.PrepareWriteRequestEventData.ServiceID, EventData->EventData.PrepareWriteRequestEventData.AttributeOffset);
             break;
+
         case getGATTCommitPrepareWrite:
             BOT_NOTIFY_DEBUG("\r\nGATT Commit Prepare Write Event\r\n");
 
@@ -6096,7 +6159,9 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 
             /* Go ahead and process the Execute Write Request.          */
             gatt->ProcessCommitPrepareWriteEvent(&(EventData->EventData.CommitPrepareWriteEventData));
+            // the callback will be called from gatt->ProcessCommitPrepareWriteEvent
             break;
+
         case getGATTHandleValueConfirmation:
             BOT_NOTIFY_DEBUG("\r\nGATT Handle-Value Confirmation Event\r\n");
 
@@ -6108,7 +6173,10 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Request ID:       %u\r\n", EventData->EventData.HandleValueConfirmationEventData.TransactionID);
             BOT_NOTIFY_DEBUG("    Attribute Offset: %u\r\n", EventData->EventData.HandleValueConfirmationEventData.AttributeOffset);
             BOT_NOTIFY_DEBUG("    Status:           %u\r\n", EventData->EventData.HandleValueConfirmationEventData.Status);
+
+            gatt->ProcessRegisteredCallback(getGATTReadRequest, EventData->EventData.HandleValueConfirmationEventData.ServiceID, EventData->EventData.HandleValueConfirmationEventData.AttributeOffset);
             break;
+
         default:
             BOT_NOTIFY_DEBUG("\r\nUnhandled event.\r\n");
             break;
@@ -6950,6 +7018,30 @@ AttributeInfo_t* GattSrv::SearchServiceListByOffset(unsigned int ServiceID, unsi
     return AttributeInfo;
 }
 
+int GattSrv::GetAttrivuteIndexByOffset(unsigned int ServiceID, unsigned int AttributeOffset)
+{
+    int attr_idx = NOT_FOUND_ERROR;
+
+    /* Verify that the input parameters are semi-valid.                  */
+    if ((ServiceID) && (AttributeOffset) && mServiceTable)
+    {
+        int srvs_idx = GetServiceIndexById(ServiceID);
+
+        if (srvs_idx >= NO_ERROR)
+        {
+            for (attr_idx=0; attr_idx < (int) mServiceTable[srvs_idx].NumberAttributes; attr_idx++)
+            {
+                if (mServiceTable[srvs_idx].AttributeList[attr_idx].AttributeOffset == AttributeOffset)
+                {
+                    return attr_idx;
+                }
+            }
+        }
+    }
+
+    return attr_idx;
+}
+
 void GattSrv::FreeServerList()
 {
     /* Walk the server list and mark that no services are registered. */
@@ -7425,6 +7517,7 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
     unsigned int          QueuedValueLength = 0;
     AttributeInfo_t      *AttributeInfo;
     PrepareWriteEntry_t  *PrepareWriteEntry;
+    int                   SavedAttrOffset = NOT_FOUND_ERROR;
 
     /* Verify that the input parameter is semi-valid.                    */
     if (CommitPrepareWriteData)
@@ -7443,6 +7536,7 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
                 {
                     /* Search for the Attribute for this signed write (which */
                     /* must be a characteristic or descriptor).              */
+                    SavedAttrOffset = PrepareWriteEntry->AttributeOffset;
                     AttributeInfo = SearchServiceListByOffset(PrepareWriteEntry->ServiceID, PrepareWriteEntry->AttributeOffset);
                     if ((AttributeInfo) && ((AttributeInfo->AttributeType == atCharacteristic) || (AttributeInfo->AttributeType == atDescriptor)))
                     {
@@ -7518,6 +7612,11 @@ void GattSrv::ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Dat
 
             /* Release the mutex that was previously acquired.             */
             BTPS_ReleaseMutex(mServiceMutex);
+
+            if (SavedAttrOffset != NOT_FOUND_ERROR)
+            {
+                ProcessRegisteredCallback(getGATTCommitPrepareWrite, CommitPrepareWriteData->ServiceID, SavedAttrOffset);
+            }
         }
     }
 }

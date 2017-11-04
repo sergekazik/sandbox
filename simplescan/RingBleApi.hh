@@ -360,6 +360,7 @@ public:
         NOT_IMPLEMENTED_ERROR                     = -9, // Not yet implemented or not supported for this target
         NOT_FOUND_ERROR                           = -10,// Search not found
         INVALID_STATE_ERROR                       = -11,// Already set or single use error
+        NOT_REGISTERED_ERROR                      = -12,// Callback is not registered
     };
 
     // some Bluetooth Appearance values
@@ -383,9 +384,9 @@ public:
     };
 
     enum CharacteristicAccessed {
-        CharacteristicRead  = 0,
+        CharacteristicRead,
         CharacteristicWrite,
-        CharacteristicNotify,
+        CharacteristicConfirmed,
     };
 
     typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, CharacteristicAccessed aAccessType);

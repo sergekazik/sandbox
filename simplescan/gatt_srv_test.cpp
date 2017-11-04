@@ -153,10 +153,14 @@ static AttributeInfo_t SrvTable0[] =
 };
 #define PAIRING_SERVICE_TABLE_NUM_ENTRIES   sizeof(SrvTable0)/sizeof(AttributeInfo_t)
 
-
+#define RING_PAIRING_TABLE_ATTR_ENUM
+enum GattAttributeIndexByName
+{
+    #include "gatt_srv_defs.h"
+};
 /* The following array is the array containing attributes that are   */
 /* registered by this service.                                       */
-static ServiceInfo_t ServiceTable[] =
+static ServiceInfo_t gServiceTable[] =
 {
     {
         /* Service Flags.                                                 */
@@ -184,7 +188,7 @@ static ServiceInfo_t ServiceTable[] =
         "PAIRING_SERVICE"
     },
 };
-#define PREDEFINED_SERVICES_COUNT                                     (sizeof(ServiceTable)/sizeof(ServiceInfo_t))
+#define PREDEFINED_SERVICES_COUNT                                     (sizeof(gServiceTable)/sizeof(ServiceInfo_t))
 
 /* The following function reads a line from standard input into the  */
 /* specified buffer.  This function returns the string length of the */
@@ -524,7 +528,7 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
                     (memcmp(TempCommand->Command, "1", 1) == 0))
                 {
                     TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].intParam = PREDEFINED_SERVICES_COUNT;
-                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam =(char*) ServiceTable;
+                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam =(char*) gServiceTable;
                     TempCommand->Parameters.NumberofParameters++;
                 }
                 /* The command was found in the table so call the command.  */
@@ -678,7 +682,7 @@ static int AutoHelp(ParameterList_t *p)
         "47 - ChangeSimplePairingParameters 0 0",
         "52 - StartAdvertising 118 300",
         "11 - QueryLocalDeviceProperties",
-        "57 - NotifyCharacteristic 0 17 STATE_WIFI_SET",
+        "57 - NotifyCharacteristic 0 17 MACADDRESS STATE_WIFI_SET",
         "41 - EnableBluetoothDebug 1 2",
     };
     for(int i = 0; i < (int) (sizeof(mmHelp)/sizeof(char*)); i++)
@@ -883,10 +887,15 @@ static void UserInterface(void)
     }
 }
 
-static int ValidateAndExecCommand(char *UserInput)
+static int ValidateAndExecCommand(const char *aCmd)
 {
     int  Result = !BleApi::EXIT_CODE;
     UserCommand_t TempCommand;
+
+    // note need to use copy of the input (not const char*!) to let the validator to modify the input
+    char UserInput[MAX_COMMAND_LENGTH];
+    sprintf(UserInput, "%s", aCmd);
+
 
     /* The string input by the user contains a value, now run   */
     /* the string through the Command Parser.                   */
@@ -912,6 +921,52 @@ static int ValidateAndExecCommand(char *UserInput)
         printf("Invalid Input.\r\n");
     }
     return Result;
+}
+
+void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType)
+{
+    static const char* val = "THIS IS SIMULATED public key, signature, and nonce start as PUBLIC_PAYLOAD_READ";
+    printf("attr_read_write_cb on BleApi::Characteristic%s for %s %s\n", aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
+           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
+
+    switch (aAccessType)
+    {
+    case BleApi::CharacteristicRead:
+    case BleApi::CharacteristicConfirmed:
+#if !defined(BCM43)
+        ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
+                                        ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
+#endif
+        // other things todo...
+        break;
+
+    case BleApi::CharacteristicWrite:
+        {
+            printf("Value:\n");
+#if !defined(BCM43)
+            ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
+                                            ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
+#endif
+            printf("On geting PEER_PUBLIC_KEY_WRITE the device generates Public/Private keys using the nacl library.\n" \
+                   "A randomly generated nonce start set of 20 bytes is generated. The the device then takes the public \n" \
+                   "key, and signs it using ed25519 and a private key that is embedded in the application and creates a \n" \
+                   "64 byte signature of the ephemeral public key. The public key, signature, and nonce start are saved \n" \
+                   "as the Public Payload - PUBLIC_PAYLOAD_READ and notify the payload ready with STATE_READ value PAYLOAD_READY\n");
+
+            CharacteristicInfo_t *ch = (CharacteristicInfo_t*) &gServiceTable[0].AttributeList[PUBLIC_PAYLOAD_READ].Attribute;
+            ch->AllocatedValue = FALSE;
+            ch->Value = (Byte_t*) val;
+            ch->ValueLength = strlen(val);
+
+            // note \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device
+            ValidateAndExecCommand("NotifyCharacteristic 0 17 \" PAYLOAD_READY");
+            // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
+        }
+        break;
+
+    default:
+        break;
+    }
 }
 
 ///
@@ -959,7 +1014,7 @@ extern "C" int gatt_server_start(const char* arguments)
             // example of Config usage
             DeviceConfig_t config[] =
             {   // config tag               num of params       params
-                {Config_ServiceTable,           {1, {{(char*) ServiceTable, PREDEFINED_SERVICES_COUNT}}}},
+                {Config_ServiceTable,           {1, {{(char*) gServiceTable, PREDEFINED_SERVICES_COUNT}}}},
                 {Config_LocalDeviceName,        {1, {{(char*) "Ampak-WL18", 0}}}},
                 {Config_LocalClassOfDevice,     {1, {{NULL, 0x280430}}}},
                 {Config_AdvertisingInterval,    {2, {{NULL, 2000}, {NULL, 3000}}}},
@@ -977,6 +1032,15 @@ extern "C" int gatt_server_start(const char* arguments)
                 goto autodone;
             }
 
+#if !defined(BCM43)
+            // register on GATT attribute read/write callback
+            ret_val = gGattSrvInst->RegisterCharacteristicAccessCallback(attr_read_write_cb);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
+            }
+#endif
+
             // list of commands example
             const StartUpCommands_t gStartUpCommandList[] =
             {
@@ -990,22 +1054,19 @@ extern "C" int gatt_server_start(const char* arguments)
                 {"EnableBluetoothDebug 1 2",            1},
                 {"QueryLocalDeviceProperties",          1},
             };
-            char UserInput[MAX_COMMAND_LENGTH];
             int nCmds = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
 
             for (int i = 0; i < nCmds; i++)
             {
-                sprintf(UserInput, "%s", gStartUpCommandList[i].mCmd);
-                printf("cmd[%d]: [%s]\n", i+1, UserInput);
-
-                int ret = ValidateAndExecCommand(UserInput);
-                printf("cmd[%d]: [%s] ret = %d\n", i+1, UserInput, ret);
+                printf("cmd[%d]: [%s]\n", i+1, gStartUpCommandList[i].mCmd);
+                int ret = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
+                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret);
                 sleep(gStartUpCommandList[i].mDelay);
 
                 if (ret != BleApi::NO_ERROR)
                 {
                     // abort sequence
-                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, UserInput);
+                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
                     break;
                 }
             }
@@ -1059,7 +1120,6 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
             case eConfig_PISCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan"); break;
             case eConfig_NOSCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan"); break;
             case eConfig_NOLEADV: ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id); break;
-
             case eConfig_ALLUP:
                 gGattSrvInst->Initialize();
                 break;

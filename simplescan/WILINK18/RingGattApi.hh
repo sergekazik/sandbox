@@ -16,6 +16,7 @@ extern "C" {
 }   // extern "C"
 
 #include "RingBleApi.hh"
+#include "GATMAPI.h"
 
 namespace Ring { namespace Ble {
 
@@ -176,8 +177,11 @@ public:
     char *GetServiceNameById(unsigned int ServiceID);
     int GetServiceIndexById(unsigned int ServiceID);
     AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
+    int GetAttrivuteIndexByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
+    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
+    void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress);
 
-private:
+protected:
     unsigned int   mDEVMCallbackID;            // callback ID of the currently registered Device Manager
     unsigned int   mGATMCallbackID;            // Callback ID of the currently registered Generic Attribute Profile Manager Event Callback.
     unsigned int   mAuthenticationCallbackID;  // current Authentication Callback ID that is assigned from the Device Manager when the local
