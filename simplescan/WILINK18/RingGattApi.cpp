@@ -4348,6 +4348,33 @@ int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams
     return ret_val;
 }
 
+int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceIndex, int aAttrOffset, Byte_t *aAttrData, int aAttrLen)
+{
+    int ret_val = UNDEFINED_ERROR;
+
+    if (!mServiceTable)
+    {
+        BOT_NOTIFY_ERROR("Error: Service Table was not initialized.\r\n");
+        ret_val = NOT_INITIALIZED_ERROR;
+
+    }
+    else if (aServiceIndex >= mServiceCount)
+    {
+        BOT_NOTIFY_ERROR("Invalid Service Index %u, Maximum %u.\r\n", aServiceIndex, (mServiceCount-1));
+        ret_val = INVALID_PARAMETERS_ERROR;
+    }
+    else
+    {
+        ret_val = GATM_AddServiceAttributeData(mServiceTable[aServiceIndex].ServiceID, aAttrOffset, aAttrLen, aAttrData);
+        BOT_NOTIFY_DEBUG("GATM_AddServiceAttributeData update[%d][%d] = %d bytes, ret = %d\r\n", aServiceIndex, aAttrOffset, aAttrLen, ret_val);
+        if (ret_val < NO_ERROR)
+            BOT_NOTIFY_ERROR("GATM_AddServiceAttributeData failed: %s\r\n", ERR_ConvertErrorCodeToString(ret_val));
+        ret_val = NO_ERROR;
+    }
+
+    return ret_val;
+}
+
 /* The following function is a utility function which is used to     */
 /* register the specified service.                                   */
 int GattSrv::RegisterService(unsigned int ServiceIndex)

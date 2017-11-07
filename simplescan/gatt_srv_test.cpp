@@ -40,6 +40,8 @@ extern "C" {
 #include "RingGattApi.hh"
 #include "gatt_srv_test.h"    /* Main Application Prototypes and Constants.   */
 
+#define DEVELOPMENT_TEST_NO_SECURITY    1   // for tests only, should be set to 0
+
 using namespace Ring::Ble;
 
 /* Internal Variables to this Module (Remember that all variables   */
@@ -61,6 +63,7 @@ static CommandFunction_t FindCommand(char *Command);
 static void ClearCommands(void);
 
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
+static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType);
 
 static BleApi* gGattSrvInst = NULL;
 #define RING_BLE_DEF_CPP_WRAPPER
@@ -189,6 +192,7 @@ static ServiceInfo_t gServiceTable[] =
     },
 };
 #define PREDEFINED_SERVICES_COUNT                                     (sizeof(gServiceTable)/sizeof(ServiceInfo_t))
+static const char* gsVal __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as PUBLIC_PAYLOAD_READ";
 
 /* The following function reads a line from standard input into the  */
 /* specified buffer.  This function returns the string length of the */
@@ -887,196 +891,6 @@ static void UserInterface(void)
     }
 }
 
-static int ValidateAndExecCommand(const char *aCmd)
-{
-    int  Result = !BleApi::EXIT_CODE;
-    UserCommand_t TempCommand;
-
-    // note need to use copy of the input (not const char*!) to let the validator to modify the input
-    char UserInput[MAX_COMMAND_LENGTH];
-    sprintf(UserInput, "%s", aCmd);
-
-
-    /* The string input by the user contains a value, now run   */
-    /* the string through the Command Parser.                   */
-    if(CommandParser(&TempCommand, UserInput) >= 0)
-    {
-        /* The Command was successfully parsed, run the Command. */
-        Result = CommandInterpreter(&TempCommand);
-
-        switch(Result)
-        {
-        case BleApi::INVALID_COMMAND_ERROR:
-            printf("Invalid Command.\r\n");
-            break;
-        case BleApi::FUNCTION_ERROR:
-            printf("Function Error.\r\n");
-            break;
-        default:
-            printf("Command executed with res=%d\n", Result);
-        }
-    }
-    else
-    {
-        printf("Invalid Input.\r\n");
-    }
-    return Result;
-}
-
-void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType)
-{
-    static const char* val = "THIS IS SIMULATED public key, signature, and nonce start as PUBLIC_PAYLOAD_READ";
-    printf("attr_read_write_cb on BleApi::Characteristic%s for %s %s\n", aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
-           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
-
-    switch (aAccessType)
-    {
-    case BleApi::CharacteristicRead:
-    case BleApi::CharacteristicConfirmed:
-#if !defined(BCM43)
-        ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
-                                        ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
-#endif
-        // other things todo...
-        break;
-
-    case BleApi::CharacteristicWrite:
-        {
-            printf("Value:\n");
-#if !defined(BCM43)
-            ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
-                                            ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
-#endif
-            printf("On geting PEER_PUBLIC_KEY_WRITE the device generates Public/Private keys using the nacl library.\n" \
-                   "A randomly generated nonce start set of 20 bytes is generated. The the device then takes the public \n" \
-                   "key, and signs it using ed25519 and a private key that is embedded in the application and creates a \n" \
-                   "64 byte signature of the ephemeral public key. The public key, signature, and nonce start are saved \n" \
-                   "as the Public Payload - PUBLIC_PAYLOAD_READ and notify the payload ready with STATE_READ value PAYLOAD_READY\n");
-
-            CharacteristicInfo_t *ch = (CharacteristicInfo_t*) &gServiceTable[0].AttributeList[PUBLIC_PAYLOAD_READ].Attribute;
-            ch->AllocatedValue = FALSE;
-            ch->Value = (Byte_t*) val;
-            ch->ValueLength = strlen(val);
-
-            // note \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device
-            ValidateAndExecCommand("NotifyCharacteristic 0 17 \" PAYLOAD_READY");
-            // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
-        }
-        break;
-
-    default:
-        break;
-    }
-}
-
-///
-/// \brief gatt_server_start
-/// \param arguments - expected NULL or "--autoinit"
-/// \return errno
-///
-extern "C" int gatt_server_start(const char* arguments)
-{
-
-#if !defined(Linux_x86_64) || !defined(WILINK18)
-    gGattSrvInst = GattSrv::getInstance();
-    if (gGattSrvInst == NULL)
-    {
-        printf("error creating gGattSrvInst!! Abort. \n");
-        return -666;
-    }
-#endif
-
-    GATM_Init();
-
-    if (arguments != NULL)
-    {
-        printf("---starting in a sec...---\n");
-        sleep(2);
-
-        if (!strcmp(arguments, "--autoinit") && gGattSrvInst)
-        {
-            int ret_val = BleApi::UNDEFINED_ERROR;
-
-            ret_val = gGattSrvInst->Initialize();
-            if (ret_val != BleApi::NO_ERROR)
-            {
-                printf("gGattSrvInst->Initialize(&params[0]) failed, Abort.\n");
-                goto autodone;
-            }
-
-            ret_val = gGattSrvInst->SetDevicePower(true);
-            if (ret_val != BleApi::NO_ERROR)
-            {
-                printf("gGattSrvInst->SetDevicePower(&params[1]) failed, Abort.\n");
-                goto autodone;
-            }
-
-            // example of Config usage
-            DeviceConfig_t config[] =
-            {   // config tag               num of params       params
-                {Config_ServiceTable,           {1, {{(char*) gServiceTable, PREDEFINED_SERVICES_COUNT}}}},
-                {Config_LocalDeviceName,        {1, {{(char*) "Ampak-WL18", 0}}}},
-                {Config_LocalClassOfDevice,     {1, {{NULL, 0x280430}}}},
-                {Config_AdvertisingInterval,    {2, {{NULL, 2000}, {NULL, 3000}}}},
-                {Config_LocalDeviceAppearance,  {1, {{NULL, BleApi::BLE_APPEARANCE_GENERIC_COMPUTER}}}},
-                {Config_Discoverable,           {1, {{NULL, 1}}}},
-                {Config_Connectable,            {1, {{NULL, 1}}}},
-                {Config_Pairable,               {1, {{NULL, 1}}}},
-                {Config_EOL,                    {0, {{NULL, 0}}}},
-            };
-
-            ret_val = gGattSrvInst->Configure(config);
-            if (ret_val != BleApi::NO_ERROR)
-            {
-                printf("gGattSrvInst->Configure(&config) failed, Abort.\n");
-                goto autodone;
-            }
-
-#if !defined(BCM43)
-            // register on GATT attribute read/write callback
-            ret_val = gGattSrvInst->RegisterCharacteristicAccessCallback(attr_read_write_cb);
-            if (ret_val != BleApi::NO_ERROR)
-            {
-                printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
-            }
-#endif
-
-            // list of commands example
-            const StartUpCommands_t gStartUpCommandList[] =
-            {
-                {"RegisterGATTCallback",                1},
-                {"RegisterService 0",                   1},
-                {"ListCharacteristics",                 1},
-                {"ListDescriptors",                     1},
-                {"RegisterAuthentication",              1},
-                {"ChangeSimplePairingParameters 0 0",   1},
-                {"StartAdvertising 118 300",            1},
-                {"EnableBluetoothDebug 1 2",            1},
-                {"QueryLocalDeviceProperties",          1},
-            };
-            int nCmds = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
-
-            for (int i = 0; i < nCmds; i++)
-            {
-                printf("cmd[%d]: [%s]\n", i+1, gStartUpCommandList[i].mCmd);
-                int ret = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
-                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret);
-                sleep(gStartUpCommandList[i].mDelay);
-
-                if (ret != BleApi::NO_ERROR)
-                {
-                    // abort sequence
-                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
-                    break;
-                }
-            }
-        }
-    }
-autodone:
-    UserInterface();
-
-    return 0;
-}
 
 ///
 /// \brief execute_hci_cmd
@@ -1085,7 +899,7 @@ autodone:
 ///
 extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 {
-#if defined(BCM43) || defined(Linux_x86_64)
+#if defined(BCM43)
     int ctl;
     static struct hci_dev_info di;
     bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
@@ -1150,3 +964,193 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 #endif
     return 0;
 }
+
+static int ValidateAndExecCommand(const char *aCmd)
+{
+    int  Result = !BleApi::EXIT_CODE;
+    UserCommand_t TempCommand;
+
+    // note need to use copy of the input (not const char*!) to let the validator to modify the input
+    char UserInput[MAX_COMMAND_LENGTH];
+    sprintf(UserInput, "%s", aCmd);
+
+
+    /* The string input by the user contains a value, now run   */
+    /* the string through the Command Parser.                   */
+    if(CommandParser(&TempCommand, UserInput) >= 0)
+    {
+        /* The Command was successfully parsed, run the Command. */
+        Result = CommandInterpreter(&TempCommand);
+
+        switch(Result)
+        {
+        case BleApi::INVALID_COMMAND_ERROR:
+            printf("Invalid Command.\r\n");
+            break;
+        case BleApi::FUNCTION_ERROR:
+            printf("Function Error.\r\n");
+            break;
+        default:
+            printf("Command executed with res=%d\n", Result);
+        }
+    }
+    else
+    {
+        printf("Invalid Input.\r\n");
+    }
+    return Result;
+}
+
+///
+/// \brief gatt_server_start
+/// \param arguments - expected NULL or "--autoinit"
+/// \return errno
+///
+extern "C" int gatt_server_start(const char* arguments)
+{
+
+#if !defined(Linux_x86_64) || !defined(WILINK18)
+    gGattSrvInst = GattSrv::getInstance();
+    if (gGattSrvInst == NULL)
+    {
+        printf("error creating gGattSrvInst!! Abort. \n");
+        return -666;
+    }
+#endif
+
+    GATM_Init();
+
+    if (arguments != NULL)
+    {
+        printf("---starting in a sec...---\n");
+        sleep(2);
+
+        if (!strcmp(arguments, "--autoinit") && gGattSrvInst)
+        {
+            int ret_val = BleApi::UNDEFINED_ERROR;
+
+            ret_val = gGattSrvInst->Initialize();
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->Initialize(&params[0]) failed, Abort.\n");
+                goto autodone;
+            }
+
+            ret_val = gGattSrvInst->SetDevicePower(true);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->SetDevicePower(&params[1]) failed, Abort.\n");
+                goto autodone;
+            }
+
+            // example of Config usage
+            DeviceConfig_t config[] =
+            {   // config tag               num of params       params
+                {Config_ServiceTable,           {1, {{(char*) gServiceTable, PREDEFINED_SERVICES_COUNT}}}},
+                {Config_LocalDeviceName,        {1, {{(char*) "Ring-7E01", 0}}}},
+                {Config_LocalClassOfDevice,     {1, {{NULL, 0x280430}}}},
+                {Config_AdvertisingInterval,    {2, {{NULL, 2000}, {NULL, 3000}}}},
+                {Config_LocalDeviceAppearance,  {1, {{NULL, BleApi::BLE_APPEARANCE_GENERIC_COMPUTER}}}},
+                {Config_Discoverable,           {1, {{NULL, 1}}}},
+                {Config_Connectable,            {1, {{NULL, 1}}}},
+                {Config_Pairable,               {1, {{NULL, 1}}}},
+                {Config_EOL,                    {0, {{NULL, 0}}}},
+            };
+
+
+            ret_val = gGattSrvInst->Configure(config);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->Configure(&config) failed, Abort.\n");
+                goto autodone;
+            }
+
+            // register on GATT attribute read/write callback
+            ret_val = gGattSrvInst->RegisterCharacteristicAccessCallback(attr_read_write_cb);
+            if (ret_val != BleApi::NO_ERROR)
+            {
+                printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
+            }
+
+            // list of commands example
+            const StartUpCommands_t gStartUpCommandList[] =
+            {
+                {"RegisterGATTCallback",                1},
+                {"RegisterService 0",                   1},
+                {"ListCharacteristics",                 1},
+                {"ListDescriptors",                     1},
+                {"RegisterAuthentication",              1},
+                {"ChangeSimplePairingParameters 0 0",   1},
+                {"StartAdvertising 118 300",            1},
+                {"EnableBluetoothDebug 1 2",            1},
+                {"QueryLocalDeviceProperties",          1},
+            };
+            int nCmds = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
+
+            for (int i = 0; i < nCmds; i++)
+            {
+                printf("cmd[%d]: [%s]\n", i+1, gStartUpCommandList[i].mCmd);
+                int ret = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
+                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret);
+                sleep(gStartUpCommandList[i].mDelay);
+
+                if (ret != BleApi::NO_ERROR)
+                {
+                    // abort sequence
+                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
+                    break;
+                }
+            }
+        }
+    }
+autodone:
+    UserInterface();
+
+    return 0;
+}
+
+static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType)
+{
+    printf("attr_read_write_cb on BleApi::Characteristic%s for %s %s\n", aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
+           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
+
+    switch (aAccessType)
+    {
+    case BleApi::CharacteristicRead:
+    case BleApi::CharacteristicConfirmed:
+#if !defined(BCM43)
+        ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
+                                        ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
+#endif
+        // other things todo...
+        break;
+
+    case BleApi::CharacteristicWrite:
+        {
+            printf("Value:\n");
+#if !defined(BCM43)
+            ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
+                                            ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
+#endif
+            printf("\nOn geting PEER_PUBLIC_KEY_WRITE the device generates Public/Private keys using the nacl library.\n" \
+                   "A randomly generated nonce start set of 20 bytes is generated. The the device then takes the public \n" \
+                   "key, and signs it using ed25519 and a private key that is embedded in the application and creates a \n" \
+                   "64 byte signature of the ephemeral public key. The public key, signature, and nonce start are saved \n" \
+                   "as the Public Payload - PUBLIC_PAYLOAD_READ and notify the payload ready with STATE_READ value PAYLOAD_READY\n\n");
+
+
+#if !defined(BCM43)
+            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(0, gServiceTable[0].AttributeList[ePUBLIC_PAYLOAD_READ].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
+#endif
+
+            // note: \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device - applicable in this sample only
+            ValidateAndExecCommand("NotifyCharacteristic 0 17 \" PAYLOAD_READY");
+            // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
