@@ -1336,7 +1336,7 @@ int GattSrv::QueryRemoteDeviceList(ParameterList_t *aParams __attribute__ ((unus
 {
     int                Result;
     int                ret_val = UNDEFINED_ERROR;
-    char               Buffer[32];
+    char               Buffer[64];
     BD_ADDR_t         *BD_ADDRList;
     int                Index;
     unsigned int       Filter;
@@ -2331,7 +2331,7 @@ int GattSrv::QueryRemoteDevicesForService(ParameterList_t *aParams __attribute__
 {
     int               Result;
     int               ret_val = UNDEFINED_ERROR;
-    char              Buffer[32];
+    char              Buffer[64];
     BD_ADDR_t        *BD_ADDRList;
     int               Index;
     unsigned int      TotalNumberDevices;
@@ -3898,7 +3898,7 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
 {
     int                            Result;
     int                            ret_val = UNDEFINED_ERROR;
-    char                           Buffer[32];
+    char                           Buffer[64];
     int                            Index;
     unsigned int                   TotalConnected;
     GATM_Connection_Information_t *ConnectionList;
@@ -4366,12 +4366,10 @@ int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceIndex, int aAttrOffse
     else
     {
         ret_val = GATM_AddServiceAttributeData(mServiceTable[aServiceIndex].ServiceID, aAttrOffset, aAttrLen, aAttrData);
-        BOT_NOTIFY_DEBUG("GATM_AddServiceAttributeData update[%d][%d] = %d bytes, ret = %d\r\n", aServiceIndex, aAttrOffset, aAttrLen, ret_val);
+        BOT_NOTIFY_DEBUG("GATM_AddServiceAttributeData update Sidx[%d] Sid[%d] Aoffset[%d] -> %d bytes, ret = %d\r\n", aServiceIndex, mServiceTable[aServiceIndex].ServiceID, aAttrOffset, aAttrLen, ret_val);
         if (ret_val < NO_ERROR)
             BOT_NOTIFY_ERROR("GATM_AddServiceAttributeData failed: %s\r\n", ERR_ConvertErrorCodeToString(ret_val));
-        ret_val = NO_ERROR;
     }
-
     return ret_val;
 }
 
@@ -5012,7 +5010,6 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
     unsigned int          Index2;
     AttributeInfo_t      *AttributeInfo;
     CharacteristicInfo_t *CharacteristicInfo;
-    char                 *DataString = aParams->Params[3].strParam;
 
     /* First, check to make sure that we have already been Initialized.  */
     if (mInitialized && mServiceTable)
@@ -5022,53 +5019,60 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
         {
             /* Make sure that all of the parameters required for this      */
             /* function appear to be at least semi-valid.                  */
-            if ((aParams) && (aParams->NumberofParameters >= 4) &&
-               (aParams->Params[0].intParam < mServiceCount) && (aParams->Params[1].intParam) && (aParams->Params[2].strParam) && (aParams->Params[3].strParam))
+            if ((aParams) && (aParams->NumberofParameters >= 3) &&
+               (aParams->Params[0].intParam < mServiceCount) && (aParams->Params[1].intParam) && (aParams->Params[2].strParam)) //  && (aParams->Params[3].strParam))
             {
-                /* Find the attribute info for this indication.             */
-                if ((AttributeInfo = SearchServiceListByOffset(mServiceTable[aParams->Params[0].intParam].ServiceID, aParams->Params[1].intParam)) != NULL)
+                char *DataString = (aParams->NumberofParameters >= 4) ? aParams->Params[3].strParam : NULL;
+
+                if (DataString || ((CharacteristicInfo->ValueLength) && (CharacteristicInfo->Value)))
                 {
-                    /* Convert the parameter to a Bluetooth Device Address.  */
-                    StrToBD_ADDR(aParams->Params[2].strParam, &BD_ADDR);
-
-                    /* Verify that this is a characteristic that is          */
-                    /* notifiable.                                           */
-                    CharacteristicInfo = ((CharacteristicInfo_t *)AttributeInfo->Attribute);
-                    if ((AttributeInfo->AttributeType == atCharacteristic) && (CharacteristicInfo) && (CharacteristicInfo->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY))
+                    /* Find the attribute info for this indication.             */
+                    if ((AttributeInfo = SearchServiceListByOffset(mServiceTable[aParams->Params[0].intParam].ServiceID, aParams->Params[1].intParam)) != NULL)
                     {
-                        /* Either notify the current value of the             */
-                        /* characteristic or the test string.                 */
-                        if ((CharacteristicInfo->ValueLength) && (CharacteristicInfo->Value))
-                            ret_val = GATM_SendHandleValueNotification(mServiceTable[aParams->Params[0].intParam].ServiceID, BD_ADDR, AttributeInfo->AttributeOffset, CharacteristicInfo->ValueLength, CharacteristicInfo->Value);
-                        else
-                            ret_val = GATM_SendHandleValueNotification(mServiceTable[aParams->Params[0].intParam].ServiceID, BD_ADDR, AttributeInfo->AttributeOffset, BTPS_StringLength(DataString), (Byte_t *)DataString);
+                        /* Convert the parameter to a Bluetooth Device Address.  */
+                        StrToBD_ADDR(aParams->Params[2].strParam, &BD_ADDR);
 
-                        if (!ret_val)
-                            BOT_NOTIFY_INFO("Notification sent successfully.\r\n");
+                        /* Verify that this is a characteristic that is          */
+                        /* notifiable.                                           */
+                        CharacteristicInfo = ((CharacteristicInfo_t *)AttributeInfo->Attribute);
+                        if ((AttributeInfo->AttributeType == atCharacteristic) && (CharacteristicInfo) && (CharacteristicInfo->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY))
+                        {
+                            /* Either notify the current value of the             */
+                            /* characteristic or the test string.                 */
+                            if (DataString)
+                                ret_val = GATM_SendHandleValueNotification(mServiceTable[aParams->Params[0].intParam].ServiceID, BD_ADDR, AttributeInfo->AttributeOffset, BTPS_StringLength(DataString), (Byte_t *)DataString);
+                            else
+                                ret_val = GATM_SendHandleValueNotification(mServiceTable[aParams->Params[0].intParam].ServiceID, BD_ADDR, AttributeInfo->AttributeOffset, CharacteristicInfo->ValueLength, CharacteristicInfo->Value);
+
+                            if (ret_val == NO_ERROR)
+                                BOT_NOTIFY_INFO("Notification sent successfully.\r\n");
+                            else
+                            {
+                                BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
+                                ret_val = FUNCTION_ERROR;
+                            }
+                        }
                         else
                         {
-                            BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueIndication() %d, %s\n", ret_val, ERR_ConvertErrorCodeToString(ret_val));
-                            ret_val = FUNCTION_ERROR;
+                            BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
+                            DisplayUsage = TRUE;
                         }
                     }
                     else
                     {
-                        BOT_NOTIFY_ERROR("Invalid Attribute Offset.\r\n)");
-
+                        BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
                         DisplayUsage = TRUE;
                     }
                 }
                 else
                 {
                     BOT_NOTIFY_ERROR("Invalid Service Index or Attribute Offset.\r\n)");
-
                     DisplayUsage = TRUE;
                 }
             }
             else
             {
                 BOT_NOTIFY_ERROR("Invalid parameter or number of parameters.\r\n)");
-
                 DisplayUsage = TRUE;
             }
 
@@ -5649,7 +5653,7 @@ GAP_LE_Bonding_Type_t GattSrv::GetBondingType()
 /* callback is responsible for processing all Device Manager Events. */
 static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *CallbackParameter __attribute__ ((unused)))
 {
-    char Buffer[32];
+    char Buffer[64];
     GattSrv * gatt = (GattSrv *) GattSrv::getInstance();
 
     if (EventData)
@@ -5792,7 +5796,7 @@ static void BTPSAPI DEVM_Event_Callback(DEVM_Event_Data_t *EventData, void *Call
 static void BTPSAPI DEVM_Authentication_Callback(DEVM_Authentication_Information_t *AuthenticationRequestInformation, void *CallbackParameter __attribute__ ((unused)))
 {
     int     Result;
-    char    Buffer[32];
+    char    Buffer[64];
     Boolean_t    LowEnergy;
     GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
     DEVM_Authentication_Information_t AuthenticationResponseInformation;
@@ -6807,12 +6811,9 @@ void GattSrv::BTPSAPI ServerUnRegistrationCallback(void *CallbackParameter __att
 /* is to be stored.                                                  */
 void GattSrv::BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr)
 {
-    sprintf(BoardStr, "%02X%02X%02X%02X%02X%02X", Board_Address.BD_ADDR5,
-            Board_Address.BD_ADDR4,
-            Board_Address.BD_ADDR3,
-            Board_Address.BD_ADDR2,
-            Board_Address.BD_ADDR1,
-            Board_Address.BD_ADDR0);
+    sprintf(BoardStr, "%02X%02X%02X%02X%02X%02X (%02X:%02X:%02X:%02X:%02X:%02X)",
+        Board_Address.BD_ADDR5 ,Board_Address.BD_ADDR4 ,Board_Address.BD_ADDR3 ,Board_Address.BD_ADDR2 ,Board_Address.BD_ADDR1 ,Board_Address.BD_ADDR0,
+        Board_Address.BD_ADDR5 ,Board_Address.BD_ADDR4 ,Board_Address.BD_ADDR3 ,Board_Address.BD_ADDR2 ,Board_Address.BD_ADDR1 ,Board_Address.BD_ADDR0);
 }
 
 /* The following function is responsible for the specified string    */

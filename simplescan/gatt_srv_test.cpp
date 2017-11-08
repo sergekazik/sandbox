@@ -64,6 +64,7 @@ static void ClearCommands(void);
 
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
 static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType);
+static char gsVal[] __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as GET_PUBLIC_PAYLOAD";
 
 static BleApi* gGattSrvInst = NULL;
 #define RING_BLE_DEF_CPP_WRAPPER
@@ -176,8 +177,8 @@ static ServiceInfo_t gServiceTable[] =
         0,
 
         /* Service UUID.
-        9760d077-a234-4686-9e00-fcbbee3373f7 */
-        MAKEUUID16(97,60,D0,77,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7),
+        0000FACE-0000-1000-8000-00805F9B34FB */
+        MAKEUUID16(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB),
 
         /* Service Handle Range.                                          */
         {0, 0},
@@ -188,11 +189,10 @@ static ServiceInfo_t gServiceTable[] =
         /* Service Attribute List.                                        */
         SrvTable0,
 
-        "PAIRING_SERVICE"
+        "RING_PAIRING_SVC"
     },
 };
 #define PREDEFINED_SERVICES_COUNT                                     (sizeof(gServiceTable)/sizeof(ServiceInfo_t))
-static const char* gsVal __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as PUBLIC_PAYLOAD_READ";
 
 /* The following function reads a line from standard input into the  */
 /* specified buffer.  This function returns the string length of the */
@@ -686,8 +686,11 @@ static int AutoHelp(ParameterList_t *p)
         "47 - ChangeSimplePairingParameters 0 0",
         "52 - StartAdvertising 118 300",
         "11 - QueryLocalDeviceProperties",
-        "57 - NotifyCharacteristic 0 17 MACADDRESS STATE_WIFI_SET",
-        "41 - EnableBluetoothDebug 1 2",
+        "57 - NotifyCharacteristic 0 13 ADDR STATE_WIFI_SET",
+        "41 - EnableBluetoothDebug 1 2"
+        "----------------------------",
+        "leadv",
+        "notify"
     };
     for(int i = 0; i < (int) (sizeof(mmHelp)/sizeof(char*)); i++)
     {
@@ -864,6 +867,11 @@ static void UserInterface(void)
             {
                 /* Start a newline for the results.                         */
                 printf("\r\n");
+
+                if (!strcmp(UserInput, "leadv"))
+                    sprintf(UserInput, "StartAdvertising 118 200");
+                else if (!strcmp(UserInput, "notify"))
+                    sprintf(UserInput, "NotifyCharacteristic 0 13 \" STATURING");
 
                 /* The string input by the user contains a value, now run   */
                 /* the string through the Command Parser.                   */
@@ -1132,19 +1140,27 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::Charac
             ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
                                             ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
 #endif
-            printf("\nOn geting PEER_PUBLIC_KEY_WRITE the device generates Public/Private keys using the nacl library.\n" \
+            printf("\nOn geting PUBLIC_KEY the device generates Public/Private keys.\n" \
                    "A randomly generated nonce start set of 20 bytes is generated. The the device then takes the public \n" \
                    "key, and signs it using ed25519 and a private key that is embedded in the application and creates a \n" \
                    "64 byte signature of the ephemeral public key. The public key, signature, and nonce start are saved \n" \
-                   "as the Public Payload - PUBLIC_PAYLOAD_READ and notify the payload ready with STATE_READ value PAYLOAD_READY\n\n");
+                   "as the Public Payload - GET_PUBLIC_PAYLOAD.\nThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
 
 
 #if !defined(BCM43)
-            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(0, gServiceTable[0].AttributeList[ePUBLIC_PAYLOAD_READ].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
-#endif
+            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(0, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
 
+//            ValidateAndExecCommand("UnRegisterService 0");
+//            CharacteristicInfo_t *pld = (CharacteristicInfo_t *)gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].Attribute;
+//            pld->Value = (Byte_t*) gsVal;
+//            pld->ValueLength = strlen(gsVal);
+//            ValidateAndExecCommand("RegisterService 0");
+
+#endif
             // note: \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device - applicable in this sample only
-            ValidateAndExecCommand("NotifyCharacteristic 0 17 \" PAYLOAD_READY");
+            ValidateAndExecCommand("NotifyCharacteristic 0 13 \" PAYLOAD_READY");
+
+            // TODO: after this encrypted session starts
             // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
         }
         break;
