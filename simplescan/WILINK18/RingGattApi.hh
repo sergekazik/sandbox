@@ -114,7 +114,7 @@ public:
     int GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused)));
-    int GATTUpdateCharacteristic(unsigned int aServiceIndex, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
+    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
     int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused)));
@@ -178,7 +178,7 @@ public:
     char *GetServiceNameById(unsigned int ServiceID);
     int GetServiceIndexById(unsigned int ServiceID);
     AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
-    int GetAttrivuteIndexByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
+    int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
     int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
     void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress);
 

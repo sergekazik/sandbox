@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2017-11-06T14:28:00. -->
+<!-- Written by QtCreator 3.4.2, 2017-11-08T12:48:09. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -77,6 +77,15 @@
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.ProcessStep</value>
      </valuemap>
      <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.1">
+      <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">-f libRingBle.a RingGattApi.o gatt_srv_test.o</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.Command">rm</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.WorkingDirectory">%{buildDir}</value>
+      <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Custom Process Step</value>
+      <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
+      <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.ProcessStep</value>
+     </valuemap>
+     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.2">
       <valuelist type="QVariantList" key="GenericProjectManager.GenericMakeStep.BuildTargets">
        <value type="QString">all</value>
       </valuelist>
@@ -88,16 +97,16 @@
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">GenericProjectManager.GenericMakeStep</value>
      </valuemap>
-     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.2">
+     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.3">
       <value type="bool" key="ProjectExplorer.BuildStep.Enabled">true</value>
-      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">libRingBle.a RingGattApi.o</value>
+      <value type="QString" key="ProjectExplorer.ProcessStep.Arguments">-f libRingBle.a RingGattApi.o gatt_srv_test.o</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.Command">rm</value>
       <value type="QString" key="ProjectExplorer.ProcessStep.WorkingDirectory">%{buildDir}</value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Custom Process Step</value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.ProcessStep</value>
      </valuemap>
-     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.3">
+     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.4">
       <valuelist type="QVariantList" key="GenericProjectManager.GenericMakeStep.BuildTargets">
        <value type="QString">all</value>
       </valuelist>
@@ -109,7 +118,7 @@
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">GenericProjectManager.GenericMakeStep</value>
      </valuemap>
-     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.4">
+     <valuemap type="QVariantMap" key="ProjectExplorer.BuildStepList.Step.5">
       <valuelist type="QVariantList" key="GenericProjectManager.GenericMakeStep.BuildTargets"/>
       <value type="bool" key="GenericProjectManager.GenericMakeStep.Clean">false</value>
       <value type="QString" key="GenericProjectManager.GenericMakeStep.MakeArguments">clean_obj cpringble </value>
@@ -119,7 +128,7 @@
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
       <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">GenericProjectManager.GenericMakeStep</value>
      </valuemap>
-     <value type="int" key="ProjectExplorer.BuildStepList.StepsCount">5</value>
+     <value type="int" key="ProjectExplorer.BuildStepList.StepsCount">6</value>
      <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Build</value>
      <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
      <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.BuildSteps.Build</value>

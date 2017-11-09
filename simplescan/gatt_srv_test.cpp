@@ -968,6 +968,7 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 
     close(ctl);
 #else
+    (void)aCmd;
     printf("hci commands are not available with target %s. Abort\n", RING_NAME);
 #endif
     return 0;
@@ -1037,6 +1038,7 @@ extern "C" int gatt_server_start(const char* arguments)
         {
             int ret_val = BleApi::UNDEFINED_ERROR;
 
+#if !defined(Linux_x86_64) || !defined(WILINK18)
             ret_val = gGattSrvInst->Initialize();
             if (ret_val != BleApi::NO_ERROR)
             {
@@ -1079,7 +1081,9 @@ extern "C" int gatt_server_start(const char* arguments)
             {
                 printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
             }
-
+#else
+            (void) attr_read_write_cb;
+#endif
             // list of commands example
             const StartUpCommands_t gStartUpCommandList[] =
             {
@@ -1098,19 +1102,20 @@ extern "C" int gatt_server_start(const char* arguments)
             for (int i = 0; i < nCmds; i++)
             {
                 printf("cmd[%d]: [%s]\n", i+1, gStartUpCommandList[i].mCmd);
-                int ret = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
-                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret);
+                ret_val = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
+                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret_val);
                 sleep(gStartUpCommandList[i].mDelay);
 
-                if (ret != BleApi::NO_ERROR)
+                if (ret_val != BleApi::NO_ERROR)
                 {
                     // abort sequence
                     printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
-                    break;
+                    goto autodone;
                 }
             }
         }
     }
+
 autodone:
     UserInterface();
 
@@ -1119,7 +1124,15 @@ autodone:
 
 static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType)
 {
-    printf("attr_read_write_cb on BleApi::Characteristic%s for %s %s\n", aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
+    #define pairing_data_status_wifi    0x01
+    #define pairing_data_status_pass    0x02
+    #define pairing_data_status_start   0x04
+    #define pairing_data_status_ready   (pairing_data_status_wifi | pairing_data_status_pass | pairing_data_status_start)
+
+    static int pairing_data_status_sample = 0x00;
+
+    printf("\npairing-sample_callback on BleApi::Characteristic%s for %s %s\n",
+           aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
            gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
 
     switch (aAccessType)
@@ -1134,34 +1147,57 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::Charac
         break;
 
     case BleApi::CharacteristicWrite:
-        {
             printf("Value:\n");
 #if !defined(BCM43)
             ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
                                             ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
 #endif
-            printf("\nOn geting PUBLIC_KEY the device generates Public/Private keys.\n" \
-                   "A randomly generated nonce start set of 20 bytes is generated. The the device then takes the public \n" \
-                   "key, and signs it using ed25519 and a private key that is embedded in the application and creates a \n" \
-                   "64 byte signature of the ephemeral public key. The public key, signature, and nonce start are saved \n" \
-                   "as the Public Payload - GET_PUBLIC_PAYLOAD.\nThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
-
-
+            switch (aAttribueIdx)
+            {
+            case eSET_PUBLIC_KEY:
+                pairing_data_status_sample = 0x00;
+                printf("\n\tOn geting PUBLIC_KEY the device generates Public/Private keys. A randomly generated nonce start\n" \
+                       "\tset of 20 bytes is generated. The the device then takes the public key, and signs it using ed25519\n" \
+                       "\tand a private key that is embedded in the application and creates a 64 byte signature of the ephemeral\n" \
+                       "\tpublic key. The public key, signature, and nonce start are saved as the Public Payload - GET_PUBLIC_PAYLOAD.\n" \
+                       "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
 #if !defined(BCM43)
-            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(0, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
-
-//            ValidateAndExecCommand("UnRegisterService 0");
-//            CharacteristicInfo_t *pld = (CharacteristicInfo_t *)gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].Attribute;
-//            pld->Value = (Byte_t*) gsVal;
-//            pld->ValueLength = strlen(gsVal);
-//            ValidateAndExecCommand("RegisterService 0");
-
+            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
 #endif
             // note: \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device - applicable in this sample only
             ValidateAndExecCommand("NotifyCharacteristic 0 13 \" PAYLOAD_READY");
 
-            // TODO: after this encrypted session starts
+            // TODO: after this encrypted session starts - ???
             // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
+                break;
+            case eSET_SSID_WIFI:
+            case eSET_PASSWORD:
+            case eSET_PAIRING_START:
+                // can't be recieved not in the order
+                pairing_data_status_sample |= aAttribueIdx == eSET_SSID_WIFI    ? pairing_data_status_wifi :
+                                              aAttribueIdx == eSET_PASSWORD     ? pairing_data_status_pass :
+                                              aAttribueIdx == eSET_PAIRING_START? pairing_data_status_start:0;
+
+                printf("pairing_data_status_sample is 0x%02x\n", pairing_data_status_sample);
+                if (pairing_data_status_sample == pairing_data_status_ready)
+                {
+                    printf("\n\tOn geting SET_PAIRING_START the device shoud login into WiFi network using SSID and PASSWORD\n" \
+                           "\tfrom its properties supposed to be already set by client app\n"   \
+                           "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
+                           "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
+
+                    printf("Configuring WIFI with the following data:\nSSID:\t%s\nPASS:\t%s\n",
+                                ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_SSID_WIFI].Attribute))->Value,
+                                ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_PASSWORD].Attribute))->Value);
+
+#if !defined(BCM43)
+                    ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_WIFI_STATUS].AttributeOffset, (Byte_t *) "CONNECTED", strlen("CONNECTED"));
+#endif
+                    ValidateAndExecCommand("NotifyCharacteristic 0 13 \" WIFI_CONNECTED");
+                }
+            default:
+                break;
+
         }
         break;
 
@@ -1169,4 +1205,5 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::Charac
         break;
     }
 }
+
 

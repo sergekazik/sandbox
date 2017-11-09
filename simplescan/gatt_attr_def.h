@@ -1053,3 +1053,35 @@ static ServiceInfo_t ServiceTable[] =
     }
 };
 #define PREDEFINED_SERVICES_COUNT                                     (sizeof(ServiceTable)/sizeof(ServiceInfo_t))
+
+
+#ifdef SAMPLE_FOR_TI
+            {
+                unsigned int ServiceID = gServiceTable[0].ServiceID;
+                unsigned int AttributeOffset = gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset;
+                AttributeInfo_t *attr = SearchServiceListByOffset(ServiceID, AttributeOffset);
+                if (!attr)
+                    printf("SearchServiceListByOffset(%d, %d) not found!!\n",ServiceID, AttributeOffset);
+                else
+                {
+                    int ret_val = GATM_AddServiceAttributeData(ServiceID, AttributeOffset, strlen(gsVal), (Byte_t *) gsVal);
+                    printf("GATM_AddServiceAttributeData update ServiceID[%d] aOffset[%d] -> %d bytes, ret = %d\r\n", ServiceID, AttributeOffset, (int) strlen(gsVal), ret_val);
+                    if (ret_val < 0)
+                        printf("GATM_AddServiceAttributeData failed: %s\r\n", ERR_ConvertErrorCodeToString(ret_val));
+                }
+
+                // this doesn't work and close session
+    //            ValidateAndExecCommand("UnRegisterService 0");
+    //            CharacteristicInfo_t *pld = (CharacteristicInfo_t *)gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].Attribute;
+    //            pld->Value = (Byte_t*) gsVal;
+    //            pld->ValueLength = strlen(gsVal);
+    //            ValidateAndExecCommand("RegisterService 0");
+
+                unsigned int ServiceID = gServiceTable[0].ServiceID;
+                AttributeInfo_t *attr = ((GattSrv*)gGattSrvInst)->SearchServiceListByOffset(ServiceID, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset);
+                if (!attr)
+                    printf("SearchServiceListByOffset(%d, %d) not found!!\n",ServiceID, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset);
+                else
+                    ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(ServiceID, attr->AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
+            }
+#endif
