@@ -42,6 +42,7 @@ extern "C" {
 
 #define DEVELOPMENT_TEST_NO_SECURITY    1   // for tests only, should be set to 0
 
+using namespace Ring;
 using namespace Ring::Ble;
 
 /* Internal Variables to this Module (Remember that all variables   */
@@ -63,7 +64,7 @@ static CommandFunction_t FindCommand(char *Command);
 static void ClearCommands(void);
 
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
-static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType);
+static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Access aAccessType);
 static char gsVal[] __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as GET_PUBLIC_PAYLOAD";
 
 static BleApi* gGattSrvInst = NULL;
@@ -268,7 +269,7 @@ static unsigned int StringToUnsignedInteger(char *StringInteger)
 {
     int          IsHex;
     unsigned int Index;
-    unsigned int ret_val = BleApi::BleApi::NO_ERROR;
+    unsigned int ret_val = Ble::Error::NONE;
 
     /* Before proceeding make sure that the parameter that was passed as */
     /* an input appears to be at least semi-valid.                       */
@@ -434,7 +435,7 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
         {
             /* Initialize the return value to zero to indicate success on  */
             /* commands with no parameters.                                */
-            ret_val = BleApi::NO_ERROR;
+            ret_val = Ble::Error::NONE;
 
             /* Adjust the UserInput pointer and StringLength to remove     */
             /* the Command from the data passed in before parsing the      */
@@ -460,14 +461,14 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
                     UserInput    += strlen(LastParameter)+1;
                     StringLength -= strlen(LastParameter)+1;
 
-                    ret_val = BleApi::NO_ERROR;
+                    ret_val = Ble::Error::NONE;
                 }
                 else
                 {
                     /* Be sure we exit out of the Loop.                      */
                     StringLength = 0;
 
-                    ret_val = BleApi::TO_MANY_PARAMS;
+                    ret_val = Ble::Error::TOO_MANY_PARAMS;
                 }
             }
 
@@ -478,13 +479,13 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
         else
         {
             /* No command was specified                                    */
-            ret_val = BleApi::PARSER_ERROR;
+            ret_val = Ble::Error::PARSER;
         }
     }
     else
     {
         /* One or more of the passed parameters appear to be invalid.     */
-        ret_val = BleApi::INVALID_PARAMETERS_ERROR;
+        ret_val = Ble::Error::INVALID_PARAMETERS;
     }
 
     return(ret_val);
@@ -507,7 +508,7 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
 
     /* If the command is not found in the table return with an invalid   */
     /* command error                                                     */
-    ret_val = BleApi::INVALID_COMMAND_ERROR;
+    ret_val = Ble::Error::INVALID_COMMAND;
 
     /* Let's make sure that the data passed to us appears semi-valid.    */
     if((TempCommand) && (TempCommand->Command))
@@ -539,21 +540,21 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
                 if(!((*CommandFunction)(&TempCommand->Parameters)))
                 {
                     /* Return success to the caller.                         */
-                    ret_val = BleApi::NO_ERROR;
+                    ret_val = Ble::Error::NONE;
                 }
                 else
-                    ret_val = BleApi::FUNCTION_ERROR;
+                    ret_val = Ble::Error::FUNCTION;
             }
         }
         else
         {
-            /* The command entered is exit, set return value to BleApi::EXIT_CODE  */
+            /* The command entered is exit, set return value to Ble::Error::EXIT_CODE  */
             /* and return.                                                 */
-            ret_val = BleApi::EXIT_CODE;
+            ret_val = Ble::Error::EXIT_CODE;
         }
     }
     else
-        ret_val = BleApi::INVALID_PARAMETERS_ERROR;
+        ret_val = Ble::Error::INVALID_PARAMETERS;
 
     return(ret_val);
 }
@@ -696,7 +697,7 @@ static int AutoHelp(ParameterList_t *p)
     {
         printf("%s\n", mmHelp[i]);
     }
-    return BleApi::NO_ERROR;
+    return Ble::Error::NONE;
 }
 
 static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
@@ -836,7 +837,7 @@ static void GATM_Init(void)
 static void UserInterface(void)
 {
     UserCommand_t TempCommand;
-    int  Result = !BleApi::EXIT_CODE;
+    int  Result = !Ble::Error::EXIT_CODE;
     char UserInput[MAX_COMMAND_LENGTH];
 
     GATM_Init();
@@ -845,9 +846,9 @@ static void UserInterface(void)
     /* command window, make a call to the command parser, and command    */
     /* interpreter.  After the function has been ran it then check the   */
     /* return value and displays an error message when appropriate. If   */
-    /* the result returned is ever the BleApi::EXIT_CODE the loop will exit      */
+    /* the result returned is ever the Ble::Error::EXIT_CODE the loop will exit      */
     /* leading the the exit of the program.                              */
-    while(Result != BleApi::EXIT_CODE)
+    while(Result != Ble::Error::EXIT_CODE)
     {
         /* Initialize the value of the variable used to store the users   */
         /* input and output "Input: " to the command window to inform the */
@@ -882,10 +883,10 @@ static void UserInterface(void)
 
                     switch(Result)
                     {
-                    case BleApi::INVALID_COMMAND_ERROR:
+                    case Ble::Error::INVALID_COMMAND:
                         printf("Invalid Command.\r\n");
                         break;
-                    case BleApi::FUNCTION_ERROR:
+                    case Ble::Error::FUNCTION:
                         printf("Function Error.\r\n");
                         break;
                     }
@@ -895,7 +896,7 @@ static void UserInterface(void)
             }
         }
         else
-            Result = BleApi::EXIT_CODE;
+            Result = Ble::Error::EXIT_CODE;
     }
 }
 
@@ -976,7 +977,7 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 
 static int ValidateAndExecCommand(const char *aCmd)
 {
-    int  Result = !BleApi::EXIT_CODE;
+    int  Result = !Ble::Error::EXIT_CODE;
     UserCommand_t TempCommand;
 
     // note need to use copy of the input (not const char*!) to let the validator to modify the input
@@ -993,10 +994,10 @@ static int ValidateAndExecCommand(const char *aCmd)
 
         switch(Result)
         {
-        case BleApi::INVALID_COMMAND_ERROR:
+        case Ble::Error::INVALID_COMMAND:
             printf("Invalid Command.\r\n");
             break;
-        case BleApi::FUNCTION_ERROR:
+        case Ble::Error::FUNCTION:
             printf("Function Error.\r\n");
             break;
         default:
@@ -1036,18 +1037,18 @@ extern "C" int gatt_server_start(const char* arguments)
 
         if (!strcmp(arguments, "--autoinit") && gGattSrvInst)
         {
-            int ret_val = BleApi::UNDEFINED_ERROR;
+            int ret_val = Ble::Error::UNDEFINED;
 
 #if !defined(Linux_x86_64) || !defined(WILINK18)
             ret_val = gGattSrvInst->Initialize();
-            if (ret_val != BleApi::NO_ERROR)
+            if (ret_val != Ble::Error::NONE)
             {
                 printf("gGattSrvInst->Initialize(&params[0]) failed, Abort.\n");
                 goto autodone;
             }
 
             ret_val = gGattSrvInst->SetDevicePower(true);
-            if (ret_val != BleApi::NO_ERROR)
+            if (ret_val != Ble::Error::NONE)
             {
                 printf("gGattSrvInst->SetDevicePower(&params[1]) failed, Abort.\n");
                 goto autodone;
@@ -1069,7 +1070,7 @@ extern "C" int gatt_server_start(const char* arguments)
 
 
             ret_val = gGattSrvInst->Configure(config);
-            if (ret_val != BleApi::NO_ERROR)
+            if (ret_val != Ble::Error::NONE)
             {
                 printf("gGattSrvInst->Configure(&config) failed, Abort.\n");
                 goto autodone;
@@ -1077,7 +1078,7 @@ extern "C" int gatt_server_start(const char* arguments)
 
             // register on GATT attribute read/write callback
             ret_val = gGattSrvInst->RegisterCharacteristicAccessCallback(attr_read_write_cb);
-            if (ret_val != BleApi::NO_ERROR)
+            if (ret_val != Ble::Error::NONE)
             {
                 printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
             }
@@ -1106,7 +1107,7 @@ extern "C" int gatt_server_start(const char* arguments)
                 printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret_val);
                 sleep(gStartUpCommandList[i].mDelay);
 
-                if (ret_val != BleApi::NO_ERROR)
+                if (ret_val != Ble::Error::NONE)
                 {
                     // abort sequence
                     printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
@@ -1122,7 +1123,7 @@ autodone:
     return 0;
 }
 
-static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::CharacteristicAccessed aAccessType)
+static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Access aAccessType)
 {
     #define pairing_data_status_wifi    0x01
     #define pairing_data_status_pass    0x02
@@ -1131,14 +1132,14 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::Charac
 
     static int pairing_data_status_sample = 0x00;
 
-    printf("\npairing-sample_callback on BleApi::Characteristic%s for %s %s\n",
-           aAccessType == BleApi::CharacteristicRead ? "Read": aAccessType == BleApi::CharacteristicWrite ? "Write":"Confirmed",
+    printf("\npairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
+           aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
            gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
 
     switch (aAccessType)
     {
-    case BleApi::CharacteristicRead:
-    case BleApi::CharacteristicConfirmed:
+    case Ble::Characteristic::Read:
+    case Ble::Characteristic::Confirmed:
 #if !defined(BCM43)
         ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
                                         ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
@@ -1146,7 +1147,7 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, BleApi::Charac
         // other things todo...
         break;
 
-    case BleApi::CharacteristicWrite:
+    case Ble::Characteristic::Write:
             printf("Value:\n");
 #if !defined(BCM43)
             ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,

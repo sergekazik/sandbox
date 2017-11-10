@@ -95,6 +95,7 @@ namespace Ring { namespace Ble {
                                                          /* Connectable.      */
 #define DEV_CLASS_LEN                               16   /* device class bitmask as a string */
 #define DEV_NAME_LEN                                64   /* text string = device name */
+#define DEBUG_STRING_MAX_LEN                        64   /* text string for debug */
 
 /* The following MACRO is used to convert an ASCII character into the*/
 /* equivalent decimal value.  The MACRO converts lower case          */
@@ -341,28 +342,37 @@ typedef struct _tagServiceInfo_t
     char                          *ServiceName;
 } ServiceInfo_t;
 
-#define RETURN_ERROR(_err) {BOT_NOTIFY_ERROR(#_err "\r\n"); return _err;}
-#define RETURN_WARNING(_err) {BOT_NOTIFY_WARNING(#_err "\r\n"); return NO_ERROR;}
+namespace Error { enum Error {
+    NONE                =  0, // NO ERROR, SUCCESS
+    PARSER              = -1, // Denotes that no command was specified to the parser.
+    INVALID_COMMAND     = -2, // Denotes that the Command does not exist for processing.
+    EXIT_CODE           = -3, // Denotes that the Command specified was the Exit Command.
+    FUNCTION            = -4, // Denotes that an error occurred in execution of the Command Function.
+    TOO_MANY_PARAMS     = -5, // Denotes that there are more parameters then will fit in the UserCommand.
+    INVALID_PARAMETERS  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
+    NOT_INITIALIZED     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
+    UNDEFINED           = -8, // Not initialized value; denotes that not all paths of the function modify return value
+    NOT_IMPLEMENTED     = -9, // Not yet implemented or not supported for this target
+    NOT_FOUND           = -10,// Search not found
+    INVALID_STATE       = -11,// Already set or single use error
+    NOT_REGISTERED      = -12,// Callback is not registered
+};}
+
+namespace Power { enum Power {
+    Off = 0,
+    On = 1,
+};}
+
+namespace Characteristic { enum Access {
+    Read,
+    Write,
+    Confirmed,
+};}
+
 
 class BleApi
 {
 public:
-    enum Error {
-        NO_ERROR                                  =  0,
-        PARSER_ERROR                              = -1, // Denotes that no command was specified to the parser.
-        INVALID_COMMAND_ERROR                     = -2, // Denotes that the Command does not exist for processing.
-        EXIT_CODE                                 = -3, // Denotes that the Command specified was the Exit Command.
-        FUNCTION_ERROR                            = -4, // Denotes that an error occurred in execution of the Command Function.
-        TO_MANY_PARAMS                            = -5, // Denotes that there are more parameters then will fit in the UserCommand.
-        INVALID_PARAMETERS_ERROR                  = -6, // Denotes that an error occurred due to the fact that one or more of the required parameters were invalid.
-        NOT_INITIALIZED_ERROR                     = -7, // Denotes that an error occurred due to the fact that the Platform Manager has not been initialized.
-        UNDEFINED_ERROR                           = -8, // Not initialized value; denotes that not all paths of the function modify return value
-        NOT_IMPLEMENTED_ERROR                     = -9, // Not yet implemented or not supported for this target
-        NOT_FOUND_ERROR                           = -10,// Search not found
-        INVALID_STATE_ERROR                       = -11,// Already set or single use error
-        NOT_REGISTERED_ERROR                      = -12,// Callback is not registered
-    };
-
     // some Bluetooth Appearance values
     // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.gap.appearance.xml
     enum Appearance {
@@ -374,22 +384,7 @@ public:
         BLE_APPEARANCE_MOTION_SENSOR            = 1345,
     };
 
-    enum Power {
-        PowerOff = 0,
-        PowerOn = 1,
-    };
-
-    enum Register {
-        RegisterCallback                        = 1,
-    };
-
-    enum CharacteristicAccessed {
-        CharacteristicRead,
-        CharacteristicWrite,
-        CharacteristicConfirmed,
-    };
-
-    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, CharacteristicAccessed aAccessType);
+    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, Characteristic::Access aAccessType);
 
     ~BleApi();
 

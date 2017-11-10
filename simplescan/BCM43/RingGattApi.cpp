@@ -44,6 +44,7 @@
 #include "Bot_Notifier.h"
 #include "RingGattApi.hh"
 
+using namespace Ring;
 using namespace Ring::Ble;
 
 GattSrv* GattSrv::instance = NULL;
@@ -98,7 +99,7 @@ int GattSrv::Initialize() {
         HCIle_adv(di.dev_id, NULL);
 
         close(ctl);
-        ctl = NO_ERROR;
+        ctl = Error::NONE;
     }
     return ctl;
 }
@@ -114,13 +115,13 @@ int GattSrv::Shutdown() {
         HCIdown(ctl, di.dev_id);
 
         close(ctl);
-        ctl = NO_ERROR;
+        ctl = Error::NONE;
     }
     return ctl;
 }
 
 int GattSrv::Configure(DeviceConfig_t* aConfig) {
-    int ret_val = UNDEFINED_ERROR;
+    int ret_val = Error::UNDEFINED;
 
     struct hci_dev_info di;
     int ctl;
@@ -132,59 +133,59 @@ int GattSrv::Configure(DeviceConfig_t* aConfig) {
         switch (aConfig->tag)
         {
         case Config_ServiceTable:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_LocalDeviceName:
             HCIname(di.dev_id, mDeviceName);
-            ret_val = NO_ERROR;
+            ret_val = Error::NONE;
             break;
 
         case Config_LocalClassOfDevice:
             HCIclass(di.dev_id, mDeviceClass);
-            ret_val = NO_ERROR;
+            ret_val = Error::NONE;
             break;
 
         case Config_Discoverable:
             HCIle_adv(di.dev_id, NULL);
-            ret_val = NO_ERROR;
+            ret_val = Error::NONE;
             break;
 
         case Config_Connectable:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_Pairable:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_RemoteDeviceLinkActive:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_LocalDeviceAppearance:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_AdvertisingInterval:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_AndUpdateConnectionAndScanBLEParameters:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         case Config_AuthenticatedPayloadTimeout:
-            ret_val = NOT_IMPLEMENTED_ERROR;
+            ret_val = Error::NOT_IMPLEMENTED;
             break;
 
         default:
-            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d\n", aConfig->tag);
-            ret_val = INVALID_PARAMETERS_ERROR;
+            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d", aConfig->tag);
+            ret_val = Error::INVALID_PARAMETERS;
             break;
         }
 
-        if (ret_val != NO_ERROR)
+        if (ret_val != Error::NONE)
             break;
 
         aConfig++;
@@ -200,31 +201,31 @@ int GattSrv::Configure(DeviceConfig_t* aConfig) {
 void GattSrv::print_pkt_type(struct hci_dev_info *di) {
     char *str;
     str = hci_ptypetostr(di->pkt_type);
-    printf("\tPacket type: %s\n", str);
+    BOT_NOTIFY_DEBUG("\tPacket type: %s", str);
     bt_free(str);
 }
 
 void GattSrv::print_link_policy(struct hci_dev_info *di) {
-    printf("\tLink policy: %s\n", hci_lptostr(di->link_policy));
+    BOT_NOTIFY_DEBUG("\tLink policy: %s", hci_lptostr(di->link_policy));
 }
 
 void GattSrv::print_link_mode(struct hci_dev_info *di) {
     char *str;
     str =  hci_lmtostr(di->link_mode);
-    printf("\tLink mode: %s\n", str);
+    BOT_NOTIFY_DEBUG("\tLink mode: %s", str);
     bt_free(str);
 }
 
 void GattSrv::print_dev_features(struct hci_dev_info *di, int format) {
-    printf("\tFeatures: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
-       "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n",
+    BOT_NOTIFY_DEBUG("\tFeatures: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
+       "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x",
        di->features[0], di->features[1], di->features[2],
        di->features[3], di->features[4], di->features[5],
        di->features[6], di->features[7]);
 
     if (format) {
     char *tmp = lmp_featurestostr(di->features, "\t\t", 63);
-    printf("%s\n", tmp);
+    BOT_NOTIFY_DEBUG("%s", tmp);
     bt_free(tmp);
     }
 }
@@ -264,18 +265,18 @@ void GattSrv::print_le_states(uint64_t states) {
     NULL
     };
 
-    printf("Supported link layer states:\n");
+    BOT_NOTIFY_DEBUG("Supported link layer states:");
     for (i = 0; le_states[i]; i++) {
     const char *status;
     status = states & (1 << i) ? "YES" : "NO ";
-    printf("\t%s %s\n", status, le_states[i]);
+    BOT_NOTIFY_DEBUG("\t%s %s", status, le_states[i]);
     }
 }
 
 void GattSrv::HCIrstat(int ctl, int hdev) {
     /* Reset HCI device stat counters */
     if (ioctl(ctl, HCIDEVRESTAT, hdev) < 0) {
-    fprintf(stderr, "Can't reset stats counters hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't reset stats counters hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -291,7 +292,7 @@ void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
     else if (!strcmp(opt, "piscan"))
     dr.dev_opt = SCAN_PAGE | SCAN_INQUIRY;
     if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0) {
-    fprintf(stderr, "Can't set scan mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set scan mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -308,7 +309,7 @@ void GattSrv::HCIle_addr(int hdev, char *opt) {
     dd = hci_open_dev(hdev);
     if (dd < 0) {
     err = -errno;
-    fprintf(stderr, "Could not open device: %s(%d)\n", strerror(-err), -err);
+    BOT_NOTIFY_ERROR("Could not open device: %s(%d)", strerror(-err), -err);
     exit(1);
     }
     memset(&cp, 0, sizeof(cp));
@@ -323,7 +324,7 @@ void GattSrv::HCIle_addr(int hdev, char *opt) {
     ret = hci_send_req(dd, &rq, 1000);
     if (status || ret < 0) {
     err = -errno;
-    fprintf(stderr, "Can't set random address for hci%d: " "%s (%d)\n", hdev, strerror(-err), -err);
+    BOT_NOTIFY_ERROR("Can't set random address for hci%d: " "%s (%d)", hdev, strerror(-err), -err);
     }
     hci_close_dev(dd);
 }
@@ -370,11 +371,11 @@ void GattSrv::HCIle_adv(int hdev, char *opt) {
 done:
     hci_close_dev(dd);
     if (ret < 0) {
-    fprintf(stderr, "Can't set advertise mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (status) {
-    fprintf(stderr, "LE set advertise enable on hci%d returned status %d\n", hdev, status);
+    BOT_NOTIFY_ERROR("LE set advertise enable on hci%d returned status %d", hdev, status);
     exit(1);
     }
 }
@@ -402,11 +403,11 @@ void GattSrv::HCIno_le_adv(int hdev) {
     ret = hci_send_req(dd, &rq, 1000);
     hci_close_dev(dd);
     if (ret < 0) {
-    fprintf(stderr, "Can't set advertise mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (status) {
-    fprintf(stderr, "LE set advertise enable on hci%d returned status %d\n", hdev, status);
+    BOT_NOTIFY_ERROR("LE set advertise enable on hci%d returned status %d", hdev, status);
     exit(1);
     }
 }
@@ -419,7 +420,7 @@ void GattSrv::HCIle_states(int hdev) {
     hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     memset(&rp, 0, sizeof(rp));
@@ -431,11 +432,11 @@ void GattSrv::HCIle_states(int hdev) {
     err = hci_send_req(dd, &rq, 1000);
     hci_close_dev(dd);
     if (err < 0) {
-    fprintf(stderr, "Can't read LE supported states on hci%d:" " %s(%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read LE supported states on hci%d:" " %s(%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (rp.status) {
-    fprintf(stderr, "Read LE supported states on hci%d" " returned status %d\n", hdev, rp.status);
+    BOT_NOTIFY_ERROR("Read LE supported states on hci%d" " returned status %d", hdev, rp.status);
     exit(1);
     }
     print_le_states(rp.states);
@@ -444,7 +445,7 @@ void GattSrv::HCIle_states(int hdev) {
 void GattSrv::HCIiac(int hdev, char *opt) {
     int s = hci_open_dev(hdev);
     if (s < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
@@ -455,14 +456,14 @@ void GattSrv::HCIiac(int hdev, char *opt) {
     } else if (!strcasecmp(opt, "liac")) {
         l = 0x9e8b00;
     } else if (l < 0x9e8b00 || l > 0x9e8b3f) {
-        printf("Invalid access code 0x%x\n", l);
+        BOT_NOTIFY_DEBUG("Invalid access code 0x%x", l);
         exit(1);
     }
     lap[0] = (l & 0xff);
     lap[1] = (l >> 8) & 0xff;
     lap[2] = (l >> 16) & 0xff;
     if (hci_write_current_iac_lap(s, 1, lap, 1000) < 0) {
-        printf("Failed to set IAC on hci%d: %s\n", hdev, strerror(errno));
+        BOT_NOTIFY_DEBUG("Failed to set IAC on hci%d: %s", hdev, strerror(errno));
         exit(1);
     }
     } else {
@@ -470,19 +471,19 @@ void GattSrv::HCIiac(int hdev, char *opt) {
     int i, j;
     uint8_t n;
     if (hci_read_current_iac_lap(s, &n, lap, 1000) < 0) {
-        printf("Failed to read IAC from hci%d: %s\n", hdev, strerror(errno));
+        BOT_NOTIFY_DEBUG("Failed to read IAC from hci%d: %s", hdev, strerror(errno));
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tIAC: ");
+    BOT_NOTIFY_DEBUG("\tIAC: ");
     for (i = 0; i < n; i++) {
-        printf("0x");
+        BOT_NOTIFY_DEBUG("0x");
         for (j = 3; j--; )
-        printf("%02x", lap[j + 3 * i]);
+        BOT_NOTIFY_DEBUG("%02x", lap[j + 3 * i]);
         if (i < n - 1)
-        printf(", ");
+        BOT_NOTIFY_DEBUG(", ");
     }
-    printf("\n");
+    BOT_NOTIFY_DEBUG("");
     }
     close(s);
 }
@@ -495,7 +496,7 @@ void GattSrv::HCIauth(int ctl, int hdev, char *opt) {
     else
     dr.dev_opt = AUTH_DISABLED;
     if (ioctl(ctl, HCISETAUTH, (unsigned long) &dr) < 0) {
-    fprintf(stderr, "Can't set auth on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set auth on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -508,7 +509,7 @@ void GattSrv::HCIencrypt(int ctl, int hdev, char *opt) {
     else
     dr.dev_opt = ENCRYPT_DISABLED;
     if (ioctl(ctl, HCISETENCRYPT, (unsigned long) &dr) < 0) {
-    fprintf(stderr, "Can't set encrypt on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set encrypt on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -518,7 +519,7 @@ void GattSrv::HCIup(int ctl, int hdev) {
     if (ioctl(ctl, HCIDEVUP, hdev) < 0) {
     if (errno == EALREADY)
         return;
-    fprintf(stderr, "Can't init device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't init device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -526,7 +527,7 @@ void GattSrv::HCIup(int ctl, int hdev) {
 void GattSrv::HCIdown(int ctl, int hdev) {
     /* Stop HCI device */
     if (ioctl(ctl, HCIDEVDOWN, hdev) < 0) {
-    fprintf(stderr, "Can't down device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't down device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -535,7 +536,7 @@ void GattSrv::HCIreset(int ctl, int hdev) {
     /* Reset HCI device */
 #if 0
     if (ioctl(ctl, HCIDEVRESET, hdev) < 0 ) {
-    fprintf(stderr, "Reset failed for device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Reset failed for device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 #endif
@@ -548,7 +549,7 @@ void GattSrv::HCIptype(int ctl, int hdev, char *opt) {
     dr.dev_id = hdev;
     if (hci_strtoptype(opt, &dr.dev_opt)) {
     if (ioctl(ctl, HCISETPTYPE, (unsigned long) &dr) < 0) {
-        fprintf(stderr, "Can't set pkttype on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set pkttype on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -562,7 +563,7 @@ void GattSrv::HCIlp(int ctl, int hdev, char *opt) {
     dr.dev_id = hdev;
     if (hci_strtolp(opt, &dr.dev_opt)) {
     if (ioctl(ctl, HCISETLINKPOL, (unsigned long) &dr) < 0) {
-        fprintf(stderr, "Can't set link policy on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set link policy on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -576,7 +577,7 @@ void GattSrv::HCIlm(int ctl, int hdev, char *opt) {
     dr.dev_id = hdev;
     if (hci_strtolm(opt, &dr.dev_opt)) {
     if (ioctl(ctl, HCISETLINKMODE, (unsigned long) &dr) < 0) {
-        fprintf(stderr, "Can't set default link mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set default link mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -594,7 +595,7 @@ void GattSrv::HCIaclmtu(int ctl, int hdev, char *opt) {
     return;
     dr.dev_opt = htobl(htobs(mpkt) | (htobs(mtu) << 16));
     if (ioctl(ctl, HCISETACLMTU, (unsigned long) &dr) < 0) {
-    fprintf(stderr, "Can't set ACL mtu on hci%d: %s(%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set ACL mtu on hci%d: %s(%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -608,7 +609,7 @@ void GattSrv::HCIscomtu(int ctl, int hdev, char *opt) {
     return;
     dr.dev_opt = htobl(htobs(mpkt) | (htobs(mtu) << 16));
     if (ioctl(ctl, HCISETSCOMTU, (unsigned long) &dr) < 0) {
-    fprintf(stderr, "Can't set SCO mtu on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't set SCO mtu on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
 }
@@ -624,28 +625,28 @@ void GattSrv::HCIfeatures(int hdev) {
     }
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (hci_read_local_ext_features(dd, 0, &max_page, features, 1000) < 0) {
-    fprintf(stderr, "Can't read extended features hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read extended features hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tFeatures%s: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
-       "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n",
+    BOT_NOTIFY_DEBUG("\tFeatures%s: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
+       "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x",
        (max_page > 0) ? " page 0" : "",
        features[0], features[1], features[2], features[3],
        features[4], features[5], features[6], features[7]);
     tmp = lmp_featurestostr(di.features, "\t\t", 63);
-    printf("%s\n", tmp);
+    BOT_NOTIFY_DEBUG("%s", tmp);
     bt_free(tmp);
     for (i = 1; i <= max_page; i++) {
     if (hci_read_local_ext_features(dd, i, NULL,
                     features, 1000) < 0)
         continue;
-    printf("\tFeatures page %d: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
-           "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n", i,
+    BOT_NOTIFY_DEBUG("\tFeatures page %d: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
+           "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x", i,
            features[0], features[1], features[2], features[3],
            features[4], features[5], features[6], features[7]);
     }
@@ -656,19 +657,19 @@ void GattSrv::HCIname(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     if (hci_write_local_name(dd, opt, 2000) < 0) {
-        fprintf(stderr, "Can't change local name on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't change local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     char name[249];
     int i;
     if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0) {
-        fprintf(stderr, "Can't read local name on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     for (i = 0; i < 248 && name[i]; i++) {
@@ -677,7 +678,7 @@ void GattSrv::HCIname(int hdev, char *opt) {
     }
     name[248] = '\0';
     print_dev_hdr(&di);
-    printf("\tName: '%s'\n", name);
+    BOT_NOTIFY_DEBUG("\tName: '%s'", name);
     }
     hci_close_dev(dd);
 }
@@ -893,41 +894,41 @@ void GattSrv::HCIclass(int hdev, char *opt) {
                      };
     int s = hci_open_dev(hdev);
     if (s < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint32_t cod = strtoul(opt, NULL, 16);
     if (hci_write_class_of_dev(s, cod, 2000) < 0) {
-        fprintf(stderr, "Can't write local class of device on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't write local class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t cls[3];
     if (hci_read_class_of_dev(s, cls, 1000) < 0) {
-        fprintf(stderr, "Can't read class of device on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tClass: 0x%02x%02x%02x\n", cls[2], cls[1], cls[0]);
-    printf("\tService Classes: ");
+    BOT_NOTIFY_DEBUG("\tClass: 0x%02x%02x%02x", cls[2], cls[1], cls[0]);
+    BOT_NOTIFY_DEBUG("\tService Classes: ");
     if (cls[2]) {
         unsigned int i;
         int first = 1;
         for (i = 0; i < (sizeof(services) / sizeof(*services)); i++)
         if (cls[2] & (1 << i)) {
             if (!first)
-            printf(", ");
-            printf("%s", services[i]);
+            BOT_NOTIFY_DEBUG(", ");
+            BOT_NOTIFY_DEBUG("%s", services[i]);
             first = 0;
         }
     } else
-        printf("Unspecified");
-    printf("\n\tDevice Class: ");
+        BOT_NOTIFY_DEBUG("Unspecified");
+    BOT_NOTIFY_DEBUG("\n\tDevice Class: ");
     if ((cls[1] & 0x1f) >= sizeof(major_devices) / sizeof(*major_devices))
-        printf("Invalid Device Class!\n");
+        BOT_NOTIFY_DEBUG("Invalid Device Class!");
     else
-        printf("%s, %s\n", major_devices[cls[1] & 0x1f],
+        BOT_NOTIFY_DEBUG("%s, %s", major_devices[cls[1] & 0x1f],
            get_minor_device_name(cls[1] & 0x1f, cls[0] >> 2));
     }
 }
@@ -953,36 +954,36 @@ void GattSrv::HCIvoice(int hdev, char *opt) {
              };
     int s = hci_open_dev(hdev);
     if (s < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint16_t vs = htobs(strtoul(opt, NULL, 16));
     if (hci_write_voice_setting(s, vs, 2000) < 0) {
-        fprintf(stderr, "Can't write voice setting on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't write voice setting on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint16_t vs;
     uint8_t ic;
     if (hci_read_voice_setting(s, &vs, 1000) < 0) {
-        fprintf(stderr, "Can't read voice setting on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read voice setting on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     vs = htobs(vs);
     ic = (vs & 0x0300) >> 8;
     print_dev_hdr(&di);
-    printf("\tVoice setting: 0x%04x%s\n", vs,
+    BOT_NOTIFY_DEBUG("\tVoice setting: 0x%04x%s", vs,
            ((vs & 0x03fc) == 0x0060) ? " (Default Condition)" : "");
-    printf("\tInput Coding: %s\n", icf[ic]);
-    printf("\tInput Data Format: %s\n", idf[(vs & 0xc0) >> 6]);
+    BOT_NOTIFY_DEBUG("\tInput Coding: %s", icf[ic]);
+    BOT_NOTIFY_DEBUG("\tInput Data Format: %s", idf[(vs & 0xc0) >> 6]);
     if (!ic) {
-        printf("\tInput Sample Size: %s\n",
+        BOT_NOTIFY_DEBUG("\tInput Sample Size: %s",
            iss[(vs & 0x20) >> 5]);
-        printf("\t# of bits padding at MSB: %d\n",
+        BOT_NOTIFY_DEBUG("\t# of bits padding at MSB: %d",
            (vs & 0x1c) >> 2);
     }
-    printf("\tAir Coding Format: %s\n", acf[vs & 0x03]);
+    BOT_NOTIFY_DEBUG("\tAir Coding Format: %s", acf[vs & 0x03]);
     }
 }
 
@@ -995,7 +996,7 @@ void GattSrv::HCIdelkey(int hdev, char *opt) {
     return;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (!strcasecmp(opt, "all")) {
@@ -1006,7 +1007,7 @@ void GattSrv::HCIdelkey(int hdev, char *opt) {
     all = 0;
     }
     if (hci_delete_stored_link_key(dd, &bdaddr, all, 1000) < 0) {
-    fprintf(stderr, "Can't delete stored link key on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't delete stored link key on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     hci_close_dev(dd);
@@ -1017,21 +1018,21 @@ void GattSrv::HCIoob_data(int hdev) {
     int i, dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (hci_read_local_oob_data(dd, hash, randomizer, 1000) < 0) {
-    fprintf(stderr, "Can't read local OOB data on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read local OOB data on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tOOB Hash:  ");
+    BOT_NOTIFY_DEBUG("\tOOB Hash:  ");
     for (i = 0; i < 16; i++)
-    printf(" %02x", hash[i]);
-    printf("\n\tRandomizer:");
+    BOT_NOTIFY_DEBUG(" %02x", hash[i]);
+    BOT_NOTIFY_DEBUG("\n\tRandomizer:");
     for (i = 0; i < 16; i++)
-    printf(" %02x", randomizer[i]);
-    printf("\n");
+    BOT_NOTIFY_DEBUG(" %02x", randomizer[i]);
+    BOT_NOTIFY_DEBUG("");
     hci_close_dev(dd);
 }
 
@@ -1041,26 +1042,26 @@ void GattSrv::HCIcommands(int hdev) {
     int i, n, dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (hci_read_local_commands(dd, cmds, 1000) < 0) {
-    fprintf(stderr, "Can't read support commands on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read support commands on hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     print_dev_hdr(&di);
     for (i = 0; i < 64; i++) {
     if (!cmds[i])
         continue;
-    printf("%s Octet %-2d = 0x%02x (Bit",
+    BOT_NOTIFY_DEBUG("%s Octet %-2d = 0x%02x (Bit",
            i ? "\t\t ": "\tCommands:", i, cmds[i]);
     for (n = 0; n < 8; n++)
         if (cmds[i] & (1 << n))
-        printf(" %d", n);
-    printf(")\n");
+        BOT_NOTIFY_DEBUG(" %d", n);
+    BOT_NOTIFY_DEBUG(")");
     }
     str = hci_commandstostr(cmds, "\t", 71);
-    printf("%s\n", str);
+    BOT_NOTIFY_DEBUG("%s", str);
     bt_free(str);
     hci_close_dev(dd);
 }
@@ -1071,11 +1072,11 @@ void GattSrv::HCIversion(int hdev) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (hci_read_local_version(dd, &ver, 1000) < 0) {
-    fprintf(stderr, "Can't read version info hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read version info hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     hciver = hci_vertostr(ver.hci_ver);
@@ -1084,9 +1085,9 @@ void GattSrv::HCIversion(int hdev) {
     else
     lmpver = pal_vertostr(ver.lmp_ver);
     print_dev_hdr(&di);
-    printf("\tHCI Version: %s (0x%x)  Revision: 0x%x\n"
-       "\t%s Version: %s (0x%x)  Subversion: 0x%x\n"
-       "\tManufacturer: %s (%d)\n",
+    BOT_NOTIFY_DEBUG("\tHCI Version: %s (0x%x)  Revision: 0x%x"
+       "\t%s Version: %s (0x%x)  Subversion: 0x%x"
+       "\tManufacturer: %s (%d)",
        hciver ? hciver : "n/a", ver.hci_ver, ver.hci_rev,
        (((di.type & 0x30) >> 4) == HCI_BREDR) ? "LMP" : "PAL",
        lmpver ? lmpver : "n/a", ver.lmp_ver, ver.lmp_subver,
@@ -1102,23 +1103,23 @@ void GattSrv::HCIinq_tpl(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     int8_t level = atoi(opt);
     if (hci_write_inquiry_transmit_power_level(dd, level, 2000) < 0) {
-        fprintf(stderr, "Can't set inquiry transmit power level on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set inquiry transmit power level on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     int8_t level;
     if (hci_read_inq_response_tx_power_level(dd, &level, 1000) < 0) {
-        fprintf(stderr, "Can't read inquiry transmit power level on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read inquiry transmit power level on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tInquiry transmit power level: %d\n", level);
+    BOT_NOTIFY_DEBUG("\tInquiry transmit power level: %d", level);
     }
     hci_close_dev(dd);
 }
@@ -1127,35 +1128,35 @@ void GattSrv::HCIinq_mode(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint8_t mode = atoi(opt);
     if (hci_write_inquiry_mode(dd, mode, 2000) < 0) {
-        fprintf(stderr, "Can't set inquiry mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set inquiry mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t mode;
     if (hci_read_inquiry_mode(dd, &mode, 1000) < 0) {
-        fprintf(stderr, "Can't read inquiry mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read inquiry mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tInquiry mode: ");
+    BOT_NOTIFY_DEBUG("\tInquiry mode: ");
     switch (mode) {
     case 0:
-        printf("Standard Inquiry\n");
+        BOT_NOTIFY_DEBUG("Standard Inquiry");
         break;
     case 1:
-        printf("Inquiry with RSSI\n");
+        BOT_NOTIFY_DEBUG("Inquiry with RSSI");
         break;
     case 2:
-        printf("Inquiry with RSSI or Extended Inquiry\n");
+        BOT_NOTIFY_DEBUG("Inquiry with RSSI or Extended Inquiry");
         break;
     default:
-        printf("Unknown (0x%02x)\n", mode);
+        BOT_NOTIFY_DEBUG("Unknown (0x%02x)", mode);
         break;
     }
     }
@@ -1166,7 +1167,7 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
     int i, dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
@@ -1183,41 +1184,41 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
         data[i] = strtol(tmp, NULL, 16);
     }
     if (hci_write_ext_inquiry_response(dd, fec, data, 2000) < 0) {
-        fprintf(stderr, "Can't set extended inquiry response on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set extended inquiry response on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t fec, data[HCI_MAX_EIR_LENGTH], len, type, *ptr;
     char *str;
     if (hci_read_ext_inquiry_response(dd, &fec, data, 1000) < 0) {
-        fprintf(stderr, "Can't read extended inquiry response on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read extended inquiry response on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tFEC %s\n\t\t", fec ? "enabled" : "disabled");
+    BOT_NOTIFY_DEBUG("\tFEC %s\n\t\t", fec ? "enabled" : "disabled");
     for (i = 0; i < HCI_MAX_EIR_LENGTH; i++)
-        printf("%02x%s%s", data[i], (i + 1) % 8 ? "" : " ",
-           (i + 1) % 16 ? " " : (i < 239 ? "\n\t\t" : "\n"));
+        BOT_NOTIFY_DEBUG("%02x%s%s", data[i], (i + 1) % 8 ? "" : " ",
+           (i + 1) % 16 ? " " : (i < 239 ? "\n\t\t" : ""));
     ptr = data;
     while (*ptr) {
         len = *ptr++;
         type = *ptr++;
         switch (type) {
         case 0x01:
-        printf("\tFlags:");
+        BOT_NOTIFY_DEBUG("\tFlags:");
         for (i = 0; i < len - 1; i++)
-            printf(" 0x%2.2x", *((uint8_t *) (ptr + i)));
-        printf("\n");
+            BOT_NOTIFY_DEBUG(" 0x%2.2x", *((uint8_t *) (ptr + i)));
+        BOT_NOTIFY_DEBUG("");
         break;
         case 0x02:
         case 0x03:
-        printf("\t%s service classes:",
+        BOT_NOTIFY_DEBUG("\t%s service classes:",
                type == 0x02 ? "Shortened" : "Complete");
         for (i = 0; i < (len - 1) / 2; i++) {
             uint16_t val = bt_get_le16((ptr + (i * 2)));
-            printf(" 0x%4.4x", val);
+            BOT_NOTIFY_DEBUG(" 0x%4.4x", val);
         }
-        printf("\n");
+        BOT_NOTIFY_DEBUG("");
         break;
         case 0x08:
         case 0x09:
@@ -1228,26 +1229,26 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
             if ((unsigned char) str[i] < 32 || str[i] == 127)
                 str[i] = '.';
             }
-            printf("\t%s local name: \'%s\'\n",
+            BOT_NOTIFY_DEBUG("\t%s local name: \'%s\'",
                type == 0x08 ? "Shortened" : "Complete", str);
             free(str);
         }
         break;
         case 0x0a:
-        printf("\tTX power level: %d\n", *((int8_t *) ptr));
+        BOT_NOTIFY_DEBUG("\tTX power level: %d", *((int8_t *) ptr));
         break;
         case 0x10:
-        printf("\tDevice ID with %d bytes data\n",
+        BOT_NOTIFY_DEBUG("\tDevice ID with %d bytes data",
                len - 1);
         break;
         default:
-        printf("\tUnknown type 0x%02x with %d bytes data\n",
+        BOT_NOTIFY_DEBUG("\tUnknown type 0x%02x with %d bytes data",
                type, len - 1);
         break;
         }
         ptr += (len - 1);
     }
-    printf("\n");
+    BOT_NOTIFY_DEBUG("");
     }
     hci_close_dev(dd);
 }
@@ -1256,23 +1257,23 @@ void GattSrv::HCIinq_type(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint8_t type = atoi(opt);
     if (hci_write_inquiry_scan_type(dd, type, 2000) < 0) {
-        fprintf(stderr, "Can't set inquiry scan type on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set inquiry scan type on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t type;
     if (hci_read_inquiry_scan_type(dd, &type, 1000) < 0) {
-        fprintf(stderr, "Can't read inquiry scan type on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read inquiry scan type on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tInquiry scan type: %s\n",
+    BOT_NOTIFY_DEBUG("\tInquiry scan type: %s",
            type == 1 ? "Interlaced Inquiry Scan" : "Standard Inquiry Scan");
     }
     hci_close_dev(dd);
@@ -1282,7 +1283,7 @@ void GattSrv::HCIinq_parms(int hdev, char *opt) {
     struct hci_request rq;
     int s;
     if ((s = hci_open_dev(hdev)) < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     memset(&rq, 0, sizeof(rq));
@@ -1290,7 +1291,7 @@ void GattSrv::HCIinq_parms(int hdev, char *opt) {
     unsigned int window, interval;
     write_inq_activity_cp cp;
     if (sscanf(opt,"%4u:%4u", &window, &interval) != 2) {
-        printf("Invalid argument format\n");
+        BOT_NOTIFY_DEBUG("Invalid argument format");
         exit(1);
     }
     rq.ogf = OGF_HOST_CTL;
@@ -1300,11 +1301,11 @@ void GattSrv::HCIinq_parms(int hdev, char *opt) {
     cp.window = htobs((uint16_t) window);
     cp.interval = htobs((uint16_t) interval);
     if (window < 0x12 || window > 0x1000)
-        printf("Warning: inquiry window out of range!\n");
+        BOT_NOTIFY_DEBUG("Warning: inquiry window out of range!");
     if (interval < 0x12 || interval > 0x1000)
-        printf("Warning: inquiry interval out of range!\n");
+        BOT_NOTIFY_DEBUG("Warning: inquiry interval out of range!");
     if (hci_send_req(s, &rq, 2000) < 0) {
-        fprintf(stderr, "Can't set inquiry parameters name on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set inquiry parameters name on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -1315,18 +1316,18 @@ void GattSrv::HCIinq_parms(int hdev, char *opt) {
     rq.rparam = &rp;
     rq.rlen = READ_INQ_ACTIVITY_RP_SIZE;
     if (hci_send_req(s, &rq, 1000) < 0) {
-        fprintf(stderr, "Can't read inquiry parameters on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read inquiry parameters on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     if (rp.status) {
-        printf("Read inquiry parameters on hci%d returned status %d\n",
+        BOT_NOTIFY_DEBUG("Read inquiry parameters on hci%d returned status %d",
            hdev, rp.status);
         exit(1);
     }
     print_dev_hdr(&di);
     window   = btohs(rp.window);
     interval = btohs(rp.interval);
-    printf("\tInquiry interval: %u slots (%.2f ms), window: %u slots (%.2f ms)\n",
+    BOT_NOTIFY_DEBUG("\tInquiry interval: %u slots (%.2f ms), window: %u slots (%.2f ms)",
            interval, (float)interval * 0.625, window, (float)window * 0.625);
     }
 }
@@ -1335,7 +1336,7 @@ void GattSrv::HCIpage_parms(int hdev, char *opt) {
     struct hci_request rq;
     int s;
     if ((s = hci_open_dev(hdev)) < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     memset(&rq, 0, sizeof(rq));
@@ -1343,7 +1344,7 @@ void GattSrv::HCIpage_parms(int hdev, char *opt) {
     unsigned int window, interval;
     write_page_activity_cp cp;
     if (sscanf(opt,"%4u:%4u", &window, &interval) != 2) {
-        printf("Invalid argument format\n");
+        BOT_NOTIFY_DEBUG("Invalid argument format");
         exit(1);
     }
     rq.ogf = OGF_HOST_CTL;
@@ -1353,11 +1354,11 @@ void GattSrv::HCIpage_parms(int hdev, char *opt) {
     cp.window = htobs((uint16_t) window);
     cp.interval = htobs((uint16_t) interval);
     if (window < 0x12 || window > 0x1000)
-        printf("Warning: page window out of range!\n");
+        BOT_NOTIFY_DEBUG("Warning: page window out of range!");
     if (interval < 0x12 || interval > 0x1000)
-        printf("Warning: page interval out of range!\n");
+        BOT_NOTIFY_DEBUG("Warning: page interval out of range!");
     if (hci_send_req(s, &rq, 2000) < 0) {
-        fprintf(stderr, "Can't set page parameters name on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set page parameters name on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -1368,19 +1369,19 @@ void GattSrv::HCIpage_parms(int hdev, char *opt) {
     rq.rparam = &rp;
     rq.rlen = READ_PAGE_ACTIVITY_RP_SIZE;
     if (hci_send_req(s, &rq, 1000) < 0) {
-        fprintf(stderr, "Can't read page parameters on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read page parameters on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     if (rp.status) {
-        printf("Read page parameters on hci%d returned status %d\n",
+        BOT_NOTIFY_DEBUG("Read page parameters on hci%d returned status %d",
            hdev, rp.status);
         exit(1);
     }
     print_dev_hdr(&di);
     window   = btohs(rp.window);
     interval = btohs(rp.interval);
-    printf("\tPage interval: %u slots (%.2f ms), "
-           "window: %u slots (%.2f ms)\n",
+    BOT_NOTIFY_DEBUG("\tPage interval: %u slots (%.2f ms), "
+           "window: %u slots (%.2f ms)",
            interval, (float)interval * 0.625,
            window, (float)window * 0.625);
     }
@@ -1390,7 +1391,7 @@ void GattSrv::HCIpage_to(int hdev, char *opt) {
     struct hci_request rq;
     int s;
     if ((s = hci_open_dev(hdev)) < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     memset(&rq, 0, sizeof(rq));
@@ -1398,7 +1399,7 @@ void GattSrv::HCIpage_to(int hdev, char *opt) {
     unsigned int timeout;
     write_page_timeout_cp cp;
     if (sscanf(opt,"%5u", &timeout) != 1) {
-        printf("Invalid argument format\n");
+        BOT_NOTIFY_DEBUG("Invalid argument format");
         exit(1);
     }
     rq.ogf = OGF_HOST_CTL;
@@ -1407,9 +1408,9 @@ void GattSrv::HCIpage_to(int hdev, char *opt) {
     rq.clen = WRITE_PAGE_TIMEOUT_CP_SIZE;
     cp.timeout = htobs((uint16_t) timeout);
     if (timeout < 0x01 || timeout > 0xFFFF)
-        printf("Warning: page timeout out of range!\n");
+        BOT_NOTIFY_DEBUG("Warning: page timeout out of range!");
     if (hci_send_req(s, &rq, 2000) < 0) {
-        fprintf(stderr, "Can't set page timeout on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set page timeout on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
@@ -1420,17 +1421,17 @@ void GattSrv::HCIpage_to(int hdev, char *opt) {
     rq.rparam = &rp;
     rq.rlen = READ_PAGE_TIMEOUT_RP_SIZE;
     if (hci_send_req(s, &rq, 1000) < 0) {
-        fprintf(stderr, "Can't read page timeout on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read page timeout on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     if (rp.status) {
-        printf("Read page timeout on hci%d returned status %d\n",
+        BOT_NOTIFY_DEBUG("Read page timeout on hci%d returned status %d",
            hdev, rp.status);
         exit(1);
     }
     print_dev_hdr(&di);
     timeout = btohs(rp.timeout);
-    printf("\tPage timeout: %u slots (%.2f ms)\n",
+    BOT_NOTIFY_DEBUG("\tPage timeout: %u slots (%.2f ms)",
            timeout, (float)timeout * 0.625);
     }
 }
@@ -1439,23 +1440,23 @@ void GattSrv::HCIafh_mode(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint8_t mode = atoi(opt);
     if (hci_write_afh_mode(dd, mode, 2000) < 0) {
-        fprintf(stderr, "Can't set AFH mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set AFH mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t mode;
     if (hci_read_afh_mode(dd, &mode, 1000) < 0) {
-        fprintf(stderr, "Can't read AFH mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read AFH mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tAFH mode: %s\n", mode == 1 ? "Enabled" : "Disabled");
+    BOT_NOTIFY_DEBUG("\tAFH mode: %s", mode == 1 ? "Enabled" : "Disabled");
     }
 }
 
@@ -1463,23 +1464,23 @@ void GattSrv::HCIssp_mode(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (opt) {
     uint8_t mode = atoi(opt);
     if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
-        fprintf(stderr, "Can't set Simple Pairing mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't set Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     } else {
     uint8_t mode;
     if (hci_read_simple_pairing_mode(dd, &mode, 1000) < 0) {
-        fprintf(stderr, "Can't read Simple Pairing mode on hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("Can't read Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         exit(1);
     }
     print_dev_hdr(&di);
-    printf("\tSimple Pairing mode: %s\n",
+    BOT_NOTIFY_DEBUG("\tSimple Pairing mode: %s",
            mode == 1 ? "Enabled" : "Disabled");
     }
 }
@@ -1489,11 +1490,11 @@ void GattSrv::HCIrevision(int hdev) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     return;
     }
     if (hci_read_local_version(dd, &ver, 1000) < 0) {
-    fprintf(stderr, "Can't read version info for hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't read version info for hci%d: %s (%d)", hdev, strerror(errno), errno);
     return;
     }
     return;
@@ -1506,7 +1507,7 @@ void GattSrv::HCIblock(int hdev, char *opt) {
     return;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     str2ba(opt, &bdaddr);
@@ -1526,7 +1527,7 @@ void GattSrv::HCIunblock(int hdev, char *opt) {
     return;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-    fprintf(stderr, "Can't open device hci%d: %s (%d)\n", hdev, strerror(errno), errno);
+    BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
     exit(1);
     }
     if (!strcasecmp(opt, "all"))
@@ -1547,10 +1548,10 @@ void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
     return;
     hdr = di->dev_id;
     ba2str(&di->bdaddr, addr);
-    printf("%s:\tType: %s  Bus: %s\n", di->name,
+    BOT_NOTIFY_DEBUG("%s:\tType: %s  Bus: %s", di->name,
        hci_typetostr((di->type & 0x30) >> 4),
        hci_bustostr(di->type & 0x0f));
-    printf("\tBD Address: %s  ACL MTU: %d:%d  SCO MTU: %d:%d\n",
+    BOT_NOTIFY_DEBUG("\tBD Address: %s  ACL MTU: %d:%d  SCO MTU: %d:%d",
        addr, di->acl_mtu, di->acl_pkts,
        di->sco_mtu, di->sco_pkts);
 }

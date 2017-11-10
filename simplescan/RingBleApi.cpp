@@ -24,6 +24,7 @@
  *--------------------------------------------------------------------*/
 #include "RingBleApi.hh"
 
+using namespace Ring;
 using namespace Ring::Ble;
 
 BleApi::BleApi() :
