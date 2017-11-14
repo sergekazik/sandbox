@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2017-11-08T12:48:09. -->
+<!-- Written by QtCreator 3.4.2, 2017-11-13T14:18:43. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -212,11 +212,11 @@
     </valuelist>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
-    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments">--gatt</value>
-    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">/home/ring-sergie/workspace/sandbox/simplescan/test_ble</value>
+    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments"></value>
+    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">./gatt_client_x86</value>
     <value type="bool" key="ProjectExplorer.CustomExecutableRunConfiguration.UseTerminal">true</value>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.WorkingDirectory">%{buildDir}</value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run /home/ring-sergie/workspace/sandbox/simplescan/test_ble</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run ./gatt_client_x86</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.CustomExecutableRunConfiguration</value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>

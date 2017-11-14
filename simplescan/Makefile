@@ -50,18 +50,21 @@ LDFLAGS_APP = -lbluetooth
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
+TARGET_CLIENT = gatt_client_x86
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp
 SRCS_APP = test_ble.cpp gatt_srv_test.cpp test_stubs.cpp
+SRCS_CLIENT = gatt_client_x86.cpp
 
 OBJS_LIB = RingBleApi.o RingGattApi.o
 OBJS_APP = test_ble.o gatt_srv_test.o test_stubs.o
+OBJS_CLIENT = gatt_client_x86.o
 
 RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP)
+all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_CLIENT)
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)
@@ -69,6 +72,9 @@ $(TARGET_LIB): $(OBJS_LIB)
 
 $(TARGET_APP): $(OBJS_APP)
 	$(CC) $(OBJS_APP) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
+
+$(TARGET_CLIENT): $(OBJS_CLIENT)
+	$(CC) $(OBJS_CLIENT) $(LDFLAGS_APP) -o $@
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"

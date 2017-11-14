@@ -4995,6 +4995,20 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
     return ret_val;
 }
 
+int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload)
+{
+    if (mInitialized && mServiceTable)
+    {
+        ParameterList_t params = {4, {{NULL, (unsigned int) aServiceIdx},
+                                      {NULL, mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].AttributeOffset},
+                                      {(char*) "last", 0},
+                                      {(char*) aStrPayload, 0}}};
+
+        return GATTNotifyCharacteristic(&params);
+    }
+    return Error::NOT_INITIALIZED;
+}
+
 /* The following function is responsible for notifying a specified   */
 /* characteristic to a specified device.  This function returns zero */
 /* if successful and a negative value if an error occurred.          */
@@ -5028,7 +5042,10 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                     if ((AttributeInfo = SearchServiceListByOffset(mServiceTable[aParams->Params[0].intParam].ServiceID, aParams->Params[1].intParam)) != NULL)
                     {
                         /* Convert the parameter to a Bluetooth Device Address.  */
-                        StrToBD_ADDR(aParams->Params[2].strParam, &BD_ADDR);
+                        if (!strcmp(aParams->Params[2].strParam, "last"))
+                            BD_ADDR = mLastRemoteAddress;
+                        else
+                            StrToBD_ADDR(aParams->Params[2].strParam, &BD_ADDR);
 
                         /* Verify that this is a characteristic that is          */
                         /* notifiable.                                           */

@@ -77,6 +77,38 @@ static char gCommands[][CMD_LEN_MAX] = {
 #include "gatt_srv_defs.h"
 };
 
+/* Helper Functions */
+///
+/// \brief getValByKeyfromJson
+/// \param json_str
+/// \param key
+/// \return allocated string to be released by calling routine!!
+///
+char *getValByKeyfromJson(const char* json_str, const char* key)
+{
+    if (json_str && key)
+    {
+        char *pStart = (char*) strstr(json_str, key);
+        if (pStart)
+        {
+            pStart += strlen(key)+3; //3 for ":"
+            char *pEnd = (char*) strchr(pStart, '"');
+            if (pEnd && (pEnd > pStart))
+            {
+                int len = (pEnd-pStart);
+                char* pRet = (char*) BTPS_AllocateMemory(len+1);
+                if (pRet)
+                {
+                    strncpy(pRet, pStart, len);
+                    pRet[len] = '\0';
+                    return pRet;
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
 static char* UpperCaseUpdate(int &idx)
 {
     for (int i = 0; i < (int) strlen(gCommands[idx]); i++)
@@ -193,6 +225,7 @@ static ServiceInfo_t gServiceTable[] =
         "RING_PAIRING_SVC"
     },
 };
+#define RING_PAIRING_SVC_IDX                                          0
 #define PREDEFINED_SERVICES_COUNT                                     (sizeof(gServiceTable)/sizeof(ServiceInfo_t))
 
 /* The following function reads a line from standard input into the  */
@@ -687,11 +720,10 @@ static int AutoHelp(ParameterList_t *p)
         "47 - ChangeSimplePairingParameters 0 0",
         "52 - StartAdvertising 118 300",
         "11 - QueryLocalDeviceProperties",
-        "57 - NotifyCharacteristic 0 13 ADDR STATE_WIFI_SET",
+        "57 - NotifyCharacteristic 0 offset ADDR STATE_WIFI_SET",
         "41 - EnableBluetoothDebug 1 2"
         "----------------------------",
         "leadv",
-        "notify"
     };
     for(int i = 0; i < (int) (sizeof(mmHelp)/sizeof(char*)); i++)
     {
@@ -871,8 +903,6 @@ static void UserInterface(void)
 
                 if (!strcmp(UserInput, "leadv"))
                     sprintf(UserInput, "StartAdvertising 118 200");
-                else if (!strcmp(UserInput, "notify"))
-                    sprintf(UserInput, "NotifyCharacteristic 0 13 \" STATURING");
 
                 /* The string input by the user contains a value, now run   */
                 /* the string through the Command Parser.                   */
@@ -1125,13 +1155,6 @@ autodone:
 
 static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Access aAccessType)
 {
-    #define pairing_data_status_wifi    0x01
-    #define pairing_data_status_pass    0x02
-    #define pairing_data_status_start   0x04
-    #define pairing_data_status_ready   (pairing_data_status_wifi | pairing_data_status_pass | pairing_data_status_start)
-
-    static int pairing_data_status_sample = 0x00;
-
     printf("\npairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
            aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
            gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
@@ -1156,7 +1179,6 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Character
             switch (aAttribueIdx)
             {
             case eSET_PUBLIC_KEY:
-                pairing_data_status_sample = 0x00;
                 printf("\n\tOn geting PUBLIC_KEY the device generates Public/Private keys. A randomly generated nonce start\n" \
                        "\tset of 20 bytes is generated. The the device then takes the public key, and signs it using ed25519\n" \
                        "\tand a private key that is embedded in the application and creates a 64 byte signature of the ephemeral\n" \
@@ -1164,38 +1186,34 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Character
                        "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
 #if !defined(BCM43)
             ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
+            ((GattSrv*)gGattSrvInst)->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, "PAYLOAD_READY");
 #endif
-            // note: \" is wildcard for Remote MAC address indicating to use MAC of the connected remote device - applicable in this sample only
-            ValidateAndExecCommand("NotifyCharacteristic 0 13 \" PAYLOAD_READY");
-
-            // TODO: after this encrypted session starts - ???
-            // ValidateAndExecCommand("AuthenticateRemoteDevice \" 1");  response doesn't work - investigate why
                 break;
-            case eSET_SSID_WIFI:
-            case eSET_PASSWORD:
-            case eSET_PAIRING_START:
-                // can't be recieved not in the order
-                pairing_data_status_sample |= aAttribueIdx == eSET_SSID_WIFI    ? pairing_data_status_wifi :
-                                              aAttribueIdx == eSET_PASSWORD     ? pairing_data_status_pass :
-                                              aAttribueIdx == eSET_PAIRING_START? pairing_data_status_start:0;
 
-                printf("pairing_data_status_sample is 0x%02x\n", pairing_data_status_sample);
-                if (pairing_data_status_sample == pairing_data_status_ready)
-                {
-                    printf("\n\tOn geting SET_PAIRING_START the device shoud login into WiFi network using SSID and PASSWORD\n" \
-                           "\tfrom its properties supposed to be already set by client app\n"   \
-                           "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
-                           "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
+            case eSET_NETWORK:
+            {
+                printf("\n\tOn geting SET_PAIRING_START the device shoud login into WiFi network using SSID and PASSWORD\n" \
+                       "\tfrom its properties supposed to be already set by client app\n"   \
+                       "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
+                       "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
 
-                    printf("Configuring WIFI with the following data:\nSSID:\t%s\nPASS:\t%s\n",
-                                ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_SSID_WIFI].Attribute))->Value,
-                                ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_PASSWORD].Attribute))->Value);
+                char *net_config = (char*) ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_NETWORK].Attribute))->Value;
+                printf("Configuring WIFI with the following info:\n%s\n", net_config);
+                
+                char *ssid = getValByKeyfromJson(net_config, "ssid");
+                char *pass = getValByKeyfromJson(net_config, "pass");
+                printf("Using parsed settings:\nssid:\t%s\npass:\t%s\n", ssid, pass);
+                
+                BTPS_FreeMemory(ssid);
+                BTPS_FreeMemory(pass);
+                // here use parsed SSID and Pass to log into network
 
 #if !defined(BCM43)
-                    ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_WIFI_STATUS].AttributeOffset, (Byte_t *) "CONNECTED", strlen("CONNECTED"));
+                ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_WIFI_STATUS].AttributeOffset, (Byte_t *) "CONNECTED", strlen("CONNECTED"));
+                ((GattSrv*)gGattSrvInst)->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, "WIFI_CONNECTED");
 #endif
-                    ValidateAndExecCommand("NotifyCharacteristic 0 13 \" WIFI_CONNECTED");
-                }
+            }
+                break;
             default:
                 break;
 
@@ -1206,5 +1224,3 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Character
         break;
     }
 }
-
-

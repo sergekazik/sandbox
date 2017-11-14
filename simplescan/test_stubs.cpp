@@ -17,6 +17,12 @@
 #include <stdarg.h>
 
 #include "Bot_Notifier.h"
+#ifdef Linux_x86_64
+extern "C" {
+#include "SS1BTPM.h"          /* BTPM Application Programming Interface.      */
+#include "BTPMMAPI.h"          /* BTPM Application Programming Interface.      */
+} // #ifdef __cplusplus
+#endif
 
 #define BUF_LEN 1024
 #define CASE_FORM_TYPE(__type) case BOT_NOTIFY_##__type##_T: sprintf(typeString, #__type ":"); break;
@@ -51,3 +57,14 @@ BOT_RET_CODE_T Bot_Notify(BOT_NOTIFY_TYPE_T type, uint32_t line, char const *fnN
     return BOT_OK;
 }
 
+#ifdef Linux_x86_64
+BTPSAPI_DECLARATION void *BTPSAPI BTPS_AllocateMemory(unsigned long MemorySize)
+{
+    return malloc(MemorySize);
+}
+
+BTPSAPI_DECLARATION void BTPSAPI BTPS_FreeMemory(void *MemoryPointer)
+{
+    return free(MemoryPointer);
+}
+#endif

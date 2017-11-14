@@ -116,11 +116,12 @@ public:
     int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
-    int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
     int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused)));
     int ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused)));
-
+    
+    int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
+    
     // Advertising
     int SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unused)));
     int StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)));
@@ -156,7 +157,8 @@ public:
     void CopyRandomValues(void * dst);
     void CopyConfirmValues(void * dst);
 
-    // GATT processing functions
+    // GATT processing functions and helpers
+    int  NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload);
     void ProcessReadRequestEvent(GATM_Read_Request_Event_Data_t *ReadRequestData);
     void ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteRequestData);
     void ProcessSignedWriteEvent(GATM_Signed_Write_Event_Data_t *SignedWriteData);
