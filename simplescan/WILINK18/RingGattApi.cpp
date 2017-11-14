@@ -418,7 +418,7 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
         return Error::INVALID_PARAMETERS;
     }
 
-    // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Accessed aAccessType);
+    // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Accessed aAccessType);
     (*(mOnCharCb))(ServiceIdx, AttribueIdx, AccessType);
     return Error::NONE;
 }
@@ -6964,6 +6964,15 @@ void GattSrv::StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry)
                 }
             }
         }
+    }
+}
+
+void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx)
+{
+    if (mServiceTable && (aServiceIdx < mServiceCount) && (aAttributeIdx < mServiceTable[aServiceIdx].NumberAttributes))
+    {
+        DumpData(FALSE, ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->ValueLength,
+                        ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->Value);
     }
 }
 

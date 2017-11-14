@@ -64,10 +64,10 @@ static CommandFunction_t FindCommand(char *Command);
 static void ClearCommands(void);
 
 static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
-static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Access aAccessType);
+static void attr_read_write_cb(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType);
 static char gsVal[] __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as GET_PUBLIC_PAYLOAD";
 
-static BleApi* gGattSrvInst = NULL;
+static BleApi* gBleApi = NULL;
 #define RING_BLE_DEF_CPP_WRAPPER
 #include "gatt_srv_defs.h"
 
@@ -963,32 +963,32 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
         hci_close_dev(dd);
     }
 
-    if (gGattSrvInst == NULL)
+    if (gBleApi == NULL)
     {
         DeviceConfig_t dc[] = {{.tag = Config_EOL},{.tag = Config_EOL}};
         switch (aCmd)
         {
-            case eConfig_UP: ((GattSrv*)gGattSrvInst)->HCIup(ctl, di.dev_id); break;
-            case eConfig_DOWN: ((GattSrv*)gGattSrvInst)->HCIdown(ctl, di.dev_id); break;
-            case eConfig_PISCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "piscan"); break;
-            case eConfig_NOSCAN: ((GattSrv*)gGattSrvInst)->HCIscan(ctl, di.dev_id, (char*) "noscan"); break;
-            case eConfig_NOLEADV: ((GattSrv*)gGattSrvInst)->HCIno_le_adv(di.dev_id); break;
+            case eConfig_UP: ((GattSrv*)gBleApi)->HCIup(ctl, di.dev_id); break;
+            case eConfig_DOWN: ((GattSrv*)gBleApi)->HCIdown(ctl, di.dev_id); break;
+            case eConfig_PISCAN: ((GattSrv*)gBleApi)->HCIscan(ctl, di.dev_id, (char*) "piscan"); break;
+            case eConfig_NOSCAN: ((GattSrv*)gBleApi)->HCIscan(ctl, di.dev_id, (char*) "noscan"); break;
+            case eConfig_NOLEADV: ((GattSrv*)gBleApi)->HCIno_le_adv(di.dev_id); break;
             case eConfig_ALLUP:
-                gGattSrvInst->Initialize();
+                gBleApi->Initialize();
                 break;
 
             case eConfig_ALLDOWN:
-                gGattSrvInst->Shutdown();
+                gBleApi->Shutdown();
                 break;
 
             case eConfig_LEADV:
                 dc->tag = Config_Discoverable;
-                gGattSrvInst->Configure(dc);
+                gBleApi->Configure(dc);
                 break;
 
             case eConfig_CLASS:
                 dc->tag = Config_LocalClassOfDevice;
-                gGattSrvInst->Configure(dc);
+                gBleApi->Configure(dc);
                 break;
 
             default:
@@ -1050,10 +1050,10 @@ extern "C" int gatt_server_start(const char* arguments)
 {
 
 #if !defined(Linux_x86_64) || !defined(WILINK18)
-    gGattSrvInst = GattSrv::getInstance();
-    if (gGattSrvInst == NULL)
+    gBleApi = GattSrv::getInstance();
+    if (gBleApi == NULL)
     {
-        printf("error creating gGattSrvInst!! Abort. \n");
+        printf("error creating gBleApi!! Abort. \n");
         return -666;
     }
 #endif
@@ -1065,22 +1065,22 @@ extern "C" int gatt_server_start(const char* arguments)
         printf("---starting in a sec...---\n");
         sleep(2);
 
-        if (!strcmp(arguments, "--autoinit") && gGattSrvInst)
+        if (!strcmp(arguments, "--autoinit") && gBleApi)
         {
             int ret_val = Ble::Error::UNDEFINED;
 
 #if !defined(Linux_x86_64) || !defined(WILINK18)
-            ret_val = gGattSrvInst->Initialize();
+            ret_val = gBleApi->Initialize();
             if (ret_val != Ble::Error::NONE)
             {
-                printf("gGattSrvInst->Initialize(&params[0]) failed, Abort.\n");
+                printf("gBleApi->Initialize(&params[0]) failed, Abort.\n");
                 goto autodone;
             }
 
-            ret_val = gGattSrvInst->SetDevicePower(true);
+            ret_val = gBleApi->SetDevicePower(true);
             if (ret_val != Ble::Error::NONE)
             {
-                printf("gGattSrvInst->SetDevicePower(&params[1]) failed, Abort.\n");
+                printf("gBleApi->SetDevicePower(&params[1]) failed, Abort.\n");
                 goto autodone;
             }
 
@@ -1099,18 +1099,18 @@ extern "C" int gatt_server_start(const char* arguments)
             };
 
 
-            ret_val = gGattSrvInst->Configure(config);
+            ret_val = gBleApi->Configure(config);
             if (ret_val != Ble::Error::NONE)
             {
-                printf("gGattSrvInst->Configure(&config) failed, Abort.\n");
+                printf("gBleApi->Configure(&config) failed, Abort.\n");
                 goto autodone;
             }
 
             // register on GATT attribute read/write callback
-            ret_val = gGattSrvInst->RegisterCharacteristicAccessCallback(attr_read_write_cb);
+            ret_val = gBleApi->RegisterCharacteristicAccessCallback(attr_read_write_cb);
             if (ret_val != Ble::Error::NONE)
             {
-                printf("gGattSrvInst->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
+                printf("gBleApi->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
             }
 #else
             (void) attr_read_write_cb;
@@ -1153,30 +1153,36 @@ autodone:
     return 0;
 }
 
-static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Characteristic::Access aAccessType)
+
+static void attr_read_write_cb(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType)
 {
+    static const char* sPayloadReady = "PAYLOAD_READY";
+    static const char* sWiFiConnected = "WIFI_CONNECTED";
+    static const char* sWiFiConnectFailed = "WIFI_CONNECT_FAILED";
+
+    static const unsigned int gServiceID = gServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
+    static const AttributeInfo_t *gAttributeList = gServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
+
+    #define ATTRIBUTE_OFFSET(_idx) gAttributeList[_idx].AttributeOffset
+    #define SET_ATTRIBUTE_STR_VAL(_value) (Byte_t *) _value, strlen(_value)
+
     printf("\npairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
            aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
-           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].AttributeName);
+           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttributeIdx].AttributeName);
 
     switch (aAccessType)
     {
     case Ble::Characteristic::Read:
     case Ble::Characteristic::Confirmed:
-#if !defined(BCM43)
-        ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
-                                        ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
-#endif
+        gBleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
         // other things todo...
         break;
 
     case Ble::Characteristic::Write:
             printf("Value:\n");
-#if !defined(BCM43)
-            ((GattSrv*)gGattSrvInst)->DumpData(FALSE, ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->ValueLength,
-                                            ((CharacteristicInfo_t*) gServiceTable[aServiceIdx].AttributeList[aAttribueIdx].Attribute)->Value);
-#endif
-            switch (aAttribueIdx)
+            gBleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
+
+            switch (aAttributeIdx)
             {
             case eSET_PUBLIC_KEY:
                 printf("\n\tOn geting PUBLIC_KEY the device generates Public/Private keys. A randomly generated nonce start\n" \
@@ -1184,10 +1190,10 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Character
                        "\tand a private key that is embedded in the application and creates a 64 byte signature of the ephemeral\n" \
                        "\tpublic key. The public key, signature, and nonce start are saved as the Public Payload - GET_PUBLIC_PAYLOAD.\n" \
                        "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
-#if !defined(BCM43)
-            ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_PUBLIC_PAYLOAD].AttributeOffset, (Byte_t *) gsVal, strlen(gsVal));
-            ((GattSrv*)gGattSrvInst)->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, "PAYLOAD_READY");
-#endif
+
+            gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PUBLIC_PAYLOAD), SET_ATTRIBUTE_STR_VAL(gsVal));
+            gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sPayloadReady);
+
                 break;
 
             case eSET_NETWORK:
@@ -1197,21 +1203,34 @@ static void attr_read_write_cb(int aServiceIdx, int aAttribueIdx, Ble::Character
                        "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
                        "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
 
-                char *net_config = (char*) ((CharacteristicInfo_t*) (gServiceTable[0].AttributeList[eSET_NETWORK].Attribute))->Value;
+                char *net_config = (char*) ((CharacteristicInfo_t*) (gAttributeList[eSET_NETWORK].Attribute))->Value;
                 printf("Configuring WIFI with the following info:\n%s\n", net_config);
-                
+
                 char *ssid = getValByKeyfromJson(net_config, "ssid");
                 char *pass = getValByKeyfromJson(net_config, "pass");
                 printf("Using parsed settings:\nssid:\t%s\npass:\t%s\n", ssid, pass);
-                
+
+                // here use parsed SSID and PASS to connect to Wnetwork
+
+                // THIS IS EXAMPLE of what should be done on network connection OK
+                // update WIFI status, save WIFI ssid, update PAIRING_STATE
+                if (sWiFiConnected) // connected OK
+                {
+                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_WIFI_STATUS), SET_ATTRIBUTE_STR_VAL(sWiFiConnected));
+                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_SSID_WIFI), SET_ATTRIBUTE_STR_VAL(ssid));
+                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(sWiFiConnected));
+                    gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sWiFiConnected);
+                }
+                else // connection failed
+                {
+                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(sWiFiConnectFailed));
+                    gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sWiFiConnectFailed);
+                }
+
+                // release parsed resources!
                 BTPS_FreeMemory(ssid);
                 BTPS_FreeMemory(pass);
-                // here use parsed SSID and Pass to log into network
 
-#if !defined(BCM43)
-                ((GattSrv*)gGattSrvInst)->GATTUpdateCharacteristic(gServiceTable[0].ServiceID, gServiceTable[0].AttributeList[eGET_WIFI_STATUS].AttributeOffset, (Byte_t *) "CONNECTED", strlen("CONNECTED"));
-                ((GattSrv*)gGattSrvInst)->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, "WIFI_CONNECTED");
-#endif
             }
                 break;
             default:

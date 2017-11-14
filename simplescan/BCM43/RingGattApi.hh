@@ -109,8 +109,10 @@ public:
     int GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen) { (void) aAttrData; (void) aAttrLen; (void) aAttrOffset; (void) aServiceID; return Error::NOT_IMPLEMENTED; }
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload) { (void) aServiceIdx; (void) aAttributeIdx; (void) aStrPayload; return Error::NOT_IMPLEMENTED; }
     int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int ListDescriptors(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
@@ -126,6 +128,21 @@ public:
 
     // debug
     int EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+
+    // debug / display functions and helper functions
+    void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level)  { (void) UUID, (void) Prefix, (void) Level; return; }
+    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx)  { (void) aServiceIdx, (void) aAttributeIdx; return; }
+
+    void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr)  {(void)  Board_Address, (void)  BoardStr; return; }
+    void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address)  {(void)  BoardStr, (void)  Board_Address; return; }
+    void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry)  {(void)  UUIDStr, (void)  UUIDEntry; return; }
+    void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)  {(void) String, (void)  Length, (void)  Data; return; }
+    char *GetServiceNameById(unsigned int ServiceID)  { (void) ServiceID; return NULL; }
+    int GetServiceIndexById(unsigned int ServiceID)  { (void) ServiceID; return Error::NOT_IMPLEMENTED; }
+    AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset)  { (void) ServiceID; (void) AttributeOffset; return NULL; }
+    int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset)  { (void) ServiceID; (void) AttributeOffset; return Error::NOT_IMPLEMENTED; }
+    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)  { (void) aEventType; (void) aServiceID; (void) aAttrOffset; return Error::NOT_IMPLEMENTED; }
+    void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress)  { (void) aConnectedMACAddress; return; }
 
 private:
     struct hci_dev_info di;

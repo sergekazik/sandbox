@@ -107,20 +107,20 @@ typedef unsigned char Byte_t;
 typedef char Boolean_t;
 typedef unsigned int DWord_t;                       /* Generic 32 bit Container.  */
 typedef unsigned short Word_t;                      /* Generic 16 bit Container.  */
-#endif
 
-#ifndef __GATTAPIH__
-typedef enum
+typedef struct _tagUUID_16_t
 {
-   gctLE,
-   gctBR_EDR
-} GATT_Connection_Type_t;
+   Byte_t UUID_Byte0;
+   Byte_t UUID_Byte1;
+} UUID_16_t;
 
-typedef struct _tagGATT_Attribute_Handle_Group_t
+typedef struct _tagUUID_32_t
 {
-   Word_t Starting_Handle;
-   Word_t Ending_Handle;
-} GATT_Attribute_Handle_Group_t;
+   Byte_t UUID_Byte0;
+   Byte_t UUID_Byte1;
+   Byte_t UUID_Byte2;
+   Byte_t UUID_Byte3;
+} UUID_32_t;
 
 #endif
 
@@ -154,6 +154,64 @@ typedef struct _tagBD_ADDR_t
    Byte_t BD_ADDR4;
    Byte_t BD_ADDR5;
 } BD_ADDR_t;
+#endif
+
+#ifndef __GATMAPIH__
+typedef enum
+{
+   /* GATM Connection Events.                                           */
+   getGATTConnected,
+   getGATTDisconnected,
+   getGATTConnectionMTUUpdate,
+   getGATTHandleValueData,
+
+   /* GATM Client Events.                                               */
+   getGATTReadResponse,
+   getGATTWriteResponse,
+   getGATTErrorResponse,
+
+   /* GATM Server Events.                                               */
+   getGATTWriteRequest,
+   getGATTSignedWrite,
+   getGATTReadRequest,
+   getGATTPrepareWriteRequest,
+   getGATTCommitPrepareWrite,
+   getGATTHandleValueConfirmation
+} GATM_Event_Type_t;
+#endif
+
+#ifndef __GATTAPIH__
+typedef void * SDP_UUID_Entry_t;
+
+typedef enum
+{
+   gctLE,
+   gctBR_EDR
+} GATT_Connection_Type_t;
+
+typedef struct _tagGATT_Attribute_Handle_Group_t
+{
+   Word_t Starting_Handle;
+   Word_t Ending_Handle;
+} GATT_Attribute_Handle_Group_t;
+
+typedef enum
+{
+   guUUID_16,
+   guUUID_128,
+   guUUID_32
+} GATT_UUID_Type_t;
+
+typedef struct _tagGATT_UUID_t
+{
+   GATT_UUID_Type_t UUID_Type;
+   union
+   {
+      UUID_16_t  UUID_16;
+      UUID_32_t  UUID_32;
+      UUID_128_t UUID_128;
+   } UUID;
+} GATT_UUID_t;
 #endif
 
 
@@ -461,8 +519,10 @@ public:
     virtual int GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen) = 0;
     virtual int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload) = 0;
     virtual int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int ListDescriptors(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused))) = 0;
@@ -478,6 +538,21 @@ public:
 
     // debug
     virtual int EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+
+    // debug / display functions and helper functions
+    virtual void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level) = 0;
+    virtual void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx) = 0;
+
+    virtual void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr) = 0;
+    virtual void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address) = 0;
+    virtual void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry) = 0;
+    virtual void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data) = 0;
+    virtual char *GetServiceNameById(unsigned int ServiceID) = 0;
+    virtual int GetServiceIndexById(unsigned int ServiceID) = 0;
+    virtual AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset) = 0;
+    virtual int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset) = 0;
+    virtual int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset) = 0;
+    virtual void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress) = 0;
 };
 
 } } /* namespace Ring::Ble */

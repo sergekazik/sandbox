@@ -119,9 +119,10 @@ public:
     int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused)));
     int ListDescriptors(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused)));
-    
+
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused)));
-    
+    int  NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload);
+
     // Advertising
     int SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unused)));
     int StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)));
@@ -133,6 +134,27 @@ public:
 
     // debug
     int EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unused)));
+
+    // debug / display functions and helper functions
+    void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level);
+    void DisplayParsedGATTServiceData(DEVM_Parsed_Services_Data_t *ParsedGATTData);
+    void DisplayParsedSDPServiceData(DEVM_Parsed_SDP_Data_t *ParsedSDPData);
+    void DisplaySDPAttributeResponse(SDP_Service_Attribute_Response_Data_t *SDPServiceAttributeResponse, unsigned int InitLevel);
+    void DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned int Level);
+    void DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_Device_Properties_t *LocalDeviceProperties);
+    void DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remote_Device_Properties_t *RemoteDeviceProperties);
+    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx);
+
+    void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr);
+    void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address);
+    void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry);
+    void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data);
+    char *GetServiceNameById(unsigned int ServiceID);
+    int GetServiceIndexById(unsigned int ServiceID);
+    AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
+    int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
+    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
+    void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress);
 
     // configuration and get/set functions
     void SetCurrentRemoteBD_ADDR(BD_ADDR_t aCurrentRemoteBD_ADDR);
@@ -158,31 +180,11 @@ public:
     void CopyConfirmValues(void * dst);
 
     // GATT processing functions and helpers
-    int  NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload);
     void ProcessReadRequestEvent(GATM_Read_Request_Event_Data_t *ReadRequestData);
     void ProcessWriteRequestEvent(GATM_Write_Request_Event_Data_t *WriteRequestData);
     void ProcessSignedWriteEvent(GATM_Signed_Write_Event_Data_t *SignedWriteData);
     void ProcessPrepareWriteRequestEvent(GATM_Prepare_Write_Request_Event_Data_t *PrepareWriteRequestData);
     void ProcessCommitPrepareWriteEvent(GATM_Commit_Prepare_Write_Event_Data_t *CommitPrepareWriteData);
-
-    // debug / display functions
-    void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level);
-    void DisplayParsedGATTServiceData(DEVM_Parsed_Services_Data_t *ParsedGATTData);
-    void DisplayParsedSDPServiceData(DEVM_Parsed_SDP_Data_t *ParsedSDPData);
-    void DisplaySDPAttributeResponse(SDP_Service_Attribute_Response_Data_t *SDPServiceAttributeResponse, unsigned int InitLevel);
-    void DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned int Level);
-    void DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_Device_Properties_t *LocalDeviceProperties);
-    void DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remote_Device_Properties_t *RemoteDeviceProperties);
-    void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr);
-    void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address);
-    void StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry);
-    void DumpData(Boolean_t String, unsigned int Length, Byte_t *Data);
-    char *GetServiceNameById(unsigned int ServiceID);
-    int GetServiceIndexById(unsigned int ServiceID);
-    AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
-    int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
-    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
-    void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress);
 
 protected:
     unsigned int   mDEVMCallbackID;            // callback ID of the currently registered Device Manager
