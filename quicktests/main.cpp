@@ -4,8 +4,39 @@
 
 using namespace std;
 
+static void forwarder(void);
+
+class test
+{
+public:
+    test();
+    friend void forwarder(void);
+private:
+    void *something;
+
+};
+test::test()
+{
+    something = malloc(123);
+    printf("something 0x%08x\n", something);
+}
+static test *pTest = new test();
+void forwarder(void)
+{
+    if (pTest)
+    {
+        printf("forwarder something 0x%08x\n", pTest->something);
+        free(pTest->something);
+        pTest->something = NULL;
+        delete pTest;
+    }
+}
+
 int main()
 {
+    forwarder();
+    return 0;
+
     cout << "Hello World!" << endl;
     const char * hello = "hello";
     printf("%-10s %s\n", hello, hello);
