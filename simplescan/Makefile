@@ -52,12 +52,12 @@ TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 TARGET_CLIENT = gatt_client_x86
 
-SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp
-SRCS_APP = test_ble.cpp gatt_srv_test.cpp test_stubs.cpp
+SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
+SRCS_APP = test_ble.cpp gatt_test_srv.cpp test_stubs.cpp
 SRCS_CLIENT = gatt_client_x86.cpp
 
-OBJS_LIB = RingBleApi.o RingGattApi.o
-OBJS_APP = test_ble.o gatt_srv_test.o test_stubs.o
+OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
+OBJS_APP = test_ble.o gatt_test_srv.o test_stubs.o
 OBJS_CLIENT = gatt_client_x86.o
 
 RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
@@ -84,12 +84,12 @@ cpringble:
 	@echo "-----------------------------------------------------"
 
 prepro:
-	$(CC) -E $(CFLAGS) gatt_srv_test.cpp -o gatt_srv_test.prep
+	$(CC) -E $(CFLAGS) gatt_test_srv.cpp -o gatt_test_srv.prep
 
 .PHONY: clean
 clean_obj:
 	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${OBJS_LIB} ${OBJS_APP} *.o *.d
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_CLIENT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_CLIENT) *.o *.d
 

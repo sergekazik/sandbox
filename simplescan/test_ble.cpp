@@ -36,7 +36,7 @@
 #include <bluetooth/rfcomm.h>
 
 #include "version.h"
-#include "gatt_srv_test.h"
+#include "gatt_test_srv.h"
 
 #define COMM_BUF_LEN    1024
 #define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }

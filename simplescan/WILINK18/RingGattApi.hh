@@ -37,7 +37,7 @@ public:
     int Configure(DeviceConfig_t* aConfig);
 
     int QueryDevicePower();
-    int SetDevicePower(bool aPowerOn);
+    int SetDevicePower(Ble::ConfigArgument::Arg aOnOff);
 
     int ShutdownService();  // shutdown SS1BTPM
     int Shutdown();         // cleanup the session and de-init before exit

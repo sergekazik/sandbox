@@ -32,83 +32,37 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
-extern "C" {
-#include "SS1BTPM.h"          /* BTPM Application Programming Interface.      */
-#include "BTPMMAPI.h"          /* BTPM Application Programming Interface.      */
-} // #ifdef __cplusplus
+extern "C" {            // Bluetopia SDK API
+    #include "SS1BTPM.h"
+    #include "BTPMMAPI.h"
+}
 
 #include "RingGattApi.hh"
-#include "gatt_srv_test.h"    /* Main Application Prototypes and Constants.   */
-
-#define DEVELOPMENT_TEST_NO_SECURITY    1   // for tests only, should be set to 0
+#include "RingBlePairing.hh"
+#include "gatt_test_srv.h"  // for this test only
 
 using namespace Ring;
 using namespace Ring::Ble;
 
-/* Internal Variables to this Module (Remember that all variables   */
-/* declared static are initialized to 0 automatically by the        */
-/* compiler as part of standard C/C++).                             */
+#define DEVELOPMENT_TEST_NO_SECURITY    1   // for tests only, should be set to 0
+
+static BleApi* gBleApi = NULL;
 
 static unsigned int        NumberCommands;
 static CommandTable_t      CommandTable[MAX_SUPPORTED_COMMANDS];
 
-/* Internal function prototypes.                                    */
-static void UserInterface(void);
-static int ReadLine(char *Buffer, unsigned int BufferSize);
-static unsigned int StringToUnsignedInteger(char *StringInteger);
-static char *StringParser(char *String);
-static int CommandParser(UserCommand_t *TempCommand, char *UserInput);
-static int CommandInterpreter(UserCommand_t *TempCommand);
-static int AddCommand(char *CommandName, CommandFunction_t CommandFunction);
-static CommandFunction_t FindCommand(char *Command);
-static void ClearCommands(void);
-
-static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)));
-static void attr_read_write_cb(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType);
-static char gsVal[] __attribute__ ((unused)) = "THIS IS SIMULATED public key, signature, and nonce start as GET_PUBLIC_PAYLOAD";
-
-static BleApi* gBleApi = NULL;
+// NOTE: this is a section of auto definitions by macros in gatt_test_defs.h
+// it may be included multiple times in this file to generate different stuctures correlated by order of definition
 #define RING_BLE_DEF_CPP_WRAPPER
-#include "gatt_srv_defs.h"
+#include "gatt_test_defs.h"
 
 #define CMD_LEN_MAX                 44
 #define RING_BLE_DEF_CMD
 static char gCommands[][CMD_LEN_MAX] = {
-#include "gatt_srv_defs.h"
+    #include "gatt_test_defs.h"
 };
 
 /* Helper Functions */
-///
-/// \brief getValByKeyfromJson
-/// \param json_str
-/// \param key
-/// \return allocated string to be released by calling routine!!
-///
-char *getValByKeyfromJson(const char* json_str, const char* key)
-{
-    if (json_str && key)
-    {
-        char *pStart = (char*) strstr(json_str, key);
-        if (pStart)
-        {
-            pStart += strlen(key)+3; //3 for ":"
-            char *pEnd = (char*) strchr(pStart, '"');
-            if (pEnd && (pEnd > pStart))
-            {
-                int len = (pEnd-pStart);
-                char* pRet = (char*) BTPS_AllocateMemory(len+1);
-                if (pRet)
-                {
-                    strncpy(pRet, pStart, len);
-                    pRet[len] = '\0';
-                    return pRet;
-                }
-            }
-        }
-    }
-    return NULL;
-}
-
 static char* UpperCaseUpdate(int &idx)
 {
     for (int i = 0; i < (int) strlen(gCommands[idx]); i++)
@@ -120,113 +74,7 @@ static char* UpperCaseUpdate(int &idx)
     return gCommands[idx++];
 }
 
-/*********************************************************************
- * Pairing Services Declaration.
- *
- * The following define the flags that are valid with the            *
- * SecurityProperties member of the                                  *
- * GATM_Add_Service_Characteristic_Request_t and                     *
- * GATM_Add_Service_Descriptor_Request_t structures.                 *
-
-#define GATM_SECURITY_PROPERTIES_NO_SECURITY                         0x00000000
-#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE    0x00000001
-#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE      0x00000002
-#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ     0x00000004
-#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ       0x00000008
-#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_SIGNED_WRITES       0x00000010
-#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_SIGNED_WRITES         0x00000020
-
- * The following define the flags that are valid with the            *
- * CharacteristicProperties member of the                            *
- * GATM_Add_Service_Characteristic_Request_t structure.              *
-
-#define GATM_CHARACTERISTIC_PROPERTIES_BROADCAST                     0x00000001
-#define GATM_CHARACTERISTIC_PROPERTIES_READ                          0x00000002
-#define GATM_CHARACTERISTIC_PROPERTIES_WRITE_WO_RESP                 0x00000004
-#define GATM_CHARACTERISTIC_PROPERTIES_WRITE                         0x00000008
-#define GATM_CHARACTERISTIC_PROPERTIES_NOTIFY                        0x00000010
-#define GATM_CHARACTERISTIC_PROPERTIES_INDICATE                      0x00000020
-#define GATM_CHARACTERISTIC_PROPERTIES_AUTHENTICATED_SIGNED_WRITES   0x00000040
-#define GATM_CHARACTERISTIC_PROPERTIES_EXT_PROPERTIES                0x00000080
- *
- *********************************************************************
- *  characteristic def example
- *  static CharacteristicInfo_t Srv1Attr1=
- * {
- *     Characteristic Properties.
- *     GATM_CHARACTERISTIC_PROPERTIES_READ | GATM_CHARACTERISTIC_PROPERTIES_WRITE | GATM_CHARACTERISTIC_PROPERTIES_INDICATE,
- *
- *     Characteristic Security Properties.
- *     GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE,
- *
- *     * Characteristic UUID.
- *     { 0x6A, 0xFE, 0x4D, 0x41, 0x6C, 0x52, 0x10, 0x14, 0x8B, 0x7A, 0x95, 0x02, 0x01, 0xB8, 0x65, 0xBC  },
- *
- *     * Value is allocated dynamically.
- *     FALSE,
- *
- *     * Maximum value length.
- *     117,
- *
- *     * Current value length.
- *     117,
- *
- *     * Current value.
- *     (Byte_t *)"VUHhfCQDLvB~!%^&*()-_+={}[]|:;.<>?/#uoPXonUEjisFQjbWGlXmAoQsSSqJwexZsugfFtamHcTun~!%^&*()-_+={}[]|:;.<>?/#AfjLKCeuMia"
- * };
- *
-*********************************************************************/
-#define RING_PAIRING_TABLE_SERVICE_DECL
-#define GATM_SECURITY_PROPERTIES_ENCRYPTED (GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE \
-                                            |GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE    \
-                                            |GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ \
-                                            |GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ)
-#include "gatt_srv_defs.h"
-
-#define RING_PAIRING_TABLE_SERVICE_DEFINE_TABLE
-static AttributeInfo_t SrvTable0[] =
-{
-    #include "gatt_srv_defs.h"
-};
-#define PAIRING_SERVICE_TABLE_NUM_ENTRIES   sizeof(SrvTable0)/sizeof(AttributeInfo_t)
-
-#define RING_PAIRING_TABLE_ATTR_ENUM
-enum GattAttributeIndexByName
-{
-    #include "gatt_srv_defs.h"
-};
-/* The following array is the array containing attributes that are   */
-/* registered by this service.                                       */
-static ServiceInfo_t gServiceTable[] =
-{
-    {
-        /* Service Flags.                                                 */
-        0,
-
-        /* Service ID.                                                    */
-        0,
-
-        /* PersistentUID.                                                 */
-        0,
-
-        /* Service UUID.
-        0000FACE-0000-1000-8000-00805F9B34FB */
-        MAKEUUID16(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB),
-
-        /* Service Handle Range.                                          */
-        {0, 0},
-
-        /* Number of Service Table Entries.                               */
-        PAIRING_SERVICE_TABLE_NUM_ENTRIES,
-
-        /* Service Attribute List.                                        */
-        SrvTable0,
-
-        "RING_PAIRING_SVC"
-    },
-};
-#define RING_PAIRING_SVC_IDX                                          0
-#define PREDEFINED_SERVICES_COUNT                                     (sizeof(gServiceTable)/sizeof(ServiceInfo_t))
+#include "gatt_attr_def.h"  // for this test only
 
 /* The following function reads a line from standard input into the  */
 /* specified buffer.  This function returns the string length of the */
@@ -524,6 +372,54 @@ static int CommandParser(UserCommand_t *TempCommand, char *UserInput)
     return(ret_val);
 }
 
+static CommandFunction_t FindCommand(char *Command)
+{
+    unsigned int      Index;
+    CommandFunction_t ret_val;
+
+    /* First, make sure that the command specified is semi-valid.        */
+    if(Command)
+    {
+        /* Special shortcut: If it's simply a one or two digit number,    */
+        /* convert the command directly based on the Command Index.       */
+        if((strlen(Command) == 1) && (Command[0] >= '1') && (Command[0] <= '9'))
+        {
+            Index = atoi(Command);
+
+            if(Index < NumberCommands)
+                ret_val = CommandTable[Index - 1].CommandFunction;
+            else
+                ret_val = NULL;
+        }
+        else
+        {
+            if((strlen(Command) == 2) && (Command[0] >= '0') && (Command[0] <= '9') && (Command[1] >= '0') && (Command[1] <= '9'))
+            {
+                Index = atoi(Command);
+
+                if(Index < NumberCommands)
+                    ret_val = CommandTable[Index?(Index-1):Index].CommandFunction;
+                else
+                    ret_val = NULL;
+            }
+            else
+            {
+                /* Now loop through each element in the table to see if     */
+                /* there is a match.                                        */
+                for(Index=0,ret_val=NULL;((Index<NumberCommands) && (!ret_val));Index++)
+                {
+                    if((strlen(Command) == strlen(CommandTable[Index].CommandName)) && (memcmp(Command, CommandTable[Index].CommandName, strlen(CommandTable[Index].CommandName)) == 0))
+                        ret_val = CommandTable[Index].CommandFunction;
+                }
+            }
+        }
+    }
+    else
+        ret_val = NULL;
+
+    return(ret_val);
+}
+
 /* This function is responsible for determining the command in which */
 /* the user entered and running the appropriate function associated  */
 /* with that command.  The first parameter of this function is a     */
@@ -565,8 +461,8 @@ static int CommandInterpreter(UserCommand_t *TempCommand)
                 if ((memcmp(TempCommand->Command, "INITIALIZE", strlen("INITIALIZE")) == 0) ||
                     (memcmp(TempCommand->Command, "1", 1) == 0))
                 {
-                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].intParam = PREDEFINED_SERVICES_COUNT;
-                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam =(char*) gServiceTable;
+                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].intParam = 1;
+                    TempCommand->Parameters.Params[TempCommand->Parameters.NumberofParameters].strParam = NULL; // (char*) gServiceTable;
                     TempCommand->Parameters.NumberofParameters++;
                 }
                 /* The command was found in the table so call the command.  */
@@ -631,54 +527,6 @@ static int AddCommand(char *CommandName, CommandFunction_t CommandFunction)
 /* specified Command.  If the Command is found, this function returns*/
 /* a NON-NULL Command Function Pointer.  If the command is not found */
 /* this function returns NULL.                                       */
-static CommandFunction_t FindCommand(char *Command)
-{
-    unsigned int      Index;
-    CommandFunction_t ret_val;
-
-    /* First, make sure that the command specified is semi-valid.        */
-    if(Command)
-    {
-        /* Special shortcut: If it's simply a one or two digit number,    */
-        /* convert the command directly based on the Command Index.       */
-        if((strlen(Command) == 1) && (Command[0] >= '1') && (Command[0] <= '9'))
-        {
-            Index = atoi(Command);
-
-            if(Index < NumberCommands)
-                ret_val = CommandTable[Index - 1].CommandFunction;
-            else
-                ret_val = NULL;
-        }
-        else
-        {
-            if((strlen(Command) == 2) && (Command[0] >= '0') && (Command[0] <= '9') && (Command[1] >= '0') && (Command[1] <= '9'))
-            {
-                Index = atoi(Command);
-
-                if(Index < NumberCommands)
-                    ret_val = CommandTable[Index?(Index-1):Index].CommandFunction;
-                else
-                    ret_val = NULL;
-            }
-            else
-            {
-                /* Now loop through each element in the table to see if     */
-                /* there is a match.                                        */
-                for(Index=0,ret_val=NULL;((Index<NumberCommands) && (!ret_val));Index++)
-                {
-                    if((strlen(Command) == strlen(CommandTable[Index].CommandName)) && (memcmp(Command, CommandTable[Index].CommandName, strlen(CommandTable[Index].CommandName)) == 0))
-                        ret_val = CommandTable[Index].CommandFunction;
-                }
-            }
-        }
-    }
-    else
-        ret_val = NULL;
-
-    return(ret_val);
-}
-
 /* The following function is provided to allow a means to clear out  */
 /* all available commands from the command table.                    */
 static void ClearCommands(void)
@@ -703,7 +551,7 @@ static int DisplayHelp(ParameterList_t *TempParam __attribute__ ((unused)))
     printf("*******************************************************************\r\n");
     printf("* Command Options:                                                *\r\n");
     #define RING_BLE_PRINT_HELP
-    #include "gatt_srv_defs.h"
+    #include "gatt_test_defs.h"
     printf("*                  HH, MM, Help, Quit.                            *\r\n");
     printf("*******************************************************************\r\n");
     return(0);
@@ -732,105 +580,28 @@ static int AutoHelp(ParameterList_t *p)
     return Ble::Error::NONE;
 }
 
-static int HelpParam(ParameterList_t *TempParam __attribute__ ((unused)))
-{
-    /* Note the order they are listed here *MUST* match the order in     */
-    /* which then are added to the Command Table.                        */
-    printf("******************************************************************\r\n");
-    printf("* 1) Initialize [0/1 - Register for Events].\r\n");
-    printf("* 2) Shutdown\r\n");
-    printf("* 3) QueryDebugZoneMask [0/1 - Local/Service] [Page Number - optional, default 0].\r\n");
-    printf("* 4) SetDebugZoneMask [0/1 - Local/Service] [Debug Zone Mask].\r\n");
-    printf("* 5) SetDebugZoneMaskPID [Process ID] [Debug Zone Mask].\r\n");
-    printf("* 6) ShutdownService\r\n");
-    printf("* 7) RegisterEventCallback, \r\n");
-    printf("* 8) UnRegisterEventCallback, \r\n");
-    printf("* 9) QueryDevicePower \r\n");
-    printf("* 10)SetDevicePower [0/1 - Power Off/Power On].\r\n");
-    printf("* 11)QueryLocalDeviceProperties \r\n");
-    printf("* 12)SetLocalDeviceName \r\n");
-    printf("* 13)SetLocalClassOfDevice [Class of Device].\r\n");
-    printf("* 14)SetDiscoverable [Enable/Disable] [Timeout (Enable only)].\r\n");
-    printf("* 15)SetConnectable [Enable/Disable] [Timeout (Enable only)].\r\n");
-    printf("* 16)SetPairable [Enable/Disable] [Timeout (Enable only)].\r\n");
-    printf("* 17)StartDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)] [Duration].\r\n");
-    printf("* 18)StopDeviceDiscovery [Type (1 = LE, 0 = BR/EDR)].\r\n");
-    printf("* 19)QueryRemoteDeviceList [Number of Devices] [Filter (Optional)] [COD Filter (Optional)].\r\n");
-    printf("* 20)QueryRemoteDeviceProperties [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update].\r\n");
-    printf("* 21)AddRemoteDevice [BD_ADDR] [[COD (Optional)] [Friendly Name (Optional)] [Application Info (Optional)]].\r\n");
-    printf("* 22)DeleteRemoteDevice [BD_ADDR].\r\n");
-    printf("* 23)UpdateRemoteDeviceAppData [BD_ADDR] [Data Valid] [Friendly Name] [Application Info].\r\n");
-    printf("* 24)DeleteRemoteDevices [Device Delete Filter].\r\n");
-    printf("* 25)PairWithRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Pair Flags (optional)].\r\n");
-    printf("* 26)CancelPairWithRemoteDevice [BD_ADDR].\r\n");
-    printf("* 27)UnPairRemoteDevice [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] .\r\n");
-    printf("* 28)QueryRemoteDeviceServices [BD_ADDR] [Type (1 = LE, 0 = BR/EDR)] [Force Update] [Bytes to Query (specified if Force is 0)].\r\n");
-    printf("* 29)QueryRemoteDeviceServiceSupported [BD_ADDR] [Service UUID].\r\n");
-    printf("* 30)QueryRemoteDevicesForService [Service UUID] [Number of Devices].\r\n");
-    printf("* 31)QueryRemoteDeviceServiceClasses [BD_ADDR] [Number of Service Classes].\r\n");
-    printf("* 32)AuthenticateRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
-    printf("* 33)EncryptRemoteDevice [BD_ADDR] [Type (LE = 1, BR/EDR = 0)].\r\n");
-    printf("* 34)ConnectWithRemoteDevice [BD_ADDR] [Connect LE (1 = LE, 0 = BR/EDR)] [ConnectFlags (Optional)].\r\n");
-    printf("* 35)DisconnectRemoteDevice [BD_ADDR] [LE Device (1= LE, 0 = BR/EDR)] [Force Flag (Optional)].\r\n");
-    printf("* 36)SetRemoteDeviceLinkActive [BD_ADDR].\r\n");
-    printf("* 37)CreateSDPRecord\r\n");
-    printf("* 38)DeleteSDPRecord [Service Record Handle].\r\n");
-    printf("* 39)AddSDPAttribute [Service Record Handle] [Attribute ID] [Attribute Value (optional)].\r\n");
-    printf("* 40)DeleteSDPAttribute [Service Record Handle] [Attribute ID].\r\n");
-    printf("* 41)EnableBluetoothDebug [Enable (0/1)] [Type (1 - ASCII File, 2 - Terminal, 3 - FTS File)] [Debug Flags] [Debug Parameter String (no spaces)].\r\n");
-    printf("* 42)RegisterAuthentication \r\n");
-    printf("* 43)UnRegisterAuthentication \r\n");
-    printf("* 44)PINCodeResponse [PIN Code].\r\n");
-    printf("* 45)PassKeyResponse [Numeric Passkey (0 - 999999)].\r\n");
-    printf("* 46)UserConfirmationResponse [Confirmation (0 = No, 1 = Yes)].\r\n");
-    printf("* 47)ChangeSimplePairingParameters [I/O Capability (0 = Display Only, 1 = Display Yes/No, 2 = Keyboard Only, 3 = No Input/Output)] [MITM Requirement (0 = No, 1 = Yes)].\r\n");
-    printf("* 48)RegisterGATTCallback \r\n");
-    printf("* 49)UnRegisterGATTCallback \r\n");
-    printf("* 50)QueryGATTConnections \r\n");
-    printf("* 51)SetLocalDeviceAppearance \r\n");
-    printf("* 52)StartAdvertising [Flags] [Duration] [BD ADDR].\r\n");
-    printf("* 53)StopAdvertising [Flags].\r\n");
-    printf("* 54)RegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
-    printf("* 55)UnRegisterService [Service Index (0 - %d)].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
-    printf("* 56)IndicateCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
-    printf("* 57)NotifyCharacteristic [Service Index (0 - %d)] [Attribute Offset] [BD_ADDR].\r\n", (int) PREDEFINED_SERVICES_COUNT-1);
-    printf("* 58)ListCharacteristics\r\n");
-    printf("* 59)ListDescriptors\r\n");
-    printf("* 60)QueryPublishedServices \r\n");
-    printf("* 61)SetAdvertisingInterval [Advertising Interval Min] [Advertising Interval Max] (Range: 20..10240 in ms).\r\n");
-    printf("* 62)SetAndUpdateConnectionAndScanBLEParameters\r\n");
-    printf("* 63)SetAuthenticatedPayloadTimeout [BD_ADDR] [Authenticated Payload Timout (In ms)].\r\n");
-    printf("* 64)QueryAuthenticatedPayloadTimeout [BD_ADDR].\r\n");
-    printf("* 65)EnableSCOnly [mode (0 = mSC Only mode is off, 1 = mSC Only mode is on].\r\n");
-    printf("* 66)RegenerateP256LocalKeys\r\n");
-    printf("* 67)OOBGenerateParameters\r\n");
-    printf("* 68)ChangeLEPairingParameters:\r\n");
-    printf("* HH, MM, Help, Quit. \r\n");
-    printf("*****************************************************************\r\n");
-
-    return 0;
-}
-
 /*****************************************************************************
  * SECTION of server Init and command line user interface for tests purposes
  *****************************************************************************/
 
-static void GATM_Init(void)
+static void gatt_srv_test_init(void)
 {
-    struct sigaction SignalAction;
-    int idx = 0;
-
-    static int bInited = FALSE;
-    if (bInited)
+#if !defined(Linux_x86_64) || !defined(WILINK18)
+    gBleApi = GattSrv::getInstance();
+    if (gBleApi == NULL)
+    {
+        printf("failed to obtain BleApi instance. Abort.\n");
         return;
-    bInited = TRUE;
+    }
+#endif
 
     /* First let's make sure that we start on new line.                  */
     printf("\r\n");
 
     ClearCommands();
+    int idx = 0; // used in macro below
     #define RING_BLE_DEF_ADD_COMMAND
-    #include "gatt_srv_defs.h"
+    #include "gatt_test_defs.h"
 
     AddCommand((char*) "HELP", DisplayHelp);
     AddCommand((char*) "HH", HelpParam);
@@ -839,9 +610,10 @@ static void GATM_Init(void)
     /* Next display the available commands.                              */
     DisplayHelp(NULL);
 
+#ifndef DISABLE_CONFIGURE_SIGTTIN_SIGNAL
     /* Configure the SIGTTIN signal so that this application can run in  */
     /* the background.                                                   */
-
+    struct sigaction SignalAction;
     /* Initialize the signal set to empty.                               */
     sigemptyset(&SignalAction.sa_mask);
 
@@ -860,19 +632,21 @@ static void GATM_Init(void)
     /* until we have re-entered the foreground before attempting to read */
     /* from standard input again.                                        */
     sigaction(SIGTTIN, &SignalAction, NULL);
+#endif
 }
+
 /* This function is responsible for taking the input from the user   */
 /* and dispatching the appropriate Command Function.  First, this    */
 /* function retrieves a String of user input, parses the user input  */
 /* into Command and Parameters, and finally executes the Command or  */
 /* Displays an Error Message if the input is not a valid Command.    */
-static void UserInterface(void)
+static void user_interface(void)
 {
     UserCommand_t TempCommand;
     int  Result = !Ble::Error::EXIT_CODE;
     char UserInput[MAX_COMMAND_LENGTH];
 
-    GATM_Init();
+    gatt_srv_test_init();
 
     /* This is the main loop of the program.  It gets user input from the*/
     /* command window, make a call to the command parser, and command    */
@@ -963,9 +737,9 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
         hci_close_dev(dd);
     }
 
-    if (gBleApi == NULL)
+    if (gBleApi)
     {
-        DeviceConfig_t dc[] = {{.tag = Config_EOL},{.tag = Config_EOL}};
+        DeviceConfig_t dc[] = {{.tag = Ble::Config::EOL},{.tag = Ble::Config::EOL}};
         switch (aCmd)
         {
             case eConfig_UP: ((GattSrv*)gBleApi)->HCIup(ctl, di.dev_id); break;
@@ -982,12 +756,12 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
                 break;
 
             case eConfig_LEADV:
-                dc->tag = Config_Discoverable;
+                dc->tag = Ble::Config::Discoverable;
                 gBleApi->Configure(dc);
                 break;
 
             case eConfig_CLASS:
-                dc->tag = Config_LocalClassOfDevice;
+                dc->tag = Ble::Config::LocalClassOfDevice;
                 gBleApi->Configure(dc);
                 break;
 
@@ -1005,42 +779,6 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
     return 0;
 }
 
-static int ValidateAndExecCommand(const char *aCmd)
-{
-    int  Result = !Ble::Error::EXIT_CODE;
-    UserCommand_t TempCommand;
-
-    // note need to use copy of the input (not const char*!) to let the validator to modify the input
-    char UserInput[MAX_COMMAND_LENGTH];
-    sprintf(UserInput, "%s", aCmd);
-
-
-    /* The string input by the user contains a value, now run   */
-    /* the string through the Command Parser.                   */
-    if(CommandParser(&TempCommand, UserInput) >= 0)
-    {
-        /* The Command was successfully parsed, run the Command. */
-        Result = CommandInterpreter(&TempCommand);
-
-        switch(Result)
-        {
-        case Ble::Error::INVALID_COMMAND:
-            printf("Invalid Command.\r\n");
-            break;
-        case Ble::Error::FUNCTION:
-            printf("Function Error.\r\n");
-            break;
-        default:
-            printf("Command executed with res=%d\n", Result);
-        }
-    }
-    else
-    {
-        printf("Invalid Input.\r\n");
-    }
-    return Result;
-}
-
 ///
 /// \brief gatt_server_start
 /// \param arguments - expected NULL or "--autoinit"
@@ -1048,198 +786,33 @@ static int ValidateAndExecCommand(const char *aCmd)
 ///
 extern "C" int gatt_server_start(const char* arguments)
 {
-
-#if !defined(Linux_x86_64) || !defined(WILINK18)
-    gBleApi = GattSrv::getInstance();
-    if (gBleApi == NULL)
+    BlePairing *Pairing = BlePairing::getInstance();
+    if (Pairing == NULL)
     {
-        printf("error creating gBleApi!! Abort. \n");
-        return -666;
+        printf("failed to obtain BlePairing instance. Abort.\n");
+        return -777;
     }
-#endif
 
-    GATM_Init();
-
-    if (arguments != NULL)
+    if (arguments != NULL && Pairing && !strcmp(arguments, "--autoinit"))
     {
         printf("---starting in a sec...---\n");
         sleep(2);
 
-        if (!strcmp(arguments, "--autoinit") && gBleApi)
+        int ret_val = Pairing->Initialize();
+        if (Ble::Error::NONE != ret_val)
         {
-            int ret_val = Ble::Error::UNDEFINED;
-
-#if !defined(Linux_x86_64) || !defined(WILINK18)
-            ret_val = gBleApi->Initialize();
-            if (ret_val != Ble::Error::NONE)
-            {
-                printf("gBleApi->Initialize(&params[0]) failed, Abort.\n");
-                goto autodone;
-            }
-
-            ret_val = gBleApi->SetDevicePower(true);
-            if (ret_val != Ble::Error::NONE)
-            {
-                printf("gBleApi->SetDevicePower(&params[1]) failed, Abort.\n");
-                goto autodone;
-            }
-
-            // example of Config usage
-            DeviceConfig_t config[] =
-            {   // config tag               num of params       params
-                {Config_ServiceTable,           {1, {{(char*) gServiceTable, PREDEFINED_SERVICES_COUNT}}}},
-                {Config_LocalDeviceName,        {1, {{(char*) "Ring-7E01", 0}}}},
-                {Config_LocalClassOfDevice,     {1, {{NULL, 0x280430}}}},
-                {Config_AdvertisingInterval,    {2, {{NULL, 2000}, {NULL, 3000}}}},
-                {Config_LocalDeviceAppearance,  {1, {{NULL, BleApi::BLE_APPEARANCE_GENERIC_COMPUTER}}}},
-                {Config_Discoverable,           {1, {{NULL, 1}}}},
-                {Config_Connectable,            {1, {{NULL, 1}}}},
-                {Config_Pairable,               {1, {{NULL, 1}}}},
-                {Config_EOL,                    {0, {{NULL, 0}}}},
-            };
-
-
-            ret_val = gBleApi->Configure(config);
-            if (ret_val != Ble::Error::NONE)
-            {
-                printf("gBleApi->Configure(&config) failed, Abort.\n");
-                goto autodone;
-            }
-
-            // register on GATT attribute read/write callback
-            ret_val = gBleApi->RegisterCharacteristicAccessCallback(attr_read_write_cb);
-            if (ret_val != Ble::Error::NONE)
-            {
-                printf("gBleApi->RegisterCharacteristicAccessCallback failed, ret = %d\n", ret_val);
-            }
-#else
-            (void) attr_read_write_cb;
-#endif
-            // list of commands example
-            const StartUpCommands_t gStartUpCommandList[] =
-            {
-                {"RegisterGATTCallback",                1},
-                {"RegisterService 0",                   1},
-                {"ListCharacteristics",                 1},
-                {"ListDescriptors",                     1},
-                {"RegisterAuthentication",              1},
-                {"ChangeSimplePairingParameters 0 0",   1},
-                {"StartAdvertising 118 300",            1},
-                {"EnableBluetoothDebug 1 2",            1},
-                {"QueryLocalDeviceProperties",          1},
-            };
-            int nCmds = sizeof(gStartUpCommandList)/sizeof(StartUpCommands_t);
-
-            for (int i = 0; i < nCmds; i++)
-            {
-                printf("cmd[%d]: [%s]\n", i+1, gStartUpCommandList[i].mCmd);
-                ret_val = ValidateAndExecCommand(gStartUpCommandList[i].mCmd);
-                printf("cmd[%d]: [%s] ret = %d\n", i+1, gStartUpCommandList[i].mCmd, ret_val);
-                sleep(gStartUpCommandList[i].mDelay);
-
-                if (ret_val != Ble::Error::NONE)
-                {
-                    // abort sequence
-                    printf("cmd[%d]: %s failed - Abort the series.\n", i+1, gStartUpCommandList[i].mCmd);
-                    goto autodone;
-                }
-            }
+            printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
+            goto autodone;
+        }
+        if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
+        {
+            printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+            goto autodone;
         }
     }
 
 autodone:
-    UserInterface();
+    user_interface();
 
     return 0;
-}
-
-
-static void attr_read_write_cb(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType)
-{
-    static const char* sPayloadReady = "PAYLOAD_READY";
-    static const char* sWiFiConnected = "WIFI_CONNECTED";
-    static const char* sWiFiConnectFailed = "WIFI_CONNECT_FAILED";
-
-    static const unsigned int gServiceID = gServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
-    static const AttributeInfo_t *gAttributeList = gServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
-
-    #define ATTRIBUTE_OFFSET(_idx) gAttributeList[_idx].AttributeOffset
-    #define SET_ATTRIBUTE_STR_VAL(_value) (Byte_t *) _value, strlen(_value)
-
-    printf("\npairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
-           aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
-           gServiceTable[aServiceIdx].ServiceName, gServiceTable[aServiceIdx].AttributeList[aAttributeIdx].AttributeName);
-
-    switch (aAccessType)
-    {
-    case Ble::Characteristic::Read:
-    case Ble::Characteristic::Confirmed:
-        gBleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
-        // other things todo...
-        break;
-
-    case Ble::Characteristic::Write:
-            printf("Value:\n");
-            gBleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
-
-            switch (aAttributeIdx)
-            {
-            case eSET_PUBLIC_KEY:
-                printf("\n\tOn geting PUBLIC_KEY the device generates Public/Private keys. A randomly generated nonce start\n" \
-                       "\tset of 20 bytes is generated. The the device then takes the public key, and signs it using ed25519\n" \
-                       "\tand a private key that is embedded in the application and creates a 64 byte signature of the ephemeral\n" \
-                       "\tpublic key. The public key, signature, and nonce start are saved as the Public Payload - GET_PUBLIC_PAYLOAD.\n" \
-                       "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
-
-            gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PUBLIC_PAYLOAD), SET_ATTRIBUTE_STR_VAL(gsVal));
-            gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sPayloadReady);
-
-                break;
-
-            case eSET_NETWORK:
-            {
-                printf("\n\tOn geting SET_PAIRING_START the device shoud login into WiFi network using SSID and PASSWORD\n" \
-                       "\tfrom its properties supposed to be already set by client app\n"   \
-                       "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
-                       "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
-
-                char *net_config = (char*) ((CharacteristicInfo_t*) (gAttributeList[eSET_NETWORK].Attribute))->Value;
-                printf("Configuring WIFI with the following info:\n%s\n", net_config);
-
-                char *ssid = getValByKeyfromJson(net_config, "ssid");
-                char *pass = getValByKeyfromJson(net_config, "pass");
-                printf("Using parsed settings:\nssid:\t%s\npass:\t%s\n", ssid, pass);
-
-                // here use parsed SSID and PASS to connect to Wnetwork
-
-                // THIS IS EXAMPLE of what should be done on network connection OK
-                // update WIFI status, save WIFI ssid, update PAIRING_STATE
-                if (sWiFiConnected) // connected OK
-                {
-                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_WIFI_STATUS), SET_ATTRIBUTE_STR_VAL(sWiFiConnected));
-                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_SSID_WIFI), SET_ATTRIBUTE_STR_VAL(ssid));
-                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(sWiFiConnected));
-                    gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sWiFiConnected);
-                }
-                else // connection failed
-                {
-                    gBleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(eGET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(sWiFiConnectFailed));
-                    gBleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, eGET_PAIRING_STATE, sWiFiConnectFailed);
-                }
-
-                // release parsed resources!
-                BTPS_FreeMemory(ssid);
-                BTPS_FreeMemory(pass);
-
-            }
-                break;
-            default:
-                break;
-
-        }
-        break;
-
-    default:
-        break;
-    }
 }

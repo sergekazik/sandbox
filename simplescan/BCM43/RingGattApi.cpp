@@ -128,54 +128,74 @@ int GattSrv::Configure(DeviceConfig_t* aConfig) {
 
     ctl = open_socket(di);
 
-    while (0 <= ctl && aConfig != NULL && aConfig->tag != Config_EOL)
+    while (0 <= ctl && aConfig != NULL && aConfig->tag != Ble::Config::EOL)
     {
         switch (aConfig->tag)
         {
-        case Config_ServiceTable:
+        case Ble::Config::ServiceTable:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_LocalDeviceName:
+        case Ble::Config::LocalDeviceName:
             HCIname(di.dev_id, mDeviceName);
             ret_val = Error::NONE;
             break;
 
-        case Config_LocalClassOfDevice:
+        case Ble::Config::LocalClassOfDevice:
             HCIclass(di.dev_id, mDeviceClass);
             ret_val = Error::NONE;
             break;
 
-        case Config_Discoverable:
+        case Ble::Config::Discoverable:
             HCIle_adv(di.dev_id, NULL);
             ret_val = Error::NONE;
             break;
 
-        case Config_Connectable:
+        case Ble::Config::Connectable:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_Pairable:
+        case Ble::Config::Pairable:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_RemoteDeviceLinkActive:
+        case Ble::Config::RemoteDeviceLinkActive:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_LocalDeviceAppearance:
+        case Ble::Config::LocalDeviceAppearance:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_AdvertisingInterval:
+        case Ble::Config::AdvertisingInterval:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_AndUpdateConnectionAndScanBLEParameters:
+        case Ble::Config::AndUpdateConnectionAndScanBLEParameters:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 
-        case Config_AuthenticatedPayloadTimeout:
+        case Ble::Config::AuthenticatedPayloadTimeout:
+            ret_val = Error::NOT_IMPLEMENTED;
+            break;
+
+        case Ble::Config::RegisterGATTCallback:
+            ret_val = Error::NOT_IMPLEMENTED;
+            break;
+
+        case Ble::Config::RegisterService:
+            ret_val = Error::NOT_IMPLEMENTED;
+            break;
+
+        case Ble::Config::RegisterAuthentication:
+            ret_val = Error::NOT_IMPLEMENTED;
+            break;
+
+        case Ble::Config::SetSimplePairing:
+            ret_val = Error::NOT_IMPLEMENTED;
+            break;
+
+        case Ble::Config::EnableBluetoothDebug:
             ret_val = Error::NOT_IMPLEMENTED;
             break;
 

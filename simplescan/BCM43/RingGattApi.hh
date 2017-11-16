@@ -32,7 +32,7 @@ public:
     int Configure(DeviceConfig_t* aConfig);
 
     int QueryDevicePower() { return Error::NOT_IMPLEMENTED; }
-    int SetDevicePower(bool aPowerOn) { (void) aPowerOn; return Error::NOT_IMPLEMENTED; }
+    int SetDevicePower(Ble::ConfigArgument::Arg aOnOff) { (void) aOnOff; return Error::NOT_IMPLEMENTED; }
 
     int ShutdownService() { return Error::NOT_IMPLEMENTED; }
     int Shutdown();

@@ -432,9 +432,9 @@ void GattSrv::SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress)
 /// \brief GattSrv::SetDevicePower
 /// \return
 ///
-int GattSrv::SetDevicePower(bool aPowerOn)
+int GattSrv::SetDevicePower(ConfigArgument::Arg aOnOff)
 {
-    ParameterList_t params = {1, {{NULL, aPowerOn ? Ble::Power::On : Ble::Power::Off}}};
+    ParameterList_t params = {1, {{NULL, (unsigned int) aOnOff}}};
     return SetDevicePower(&params);
 }
 
@@ -780,11 +780,11 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
 {
     int ret_val = Error::UNDEFINED;
 
-    while (aConfig != NULL && aConfig->tag != Config_EOL)
+    while (aConfig != NULL && aConfig->tag != Ble::Config::EOL)
     {
         switch (aConfig->tag)
         {
-        case Config_ServiceTable:
+        case Ble::Config::ServiceTable:
             if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.Params[0].strParam != NULL))
             {
                 mServiceCount = aConfig->params.Params[0].intParam;
@@ -795,49 +795,69 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
             else
             {
                 /* One or more of the necessary parameters is/are invalid.     */
-                BOT_NOTIFY_ERROR("Usage: Config_ServiceTable: ServiceInfo_t *ptr, int numOfSvc");
+                BOT_NOTIFY_ERROR("Usage: Ble::Config::ServiceTable: ServiceInfo_t *ptr, int numOfSvc");
                 ret_val = Error::INVALID_PARAMETERS;
             }
             break;
 
-        case Config_LocalDeviceName:
+        case Ble::Config::LocalDeviceName:
             ret_val = SetLocalDeviceName(&aConfig->params);
             break;
 
-        case Config_LocalClassOfDevice:
+        case Ble::Config::LocalClassOfDevice:
             ret_val = SetLocalClassOfDevice(&aConfig->params);
             break;
 
-        case Config_Discoverable:
+        case Ble::Config::Discoverable:
             ret_val = SetDiscoverable(&aConfig->params);
             break;
 
-        case Config_Connectable:
+        case Ble::Config::Connectable:
             ret_val = SetConnectable(&aConfig->params);
             break;
 
-        case Config_Pairable:
+        case Ble::Config::Pairable:
             ret_val = SetPairable(&aConfig->params);
             break;
 
-        case Config_RemoteDeviceLinkActive:
+        case Ble::Config::RemoteDeviceLinkActive:
             ret_val = SetRemoteDeviceLinkActive(&aConfig->params);
             break;
 
-        case Config_LocalDeviceAppearance:
+        case Ble::Config::LocalDeviceAppearance:
             ret_val = SetLocalDeviceAppearance(&aConfig->params);
             break;
 
-        case Config_AdvertisingInterval:
+        case Ble::Config::AdvertisingInterval:
             ret_val = SetAdvertisingInterval(&aConfig->params);
             break;
 
-        case Config_AndUpdateConnectionAndScanBLEParameters:
+        case Ble::Config::AndUpdateConnectionAndScanBLEParameters:
             ret_val = SetAndUpdateConnectionAndScanBLEParameters(&aConfig->params);
             break;
 
-        case Config_AuthenticatedPayloadTimeout:
+        case Ble::Config::AuthenticatedPayloadTimeout:
             ret_val = SetAuthenticatedPayloadTimeout(&aConfig->params);
+            break;
+
+        case Ble::Config::RegisterGATTCallback:
+            ret_val = RegisterGATMEventCallback(&aConfig->params);
+            break;
+
+        case Ble::Config::RegisterService:
+            ret_val = GATTRegisterService(&aConfig->params);
+            break;
+
+        case Ble::Config::RegisterAuthentication:
+            ret_val = RegisterAuthentication(&aConfig->params);
+            break;
+
+        case Ble::Config::SetSimplePairing:
+            ret_val = ChangeSimplePairingParameters(&aConfig->params);
+            break;
+
+        case Ble::Config::EnableBluetoothDebug:
+            ret_val = EnableBluetoothDebug(&aConfig->params);
             break;
 
         default:
@@ -3186,6 +3206,9 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
             }
             else
             {
+                // first disable debug if it was enabled already if needs to switch between terminal/file
+                DEVM_EnableBluetoothDebug(FALSE, 0,0,0, NULL);
+
                 /* Enable - Make sure we have the Type specified.           */
                 if (aParams->NumberofParameters >= 2)
                 {
@@ -5042,7 +5065,7 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                     if ((AttributeInfo = SearchServiceListByOffset(mServiceTable[aParams->Params[0].intParam].ServiceID, aParams->Params[1].intParam)) != NULL)
                     {
                         /* Convert the parameter to a Bluetooth Device Address.  */
-                        if (!strcmp(aParams->Params[2].strParam, "last"))
+                        if (0 == strcmp(aParams->Params[2].strParam, "last"))
                             BD_ADDR = mLastRemoteAddress;
                         else
                             StrToBD_ADDR(aParams->Params[2].strParam, &BD_ADDR);
@@ -7069,7 +7092,6 @@ AttributeInfo_t* GattSrv::SearchServiceListByOffset(unsigned int ServiceID, unsi
             }
         }
     }
-
     return AttributeInfo;
 }
 
@@ -7093,7 +7115,6 @@ int GattSrv::GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int Attrib
             }
         }
     }
-
     return attr_idx;
 }
 

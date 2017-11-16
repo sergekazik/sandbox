@@ -34,10 +34,6 @@ int gatt_server_start(const char* arguments);
 ///
 int execute_hci_cmd(eConfig_cmd_t aCmd);
 
-
-/* Helper Functions */
-char *getValByKeyfromJson(const char* json_str, const char* key);
-
 #ifdef __cplusplus
 }
 #endif

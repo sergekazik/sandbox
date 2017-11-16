@@ -10,92 +10,25 @@
 
 namespace Ring { namespace Ble {
 
-#define MAX_SUPPORTED_COMMANDS                     (75)  /* Denotes the       */
-                                                         /* maximum number of */
-                                                         /* User Commands that*/
-                                                         /* are supported by  */
-                                                         /* this application. */
-
-#define MAX_COMMAND_LENGTH                        (128)  /* Denotes the max   */
-                                                         /* buffer size used  */
-                                                         /* for user commands */
-                                                         /* input via the     */
-                                                         /* User Interface.   */
-
-#define MAX_NUM_OF_PARAMETERS                      (10)  /* Denotes the max   */
-                                                         /* number of         */
-                                                         /* parameters a      */
-                                                         /* command can have. */
-
-#define DEFAULT_IO_CAPABILITY          (icDisplayYesNo)  /* Denotes the       */
-                                                         /* default I/O       */
-                                                         /* Capability that is*/
-                                                         /* used with Secure  */
-                                                         /* Simple Pairing.   */
-
-#define DEFAULT_LE_IO_CAPABILITY      (licDisplayYesNo)  /* Denotes the       */
-                                                         /* default I/O       */
-                                                         /* Capability that is*/
-                                                         /* used with LE      */
-                                                         /* Pairing.          */
-
-#define DEFAULT_LE_MITM_PROTECTION               (TRUE)  /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for Man in the    */
-                                                         /* Middle (MITM)     */
-                                                         /* protection used   */
-                                                         /* with LE Pairing.  */
-
-#define DEFAULT_LE_BONDING_TYPE	           (lbtBonding)  /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for Bonding Type. */
-
-#define DEFAULT_SC_PROTECTION                    (TRUE)	 /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for LE pairing	  */
-                                                         /* method SC or	  */
-                                                         /* Legacy    		  */
-
-#define DEFAULT_KEYPRESS      			         (TRUE)  /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for keypress	  */
-                                                         /* notifications     */
-
-#define DEFAULT_P256_DEBUG_ENABLE	            (FALSE)  /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for P256 debug	  */
-                                                         /* mode.This is	  */
-                                                         /* relevant only	  */
-                                                         /* for LE SC 		  */
-
-#define DEFAULT_MITM_PROTECTION                  (TRUE)  /* Denotes the       */
-                                                         /* default value used*/
-                                                         /* for Man in the    */
-                                                         /* Middle (MITM)     */
-                                                         /* protection used   */
-                                                         /* with Secure Simple*/
-                                                         /* Pairing.          */
-
-#define INDENT_LENGTH                                3   /* Denotes the number*/
-                                                         /* of character      */
-                                                         /* spaces to be used */
-                                                         /* for indenting when*/
-                                                         /* displaying SDP    */
-                                                         /* Data Elements.    */
-
-#define DIRECT_CONNECTABLE_MODE                (0x0200)  /* Denotes that the  */
-                                                         /* connectabillity   */
-                                                         /* mode is Directed  */
-                                                         /* Connectable.      */
-
-#define LOW_DUTY_CYCLE_DIRECT_CONNECTABLE      (0x0400)  /* Denotes that the  */
-                                                         /* connectabillity   */
-                                                         /* mode is Low Duty  */
-                                                         /* Cycle Directed    */
-                                                         /* Connectable.      */
-#define DEV_CLASS_LEN                               16   /* device class bitmask as a string */
-#define DEV_NAME_LEN                                64   /* text string = device name */
-#define DEBUG_STRING_MAX_LEN                        64   /* text string for debug */
+#define MAX_SUPPORTED_COMMANDS              (75)    /* Denotes the maximum number of User Commands that are supported by this application. */
+#define MAX_COMMAND_LENGTH                  (128)   /* Denotes the max buffer size used for user commands input via the User Interface. */
+#define MAX_NUM_OF_PARAMETERS               (10)    /* Denotes the max number of parameters a command can have. */
+#define DEFAULT_IO_CAPABILITY               (icDisplayYesNo) /* Denotes the default I/O Capability that is used with Secure Simple Pairing. */
+#define DEFAULT_LE_IO_CAPABILITY            (licDisplayYesNo) /* Denotes the default I/O Capability that is used with LE Pairing. */
+#define DEFAULT_LE_MITM_PROTECTION          (TRUE)  /* Denotes the default value use for Man in the Middle (MITM) protection used with LE Pairing. */
+#define DEFAULT_LE_BONDING_TYPE             (lbtBonding) /* Denotes the default value use for Bonding Type. */
+#define DEFAULT_SC_PROTECTION               (TRUE)  /* Denotes the default value use for LE pairing method SC or Legacy */
+#define DEFAULT_KEYPRESS                    (TRUE)  /* Denotes the default value use for keypress notifications */
+#define DEFAULT_P256_DEBUG_ENABLE           (FALSE) /* Denotes the default value use for P256 debug mode.This is relevant only for LE SC */
+#define DEFAULT_MITM_PROTECTION             (TRUE)  /* Denotes the default value use for Man in the Middle (MITM) protection used with Secure Simpl Pairing. */
+#define INDENT_LENGTH                       3       /* Denotes the number of character spaces to be used for indenting whe displaying SDP Data Elements. */
+#define DIRECT_CONNECTABLE_MODE             (0x0200)/* Denotes that the connectabillity mode is Directed Connectable. */
+#define LOW_DUTY_CYCLE_DIRECT_CONNECTABLE   (0x0400)/* Denotes that the connectabillity mode is Low Duty Cycle Directed Connectable. */
+#define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
+#define DEV_NAME_LEN                        64      /* text string = device name */
+#define DEBUG_STRING_MAX_LEN                64      /* text string for debug */
+#define ATT_MTU_MAX                         512     /* Attributes from a GATT database located on a GATT Server (usually a BLE peripheral device) have a
+                                                     * maximum allowed value size of 512 bytes.*/
 
 /* The following MACRO is used to convert an ASCII character into the*/
 /* equivalent decimal value.  The MACRO converts lower case          */
@@ -255,73 +188,57 @@ typedef struct _tagCommandTable_t
     CommandFunction_t  CommandFunction;
 } CommandTable_t;
 
-enum ConfigTag
-{
-    Config_EOL                  = 0, // End of l ist
-    Config_ServiceTable,
-    Config_LocalDeviceName,
-    Config_LocalClassOfDevice,
-    Config_Discoverable,
-    Config_Connectable,
-    Config_Pairable,
-    Config_RemoteDeviceLinkActive,
-    Config_LocalDeviceAppearance,
-    Config_AdvertisingInterval,
-    Config_AndUpdateConnectionAndScanBLEParameters,
-    Config_AuthenticatedPayloadTimeout,
-};
+namespace Config { enum Tag {
+    EOL                  = 0, // End of list
+    ServiceTable,
+    LocalDeviceName,
+    LocalClassOfDevice,
+    Discoverable,
+    Connectable,
+    Pairable,
+    RemoteDeviceLinkActive,
+    LocalDeviceAppearance,
+    AdvertisingInterval,
+    RegisterGATTCallback,
+    RegisterService,
+    RegisterAuthentication,
+    SetSimplePairing,
+    EnableBluetoothDebug,
+    AndUpdateConnectionAndScanBLEParameters,
+    AuthenticatedPayloadTimeout,
+};}
 
 typedef struct _tagDeviceConfig_t
 {
-    ConfigTag       tag;
+    Ble::Config::Tag   tag;
     ParameterList_t params;
 } DeviceConfig_t;
 
 /*********************************************************************/
 /* Service Table Structures.                                         */
 /*********************************************************************/
+#ifndef __GATMMSGH__
+#define GATM_SECURITY_PROPERTIES_NO_SECURITY                         0x00000000
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE    0x00000001
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE      0x00000002
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ     0x00000004
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ       0x00000008
+#define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_SIGNED_WRITES       0x00000010
+#define GATM_SECURITY_PROPERTIES_AUTHENTICATED_SIGNED_WRITES         0x00000020
 
-#define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                 0x00000001
-#define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                  0x00000002
+#define GATM_CHARACTERISTIC_PROPERTIES_BROADCAST                     0x00000001
+#define GATM_CHARACTERISTIC_PROPERTIES_READ                          0x00000002
+#define GATM_CHARACTERISTIC_PROPERTIES_WRITE_WO_RESP                 0x00000004
+#define GATM_CHARACTERISTIC_PROPERTIES_WRITE                         0x00000008
+#define GATM_CHARACTERISTIC_PROPERTIES_NOTIFY                        0x00000010
+#define GATM_CHARACTERISTIC_PROPERTIES_INDICATE                      0x00000020
+#define GATM_CHARACTERISTIC_PROPERTIES_AUTHENTICATED_SIGNED_WRITES   0x00000040
+#define GATM_CHARACTERISTIC_PROPERTIES_EXT_PROPERTIES                0x00000080
+#endif
 
-/*********************************************************************/
-/* Service Tables.                                                   */
-/*********************************************************************/
-/* * NOTE * For simplicity this application will not include Client  */
-/*          Characteristic Configuration Descriptors (CCCD) for      */
-/*          characteristics that are indicatable/notifiable.  This is*/
-/*          because the CCCD is a per client value that is stored    */
-/*          persistently for bonded devices.  This application, whose*/
-/*          only purpose is showing the usage of the APIs, does not  */
-/*          store per client values and also does not store values   */
-/*          persistently.                                            */
-/* * NOTE * To Calculate the AttributeOffset apply the following     */
-/*          formula:                                                 */
-/*                                                                   */
-/*             AttributeOffset = 1 + (NumPrevIncludes * 1) +         */
-/*                               (NumPrevCharacteristics * 2) +      */
-/*                               (NumPrevDescriptors * 1)            */
-/*                                                                   */
-/*          where:                                                   */
-/*                                                                   */
-/*             NumPrevIncludes = The number of previous Include      */
-/*                               Definition that exist in the        */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-/*                                                                   */
-/*             NumPrevCharacteristics = The number of previous       */
-/*                               Characteristics that exist in the   */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-/*                                                                    */
-/*             NumPrevDescriptors = The number of previous           */
-/*                               Descriptors that exist in the       */
-/*                               service table prior to the attribute*/
-/*                               (Include, Characteristic or         */
-/*                               Descriptor) that is being added.    */
-/*-------------------------------------------------------------------*/
+#define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                       0x00000001
+#define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                        0x00000002
+
 /* The following type defintion represents the structure which holds */
 /* information on a pending prepare write queue entry.               */
 typedef struct _tagPrepareWriteEntry_t
@@ -414,19 +331,51 @@ namespace Error { enum Error {
     NOT_FOUND           = -10,// Search not found
     INVALID_STATE       = -11,// Already set or single use error
     NOT_REGISTERED      = -12,// Callback is not registered
+    FAILED_INITIALIZE   = -13,//
 };}
 
-namespace Power { enum Power {
-    Off = 0,
-    On = 1,
+namespace ConfigArgument { enum Arg {
+    None    = 0,
+    Enable  = 1,
+    Disable = 0,
+    PowerOn = 1,
+    PowerOff = 0,
+    ASCII_File = 1,
+    Terminal = 2,
+    FTS_File = 3,
 };}
 
-namespace Characteristic { enum Access {
-    Read,
-    Write,
-    Confirmed,
-};}
+namespace Characteristic
+{
+    enum Access {
+        Read,
+        Write,
+        Confirmed,
+    };
+    enum  Property
+    {
+        R__     = GATM_CHARACTERISTIC_PROPERTIES_READ,
+        _W_     = GATM_CHARACTERISTIC_PROPERTIES_WRITE,
+        RW_     = GATM_CHARACTERISTIC_PROPERTIES_READ | GATM_CHARACTERISTIC_PROPERTIES_WRITE,
+        __N     = GATM_CHARACTERISTIC_PROPERTIES_NOTIFY,
+        R_N     = GATM_CHARACTERISTIC_PROPERTIES_READ | GATM_CHARACTERISTIC_PROPERTIES_NOTIFY,
+        _WN     = GATM_CHARACTERISTIC_PROPERTIES_WRITE | GATM_CHARACTERISTIC_PROPERTIES_NOTIFY,
+        RWN     = GATM_CHARACTERISTIC_PROPERTIES_READ | GATM_CHARACTERISTIC_PROPERTIES_WRITE | GATM_CHARACTERISTIC_PROPERTIES_NOTIFY,
+    };
+}
 
+namespace Advertising { enum Flags {
+    // Flags is a bitmask in the following table
+   LocalPublicAddress  = 0x00000001, // [Local Random Address] - if not set
+   Discoverable        = 0x00000002, // [Non Discoverable] - if not set
+   Connectable         = 0x00000004, // [Non Connectable] - if not set
+   AdvertiseName       = 0x00000010, // [Advertise Name off] - if not set
+   AdvertiseTxPower    = 0x00000020, // [Advertise Tx Power off] - if not set
+   AdvertiseAppearance = 0x00000040, // [Advertise Appearance off] - if not set
+   PeerPublicAddress   = 0x00000100, // [Peer Random Address] - if not set
+   DirectConnectable   = 0x00000200, // [Undirect Connectable] // When Connectable bit (0x0004) is set: - if not set
+   LowDutyCycle        = 0x00000400, // [High Duty Cycle] // When Direct Connectable bit (0x0200) is set: - if not set
+};}
 
 class BleApi
 {
@@ -452,7 +401,7 @@ protected:
 
 public:
     virtual int Initialize() = 0;
-    virtual int SetDevicePower(bool aPowerOn) = 0;
+    virtual int SetDevicePower(Ble::ConfigArgument::Arg aOnOff) = 0;
     virtual int ShutdownService() = 0;
     virtual int Shutdown() = 0;
 
