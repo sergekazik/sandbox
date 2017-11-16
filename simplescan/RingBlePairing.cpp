@@ -89,13 +89,10 @@ BlePairing* BlePairing::getInstance() {
 BlePairing::BlePairing() :
     mPairingServiceIndex(0)
 {
-#if !defined(Linux_x86_64) || !defined(WILINK18)
-    mBleApi = GattSrv::getInstance();
-    if (mBleApi == NULL)
+    if (NULL == (mBleApi = GattSrv::getInstance()))
     {
         BOT_NOTIFY_INFO("BlePairing failed to obtain BleApi instance");
     }
-#endif
 
     // TODO: correct default configuration parameters or read it from the system
     strncpy(mRingDeviceName, "Ring-7E01", DEV_NAME_LEN);
@@ -161,7 +158,7 @@ int BlePairing::Initialize()
         }
         else if (Ble::Error::NONE != (ret_val = mBleApi->SetDevicePower(Ble::ConfigArgument::PowerOn)))
         {
-            BOT_NOTIFY_ERROR("mBleApi->SetDevicePower() failed.");
+            BOT_NOTIFY_ERROR("mBleApi->SetDevicePower(ON) failed.");
         }
         else if (Ble::Error::NONE != (ret_val = mBleApi->Configure(config)))
         {
@@ -187,7 +184,7 @@ int BlePairing::StartAdvertising()
     if (mBleApi == NULL)
     {
         BOT_NOTIFY_WARNING("BlePairing failed to obtain BleApi instance");
-        ret_val = Error::FAILED_INITIALIZE;
+        ret_val = Error::NOT_INITIALIZED;
     }
     else
     {
@@ -210,7 +207,22 @@ int BlePairing::StartAdvertising()
 ///
 int BlePairing::StopAdvertising()
 {
-    return Error::NONE;
+    int ret_val = Error::UNDEFINED;
+
+    if (mBleApi == NULL)
+    {
+        BOT_NOTIFY_WARNING("BlePairing failed to obtain BleApi instance");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    else
+    {
+        ParameterList_t params = {1, {{NULL, 0}}};
+        if (Ble::Error::NONE != (ret_val = mBleApi->StopAdvertising(&params)))
+        {
+            BOT_NOTIFY_ERROR("mBleApi->StopAdvertising failed, ret = %d, Abort.", ret_val);
+        }
+    }
+    return ret_val;
 }
 
 ///
@@ -219,7 +231,28 @@ int BlePairing::StopAdvertising()
 ///
 int BlePairing::Shutdown()
 {
-    return Error::NONE;
+    int ret_val = Error::UNDEFINED;
+
+    if (mBleApi == NULL)
+    {
+        BOT_NOTIFY_WARNING("BlePairing failed to obtain BleApi instance");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    else
+    {   // deactivate GATT Server
+        this->StopAdvertising();
+
+        // TODO: do we want to power off the BLE device completely and shutdown?
+        if (Ble::Error::NONE != (ret_val = mBleApi->SetDevicePower(Ble::ConfigArgument::PowerOff)))
+        {
+            BOT_NOTIFY_ERROR("mBleApi->SetDevicePower(OFF) failed.");
+        }
+        else if (Ble::Error::NONE != (ret_val = mBleApi->Shutdown()))
+        {
+            BOT_NOTIFY_ERROR("mBleApi->Shutdown failed.");
+        }
+    }
+    return ret_val;
 }
 
 ///
