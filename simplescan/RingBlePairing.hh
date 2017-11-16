@@ -36,7 +36,6 @@ private:
     unsigned int   mServiceCount;
 
     char mRingDeviceName[DEV_NAME_LEN];
-    char mGeneratedPayload[ATT_MTU_MAX];
     unsigned int mLocalClassOfDevice;
     unsigned int mAdvIntervalMin_ms;
     unsigned int mAdvIntervalMax_ms;

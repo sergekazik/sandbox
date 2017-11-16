@@ -98,8 +98,7 @@ BlePairing::BlePairing() :
 #endif
 
     // TODO: correct default configuration parameters or read it from the system
-    strncpy(mRingDeviceName, "RING-7E01", DEV_NAME_LEN);
-    strncpy(mGeneratedPayload, "this should be updated with \"public key+signature+nonce start\" before setting Value to GET_PUBLIC_PAYLOAD", ATT_MTU_MAX);
+    strncpy(mRingDeviceName, "Ring-7E01", DEV_NAME_LEN);
 
     mLocalClassOfDevice = 0x280430;
     mAdvertisingTimeout_sec = 112;
@@ -233,15 +232,15 @@ int BlePairing::Shutdown()
 void BlePairing::getValByKeyfromJson(const char* json_str, const char* key, char* val, int len)
 {
     if (json_str && key && val) {
+        memset(val, 0, len);
         char *pStart = (char*) strstr(json_str, key);
         if (pStart) {
             pStart += strlen(key)+3; //3 for ":"
             char *pEnd = (char*) strchr(pStart, '"');
             if (pEnd && (pEnd > pStart)) {
-                int ln = (pEnd-pStart);
+                int ln = pEnd-pStart+1;
                 if (ln > len) ln = len;
                 strncpy(val, pStart, ln-1);
-                val[ln] = '\0';
             }
         }
     }
