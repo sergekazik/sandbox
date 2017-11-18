@@ -50,7 +50,7 @@ LDFLAGS_APP = -lbluetooth
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
-TARGET_CLIENT = gatt_client_x86
+TARGET_CLIENT = pairing_client_x86
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
 SRCS_APP = test_ble.cpp gatt_test_srv.cpp test_stubs.cpp
