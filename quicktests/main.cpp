@@ -2,40 +2,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-using namespace std;
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
 
-static void forwarder(void);
-
-class test
+void timer_handler (int signum)
 {
-public:
-    test();
-    friend void forwarder(void);
-private:
-    void *something;
-
-};
-test::test()
-{
-    something = malloc(123);
-    printf("something 0x%08x\n", something);
+    (void) signum;
+    static int count = 0;
+    printf ("timer expired %d times\n", ++count);
 }
-static test *pTest = new test();
-void forwarder(void)
+
+int start_timer (int ms)
 {
-    if (pTest)
-    {
-        printf("forwarder something 0x%08x\n", pTest->something);
-        free(pTest->something);
-        pTest->something = NULL;
-        delete pTest;
-    }
+    struct sigaction sa;
+    struct itimerval timer;
+
+    /* Install timer_handler as the signal handler for SIGVTALRM. */
+    memset (&sa, 0, sizeof (sa));
+    sa.sa_handler = &timer_handler;
+    sigaction (SIGVTALRM, &sa, NULL);
+
+    /* Configure the timer to expire after ms msec... */
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = ms*1000;
+    /* ... and every ms msec after that. */ // - no repeat
+    timer.it_interval.tv_sec = 0;
+    timer.it_interval.tv_usec = ms*1000;;
+    /* Start a virtual timer. It counts down whenever this process is executing. */
+    setitimer (ITIMER_VIRTUAL, &timer, NULL);
+
+    return 0;
 }
 
 int main()
 {
-    forwarder();
+    int count = 10;
+    start_timer(500);
+    printf("no exit from here\n");
+    // getchar();
+    while (1)
+    {
+    }
     return 0;
+}
+using namespace std;
+
+int main2()
+{
 
     cout << "Hello World!" << endl;
     const char * hello = "hello";
