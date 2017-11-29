@@ -287,11 +287,11 @@ void BlePairing::getValByKeyfromJson(const char* json_str, const char* key, char
 ///
 static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType)
 {
-    #define ATTRIBUTE_OFFSET(_idx) gAttributeList[_idx].AttributeOffset
+    #define ATTRIBUTE_OFFSET(_idx) attribute_list[_idx].AttributeOffset
     #define SET_ATTRIBUTE_STR_VAL(_value) (Byte_t *) _value, strlen(_value)
 
-    static const unsigned int gServiceID = sServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
-    static const AttributeInfo_t *gAttributeList = sServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
+    static const unsigned int service_id = sServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
+    static const AttributeInfo_t *attribute_list = sServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
 
     printf("\npairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
            aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
@@ -305,6 +305,11 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
         return;
     }
 #endif
+
+    GATT_UUID_t UUID;
+    UUID.UUID_Type     = guUUID_128;
+    UUID.UUID.UUID_128 = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->CharacteristicUUID;
+    bleApi->DisplayGATTUUID(&UUID, "Characteristic: ", 0);
 
     switch (aAccessType)
     {
@@ -327,7 +332,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
                        "\tpublic key. The public key, signature, and nonce start are saved as the Public Payload - GET_PUBLIC_PAYLOAD.\n" \
                        "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
 
-                bleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(GET_PUBLIC_PAYLOAD), SET_ATTRIBUTE_STR_VAL(BlePairing::mPublicPayload));
+                bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_PUBLIC_PAYLOAD), SET_ATTRIBUTE_STR_VAL(BlePairing::mPublicPayload));
                 bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, BlePairing::mPayloadReady);
 
                 break;
@@ -339,9 +344,9 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
                        "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
                        "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
 
-                char *net_config = (char*) ((CharacteristicInfo_t*) (gAttributeList[SET_NETWORK].Attribute))->Value;
-                char ssid[((CharacteristicInfo_t*) (gAttributeList[GET_SSID_WIFI].Attribute))->MaximumValueLength];
-                char pass[((CharacteristicInfo_t*) (gAttributeList[GET_SSID_WIFI].Attribute))->MaximumValueLength];
+                char *net_config = (char*) ((CharacteristicInfo_t*) (attribute_list[SET_NETWORK].Attribute))->Value;
+                char ssid[((CharacteristicInfo_t*) (attribute_list[GET_SSID_WIFI].Attribute))->MaximumValueLength];
+                char pass[((CharacteristicInfo_t*) (attribute_list[GET_SSID_WIFI].Attribute))->MaximumValueLength];
 
                 BlePairing::getValByKeyfromJson((const char*) net_config, "ssid", ssid, sizeof(ssid));
                 BlePairing::getValByKeyfromJson((const char*) net_config, "pass", pass, sizeof(pass));
@@ -354,14 +359,14 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
                 // TODO: FIXME
                 if (BlePairing::mWiFiConnected) // connected OK
                 {
-                    bleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(GET_WIFI_STATUS), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnected));
-                    bleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(GET_SSID_WIFI), SET_ATTRIBUTE_STR_VAL(ssid));
-                    bleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(GET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnected));
+                    bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_WIFI_STATUS), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnected));
+                    bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_SSID_WIFI), SET_ATTRIBUTE_STR_VAL(ssid));
+                    bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnected));
                     bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, BlePairing::mWiFiConnected);
                 }
                 else // connection failed
                 {
-                    bleApi->GATTUpdateCharacteristic(gServiceID, ATTRIBUTE_OFFSET(GET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnectFailed));
+                    bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_PAIRING_STATE), SET_ATTRIBUTE_STR_VAL(BlePairing::mWiFiConnectFailed));
                     bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, BlePairing::mWiFiConnectFailed);
                 }
             }
