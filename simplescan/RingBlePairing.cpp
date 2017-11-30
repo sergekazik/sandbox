@@ -306,10 +306,10 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
     }
 #endif
 
-    GATT_UUID_t UUID;
-    UUID.UUID_Type     = guUUID_128;
-    UUID.UUID.UUID_128 = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->CharacteristicUUID;
-    bleApi->DisplayGATTUUID(&UUID, "Characteristic: ", 0);
+    Ble::GATT_UUID_t uuid;
+    uuid.UUID_Type     = Ble::guUUID_128;
+    uuid.UUID.UUID_128 = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->CharacteristicUUID;
+    bleApi->DisplayGATTUUID(&uuid, "Characteristic: ", 0);
 
     switch (aAccessType)
     {
@@ -337,14 +337,14 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
 
                 break;
 
-            case SET_NETWORK:
+            case SET_WIFI_NETWORK:
             {
                 printf("\n\tOn geting SET_PAIRING_START the device shoud login into WiFi network using SSID and PASSWORD\n" \
                        "\tfrom its properties supposed to be already set by client app\n"   \
                        "\tThe device updates the status of WIFI connectivity in the GET_WIFI_STATUS with CONNECTED or DISCONNECTED\n" \
                        "\tThe device notifies the setup result with the GET_PAIRING_STATE value WIFI_CONNECTED or WIFI_CONNECT_FAILED\n\n");
 
-                char *net_config = (char*) ((CharacteristicInfo_t*) (attribute_list[SET_NETWORK].Attribute))->Value;
+                char *net_config = (char*) ((CharacteristicInfo_t*) (attribute_list[SET_WIFI_NETWORK].Attribute))->Value;
                 char ssid[((CharacteristicInfo_t*) (attribute_list[GET_SSID_WIFI].Attribute))->MaximumValueLength];
                 char pass[((CharacteristicInfo_t*) (attribute_list[GET_SSID_WIFI].Attribute))->MaximumValueLength];
 

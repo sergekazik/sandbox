@@ -144,3 +144,9 @@ BCM43/RingGattApi.hh
 WILINK18/RingGattApi.cpp
 WILINK18/RingGattApi.hh
 ../../low-powered-doorbell-fw/ambarella/ring/common/Bot_Notifier.h
+../../ring-nm/ble/characteristics.lst
+../../ring-nm/ble/charas.read.lst
+../../ring-nm/ble/expect.uuid.lst
+../../ring-nm/ble/gatt.client.exp
+../../ring-nm/ble/pairing.client.exp
+../../ring-nm/ble/pairing.cmd.lst

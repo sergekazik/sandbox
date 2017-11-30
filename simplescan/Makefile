@@ -79,6 +79,7 @@ $(TARGET_CLIENT): $(OBJS_CLIENT)
 cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
+	@rm -f $(RING_BLE)/gatt_client_x86.cpp
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@echo "-----------------------------------------------------"
