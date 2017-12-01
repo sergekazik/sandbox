@@ -1,0 +1,253 @@
+#!/usr/bin/expect
+
+set fhc [open "characteristics.lst" r]
+set fhr [open "charas.read.lst" r]
+set ignore_mac "38:D2:69:F2:7E:00"
+set ring_name "RING-7E01"
+set ring_uuid_set "0000face"
+set discover_attempts 3
+set connect_attempts 3
+
+# set WiFi credentials
+set ssid "Doorbells"
+set pass [lindex $argv 0]
+if { $pass == "" || $pass == "\n" || $pass == "\r"} {
+    set pass "pass_not_set_with_arg"
+    puts "warning: network $pass\nusage: expect pairing.expect.script <password>"
+}
+set network_credentials "{\"ssid\":\"$ssid\",\"pass\":\"$pass\"}"
+puts "using network_credentials: $network_credentials\n"
+foreach char [split $network_credentials ""] {
+    lappend converted [scan $char %c]
+}
+set network_credentials $converted
+# puts "$network_credentials\n"
+
+# Set timeout
+set timeout 10
+
+# run bluetoothctl
+spawn bluetoothctl
+expect "Agent registered"
+
+#-----------------------------------------------------------
+#------ scan LE and find device by $ring_name --------------
+#-----------------------------------------------------------
+set mac ""
+set attempts $discover_attempts
+for {set x 0} {$x<$attempts} {incr x} {
+    puts "\n\nscan.$x\n\n"
+
+    # check devices
+    send "devices\r"
+    send "list\r"
+    expect "Controller"
+
+    #puts "in: $expect_out(0,string)"
+    #puts "out: $foundring\n\n"
+
+    set buf [split $expect_out(buffer) " "]
+    for {set idx 0} {$idx<1000} {incr idx} {
+       set e [lindex $buf $idx]
+       #puts "$idx : $e"
+       if { $e == "" } {
+	   break
+       } else {
+	    set eup [string toupper $e]
+	    if {[string match "*$ring_name*" $eup] && $idx > 0} {
+		#puts "$idx: found $e"
+		incr idx -1
+		set e [lindex $buf $idx]
+		puts "$idx: found $ring_name:$e"
+		if { $e != $ignore_mac } {
+		    set mac $e
+		    break
+		} else {
+		    puts "$idx: $ring_name:$e ignored, continue..."
+		    incr idx 1
+		}
+	    }
+       }
+    }
+
+    if { $mac != "" }	{
+	puts "found mac \"$mac\"\n"
+	break
+    }
+
+   if { $mac != "" } {
+      break
+   }
+
+   # set LE scan filter
+   send "set-scan-filter-transport le\r"
+   expect "SetDiscoveryFilter success"
+
+   # start scan
+   send "scan on\r"
+   expect -nocase $ring_name
+
+   # stop scan
+   send "scan off\r"
+   expect "Discovery stopped"
+
+   if { $mac != "" } {
+      break
+   }
+}
+
+if { $mac == "" } {
+    puts "failed to discover $ring_name, exiting 13\n"
+    send "quit\n"
+    exit 13
+}
+
+#-----------------------------------------------------------
+#------ connection section ---------------------------------
+#-----------------------------------------------------------
+set device_connected 0
+set attempts $connect_attempts
+set timeout 15
+while { $attempts>0 } {
+    #---- connection --------
+    send "connect $mac\r"
+    expect {
+	"Failed to connect:"	{
+	    puts "\n\nfailed to connect\n\n"
+	}
+	"not available" 		{
+	    puts "\n\ndevice went offline or removed from the list, abort.\n\n"
+	    # break from the attempts loop
+	    break
+	}
+	"ServicesResolved: yes"	{
+	    set device_connected 1
+	    # break from the attempts loop
+	    break
+	 }
+	 timeout    		{
+	    puts "\n\nconnect timeout...\n\n"
+	}
+    }
+    # send "disconnect $mac\r"
+    # expect "disconnected"
+    incr attempts -1
+}
+
+if { $device_connected == 0 } {
+    puts "failed to connect $ring_name, exiting 10\n"
+    send "quit\n"
+    exit 10
+}
+
+#-----------------------------------------------------------
+#------ pairing prepare ------------------------------------
+#-----------------------------------------------------------
+# prepare lists of uuid of characteristics
+set uuidListFilename "expect.uuid.lst"
+set charas_count 0
+send "list-attributes\r"
+send "list\r"
+expect "Controller"
+
+# store uuid:url in the file
+set outFileId [open $uuidListFilename "w"]
+
+set buf [split $expect_out(buffer) "\n"]
+for {set idx 0} {$idx<1000} {incr idx} {
+    set e [lindex $buf $idx]
+    #puts "$idx : $e"
+    if { $e == "" } {
+       break
+    } else {
+	if {[string match "*$ring_uuid_set*" $e] && $idx > 0} {
+	    incr idx -1
+	    set url [lindex $buf $idx]
+	    incr idx 1
+	    regsub -all {\s} $e {} fe
+	    regsub -all {\s} $url {} furl
+	    puts $outFileId "$fe:$furl"
+	    incr charas_count 1
+	    #puts "$charas_count.$fe:$furl"
+	}
+    }
+}
+#Close file descriptor to ensure data are flush to file
+close $outFileId
+
+if { $charas_count == 0 } {
+    puts "failed to colect characteristics from $ring_name, exiting 9\n"
+    send "disconnect $mac\r"
+    send "quit\n"
+    exit 9
+} else {
+    puts "\n$charas_count characteristics parsed; starting pairing\n"
+}
+
+#-----------------------------------------------------------
+#------ actual pairing scenario ----------------------------
+#-----------------------------------------------------------
+set timeout 3
+set fhp [open "pairing.cmd.lst" r]
+set data [read $fhp]
+foreach line $data {
+    #puts "$line"
+
+    set buf [split $line ":"]
+   set command [lindex $buf 0]
+    set uuid    [lindex $buf 1]
+    set name    [lindex $buf 2]
+    set payload [lindex $buf 3]
+
+    puts "command     = $command"
+    puts "uuid        = $uuid   "
+    puts "name        = $name   "
+    puts "payload     = $payload\n"
+
+    # find url by uuis using lookup file
+    # for some reasong select uuid doesn't make affect with bluetoothctl
+    set url ""
+    set inFileId [open $uuidListFilename "r"]
+    foreach sline [read $inFileId] {
+	set sbuf [split $sline ":"]
+	set suuid [lindex $sbuf 0]
+	if { $suuid == $uuid } {
+	    set url [lindex $sbuf 1]
+	    break
+	}
+    }
+    close $inFileId
+
+    if { $url == "" } {
+	puts "not found matching url, skip...\n"
+	continue
+    } elseif { $command == "W"}    {
+	send "select-attribute $url\r"
+
+	if { $payload == "network_credentials" } {
+	    set payload $network_credentials
+	} else {
+	    # convert payload to ASCII bytes
+	    set converted ""
+	    foreach char [split $payload ""] {
+		lappend converted [scan $char %c]
+	    }
+	    set payload $converted
+	}
+
+	send "write $payload\r"
+	expect "Attempting to write"
+    } elseif { $command == "R"}    {
+	send "select-attribute $url\r"
+	send "read\r"
+	expect "Value:"
+	puts "\n"
+    } else {
+	puts "command \"$command\" ignored, continue...\n"
+	continue
+    }
+}
+send "disconnect $mac\r"
+send "quit\r"
+expect eof
+
