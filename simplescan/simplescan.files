@@ -154,3 +154,6 @@ WILINK18/RingGattApi.hh
 ../../../Documents/BLE/network/ClientAPI.py
 ../../../Documents/BLE/network/F5API.py
 ../../../Documents/BLE/network/setup.py
+deprecated/pairing_client_x86.cfg
+deprecated/gatt_client_x86.cpp
+deprecated/pairing_client_x86.cfg

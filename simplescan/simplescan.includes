@@ -12,3 +12,4 @@ WILINK18
 ../../ring-nm/ble
 ../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/build
 ../../../Documents/BLE/network
+deprecated
