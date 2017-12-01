@@ -12,7 +12,7 @@ namespace Ring { namespace Ble {
 
 #define MAX_SUPPORTED_COMMANDS              (75)    /* Denotes the maximum number of User Commands that are supported by this application. */
 #define MAX_COMMAND_LENGTH                  (128)   /* Denotes the max buffer size used for user commands input via the User Interface. */
-#define MAX_NUM_OF_PARAMETERS               (10)    /* Denotes the max number of parameters a command can have. */
+#define MAX_NUM_OF_PARAMETERS               (4)     /* Denotes the max number of parameters a command can have. */
 #define DEFAULT_IO_CAPABILITY               (icDisplayYesNo) /* Denotes the default I/O Capability that is used with Secure Simple Pairing. */
 #define DEFAULT_LE_IO_CAPABILITY            (licDisplayYesNo) /* Denotes the default I/O Capability that is used with LE Pairing. */
 #define DEFAULT_LE_MITM_PROTECTION          (TRUE)  /* Denotes the default value use for Man in the Middle (MITM) protection used with LE Pairing. */
@@ -26,6 +26,7 @@ namespace Ring { namespace Ble {
 #define LOW_DUTY_CYCLE_DIRECT_CONNECTABLE   (0x0400)/* Denotes that the connectabillity mode is Low Duty Cycle Directed Connectable. */
 #define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
 #define DEV_NAME_LEN                        64      /* text string = device name */
+#define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
 #define DEBUG_STRING_MAX_LEN                64      /* text string for debug */
 #define ATT_MTU_MAX                         512     /* Attributes from a GATT database located on a GATT Server (usually a BLE peripheral device) have a
                                                      * maximum allowed value size of 512 bytes.*/

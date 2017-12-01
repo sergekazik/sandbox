@@ -123,8 +123,6 @@
 ../../low-powered-doorbell-fw/ambarella/prebuild/third-party/armv7-a-hf/json-c/include/json-c/linkhash.h
 ../../low-powered-doorbell-fw/ambarella/prebuild/third-party/armv7-a-hf/json-c/include/json-c/printbuf.h
 gatt_attr_def.h
-gatt_client_x86.cfg
-gatt_client_x86.cpp
 gatt_svc_defs.h
 gatt_test_defs.h
 gatt_test_srv.cpp

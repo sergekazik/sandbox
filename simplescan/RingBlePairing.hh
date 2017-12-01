@@ -16,7 +16,10 @@ public:
     static const char* mPayloadReady;
     static const char* mWiFiConnected;
     static const char* mWiFiConnectFailed;
+    static const char* mNetworkConfigFile;
+    static const char* mWiFiConfigFile;
     static char mPublicPayload[ATT_MTU_MAX];
+    static char mMacAddress[DEV_MAC_ADDR_LEN];
     static void getValByKeyfromJson(const char* json_str, const char* key, char* val, int len);
 
 private:
