@@ -150,3 +150,9 @@ WILINK18/RingGattApi.hh
 ../../ring-nm/ble/gatt.client.exp
 ../../ring-nm/ble/pairing.client.exp
 ../../ring-nm/ble/pairing.cmd.lst
+../../low-powered-doorbell-fw/ambarella/ring/ble/make.inc
+../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/build/Makefile
+../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/build/setup-bt
+../../../Documents/BLE/network/ClientAPI.py
+../../../Documents/BLE/network/F5API.py
+../../../Documents/BLE/network/setup.py

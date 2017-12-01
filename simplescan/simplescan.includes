@@ -10,3 +10,5 @@ WILINK18
 ../../low-powered-doorbell-fw/ambarella/prebuild/third-party/armv7-a-hf/json-c/include/json-c
 ../../low-powered-doorbell-fw/ambarella/ring/common
 ../../ring-nm/ble
+../../low-powered-doorbell-fw/external/build-utilities/AM335xBluetopiaLinuxProduction-4.2.1.0.1.0/build
+../../../Documents/BLE/network
