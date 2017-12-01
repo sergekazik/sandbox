@@ -2,3 +2,5 @@
 *.o
 *.d
 simplescan
+libRingBle.a
+gatt_client_x86*

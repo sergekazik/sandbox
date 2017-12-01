@@ -13,3 +13,5 @@ build-*
 _saved
 
 >>>>>>> b566acee02b1cc8c8f65d1a4b4fe90c8ffc8437b
+simplescan/test_ble
+simplescan/pairing_client_x86*

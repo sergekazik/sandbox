@@ -1,47 +1,96 @@
-# Makefile for hciconfig shared library
+# set the proper target for the test
+BLUEZ_TOOLS_SUPPORT = 1
+RING_NAME = Linux_x86_64
+
+$(info RING_NAME = [${RING_NAME}])
+$(info BLE_CS = [${BLE_CS}])
+
+# Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
-CC = gcc
-CFLAGS = -fPIC -Wall -Wextra -O2 -g
+CC = g++
 
-LDFLAGS_LIB = -shared  -lbluetooth
-LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lbleconfig
+################################################################################
+## Third party path/defs/stabs
+################################################################################
+AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
+BLUEZ_INC = -I$(PREBUILD_3RD_PARTY_DIR)/bluez5/include
+
+RING_TOP = $(AMB_TOPDIR)/ring
+RING_BLE = $(AMB_TOPDIR)/ring/ble
+RING_COM = $(AMB_TOPDIR)/ring/common
+RING_LOG = $(AMB_TOPDIR)/ring/ding/include
+
+TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
+BTPIA_SDK = $(TIBLE_3PARTY)/BluetopiaPM
+
+BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
+		-I$(BTPIA_SDK)/include/client		    \
+		-I$(BTPIA_SDK)/include/server		    \
+		-I$(BTPIA_SDK)/btpmerr			    \
+		-I$(BTPIA_SDK)/btpmvs/wl18xx/		    \
+		-I$(BTPIA_SDK)/Bluetopia/include	    \
+		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
+		-I$(BTPIA_SDK)/Bluetopia/btpscfg
+
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers    \
+	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
+	    -I. -I$(BLE_CS)					    \
+	    -DBLUEZ_TOOLS_SUPPORT			    \
+	    -DTEST_CONSOLE_WRITE			    \
+	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
+	     $(BTPIA_SDK_INC)
+
+CXXFLAGS = $(CFLAGS)
+
+#LDFLAGS_LIB = -shared -lbluetooth
+#LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
+LDFLAGS_APP = -lbluetooth
 
 RM = rm -f
-TARGET_LIB = libbleconfig.so
-TARGET_APP = simplescan
+TARGET_LIB = libRingBle.a
+TARGET_APP = test_ble
+TARGET_CLIENT = pairing_client_x86
 
-SRCS_LIB = hcitools.c
-SRCS_APP = simplescan.c
+SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
+SRCS_APP = test_ble.cpp gatt_test_srv.cpp test_stubs.cpp
+SRCS_CLIENT = gatt_client_x86.cpp
 
-OBJS_LIB = $(SRCS_LIB:.c=.o)
-OBJS_APP = $(SRCS_APP:.c=.o)
+OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
+OBJS_APP = test_ble.o gatt_test_srv.o test_stubs.o
+OBJS_CLIENT = gatt_client_x86.o
+
+RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
+	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP)
+all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_CLIENT)
 
 $(TARGET_LIB): $(OBJS_LIB)
-	$(CC) -o $@ $^ ${LDFLAGS_LIB} 
+	$(AR) rcs $@ $(OBJS_LIB)
+	#$(CC) $(OBJS_LIB) $(LDFLAGS_LIB) -o $@
 
 $(TARGET_APP): $(OBJS_APP)
-	$(CC) -o $@ $^ ${LDFLAGS_APP}
+	$(CC) $(OBJS_APP) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
-$(SRCS_LIB:.c=.d):%.d:%.c
-	$(CC) $(CFLAGS) -MM $< >$@
+$(TARGET_CLIENT): $(OBJS_CLIENT)
+	$(CC) $(OBJS_CLIENT) $(LDFLAGS_APP) -o $@
 
-$(SRCS_APP:.c=.d):%.d:%.c
-	$(CC) $(CFLAGS) -MM $< >$@
+cpringble:
+	@echo "---------------- updated files: ---------------------"
+	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
+	@rm -f $(RING_BLE)/gatt_client_x86.cpp
+	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
+	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
+	@echo "-----------------------------------------------------"
 
-#include $(SRCS_LIB:.c=.d)
-#include $(SRCS_APP:.c=.d)
+prepro:
+	$(CC) -E $(CFLAGS) gatt_test_srv.cpp -o gatt_test_srv.prep
 
 .PHONY: clean
 clean_obj:
-	-${RM} ${OBJS_LIB} ${OBJS_APP} $(SRCS_LIB:.c=.d) $(SRCS_APP:.c=.d)
+	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${OBJS_LIB} ${OBJS_APP} $(SRCS_LIB:.c=.d) $(SRCS_APP:.c=.d)
-
-OBJS_LIB = $(SRCS_LIB:.c=.o)
-OBJS_APP = $(SRCS_APP:.c=.o)
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_CLIENT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_CLIENT) *.o *.d
 
