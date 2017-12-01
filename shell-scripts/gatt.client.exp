@@ -1,0 +1,196 @@
+#!/usr/bin/expect
+set fhc [open "characteristics.lst" r]
+set fhr [open "charas.read.lst" r]
+set ignore_mac "38:D2:69:F2:7E:00"
+set ring_name "RING-7E01"
+set ring_uuid_set "0000face"
+set discover_attempts 3
+set connect_attempts 3
+set mac ""
+
+# Set timeout
+set timeout 10
+
+# run bluetoothctl
+spawn bluetoothctl
+expect "Agent registered"
+
+#-----------------------------------------------------------
+#------ scan LE and find device by $ring_name --------------
+#-----------------------------------------------------------
+set attempts $discover_attempts
+for {set x 0} {$x<$attempts} {incr x} {
+    puts "\n\nscan.$x\n\n"
+
+    # check devices
+    send "devices\r"
+    send "list\r"
+    expect "Controller"
+
+    #puts "in: $expect_out(0,string)"
+    #puts "out: $foundring\n\n"
+
+    set buf [split $expect_out(buffer) " "]
+    for {set idx 0} {$idx<1000} {incr idx} {
+       set e [lindex $buf $idx]
+       #puts "$idx : $e"
+       if { $e == "" } {
+	   break
+       } else {
+	    if {[string match "*$ring_name*" $e] && $idx > 0} {
+		#puts "$idx: found $e"
+		incr idx -1
+		set e [lindex $buf $idx]
+		puts "$idx: found $ring_name:$e"
+		if { $e != $ignore_mac } {
+		    set mac $e
+		    break
+		} else {
+		    puts "$idx: $ring_name:$e ignored, continue..."
+		    incr idx 1
+		}
+	    }
+       }
+    }
+    if { $mac != "" }	{
+	puts "found mac \"$mac\"\n"
+	break
+    }
+
+   if { $mac != "" } {
+      break
+   }
+
+   # set LE scan filter
+   send "set-scan-filter-transport le\r"
+   expect "SetDiscoveryFilter success"
+
+   # start scan
+   send "scan on\r"
+   expect $ring_name
+
+   # stop scan
+   send "scan off\r"
+   expect "Discovery stopped"
+
+   if { $mac != "" } {
+      break
+   }
+}
+
+if { $mac == "" } {
+    puts "failed to discover $ring_name, exiting 13\n"
+    send "quit\n"
+    exit 13
+}
+
+#-----------------------------------------------------------
+#------ connection section ---------------------------------
+#-----------------------------------------------------------
+set device_connected 0
+
+#-----------------------------------------------------------
+#------ pairing scenario -----------------------------------
+#-----------------------------------------------------------
+set public_key "this is public key placeholder"
+
+if { $mac != "" } {
+    set attempts $connect_attempts
+    while { $attempts>0 } {
+
+	#---- connection --------
+	set timeout 10
+	send "connect $mac\r"
+	expect {
+	    "Failed to connect:"	{
+		puts "\n\nfailed to connect\n\n"
+		incr attempts -1
+		continue
+	    }
+	    "not available" 		{puts "\n\nfailed to discover\n\n"}
+	    "ServicesResolved: yes"	{
+		send "list-attributes\r"
+		send "list\r"
+		expect "Controller"
+
+		# store uuid:url in the file
+		set outputFilename "expect.uuid.lst"
+		set outFileId [open $outputFilename "w"]
+
+		set buf [split $expect_out(buffer) "\n"]
+		for {set idx 0} {$idx<1000} {incr idx} {
+		    set e [lindex $buf $idx]
+		    #puts "$idx : $e"
+		    if { $e == "" } {
+		       break
+		    } else {
+			if {[string match "*$ring_uuid_set*" $e] && $idx > 0} {
+			    incr idx -1
+			    set url [lindex $buf $idx]
+			    incr idx 1
+			    regsub -all {\s} $e {} fe
+			    regsub -all {\s} $url {} furl
+			    puts $outFileId "$fe:$furl"
+			}
+		    }
+		}
+		#Close file descriptor to ensure data are flush to file
+		close $outFileId
+
+		puts "\n\n\n\nRead chars info\n"
+		set data [read $fhc]
+		foreach line $data {
+		    set buf [split $line ":"]
+		    set uuid [lindex $buf 0]
+		    set name [lindex $buf 1]
+		    puts "\ncharacteristic: $name\nuuid: $uuid"
+		    send "attribute-info $uuid\r"
+		    expect "Flags:"
+		    puts "\n"
+		}
+
+		puts "\n\n\n\nReading values\n"
+		set timeout 5
+		set data [read $fhr]
+		foreach line $data {
+		    set buf [split $line ":"]
+		    set uuid [lindex $buf 0]
+		    set name [lindex $buf 1]
+		    puts "\ncharacteristic: $name\nuuid: $uuid"
+
+		    # find url by uuis using lookup file
+		    # for some reasong select uuid doesn't make affect with bluetoothctl
+		    set url ""
+		    set inFileId [open $outputFilename "r"]
+		    foreach sline [read $inFileId] {
+			set sbuf [split $sline ":"]
+			set suuid [lindex $sbuf 0]
+			if { $suuid == $uuid } {
+			    set url [lindex $sbuf 1]
+			    break
+			}
+		    }
+		    close $inFileId
+		    if { $url != "" } {
+			send "select-attribute $url\r"
+			send "read\r"
+			expect "Value:"
+			puts "\n"
+		    } else {
+			puts "$uuid not found matching url, skip...\n"
+		    }
+		}
+		# break from the attempts loop
+		break
+	     }
+	     timeout    		{puts "\n\ntimeout...\n\n"}
+	}
+	send "disconnect $mac\r"
+	incr attempts -1
+	if { $attempts < 0 } {
+	    break
+	}
+    }
+}
+send "quit\r"
+expect eof
