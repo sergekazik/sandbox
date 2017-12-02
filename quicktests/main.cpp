@@ -1,12 +1,24 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+using namespace std;
 
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#if 1
+int main()
+{
+    const char *str = "abcdef";
+    if (str[2] == 2[str])
+        cout << strlen(str)+2 << " " << strlen(str+2) << endl;
+    return 0;
+}
+
+#elif 0
 
 void timer_handler (int signum)
 {
@@ -48,7 +60,6 @@ int main()
     }
     return 0;
 }
-using namespace std;
 
 int main2()
 {
@@ -65,3 +76,4 @@ int main2()
     return 0;
 }
 
+#endif
