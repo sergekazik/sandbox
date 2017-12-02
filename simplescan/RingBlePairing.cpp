@@ -393,8 +393,8 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
                     char str_tmp[0xff];
                     sprintf(str_tmp, "wifi:O%d:%s;S%d:\"%s\";P%d:\"%s\";K%d:%s;T%d:%s;E%d:%s\n",
                             (int) strlen(object), object,
-                            (int) strlen(ssid+2), ssid,
-                            (int) strlen(pass+2), pass,
+                            (int) strlen(ssid)+2, ssid,
+                            (int) strlen(pass)+2, pass,
                             (int) strlen(secret_key), secret_key,
                             (int) strlen(security), security,
                             (int) strlen(ethernet), ethernet);
