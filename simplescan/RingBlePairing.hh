@@ -28,7 +28,7 @@ private:
     BleApi *mBleApi;
 
 public:
-    int Initialize();
+    int Initialize(char *aDeviceName = NULL);
     int StartAdvertising();
     int StopAdvertising();
     int Shutdown();

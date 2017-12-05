@@ -70,7 +70,7 @@ static char* UpperCaseUpdate(int &idx)
         if ((gCommands[idx][i] >= 'a') && (gCommands[idx][i] <= 'z'))
             gCommands[idx][i] = gCommands[idx][i]-'a' + 'A';
     }
-    printf("AddCommand: [%s]\n", gCommands[idx]);
+    // printf("AddCommand: [%s]\n", gCommands[idx]);
     return gCommands[idx++];
 }
 
@@ -571,7 +571,7 @@ static int AutoHelp(ParameterList_t *p)
         "57 - NotifyCharacteristic 0 offset ADDR STATE_WIFI_SET",
         "41 - EnableBluetoothDebug 1 2"
         "----------------------------",
-        "leadv",
+        "ad, leadv, st, stopad",
     };
     for(int i = 0; i < (int) (sizeof(mmHelp)/sizeof(char*)); i++)
     {
@@ -584,7 +584,7 @@ static int AutoHelp(ParameterList_t *p)
  * SECTION of server Init and command line user interface for tests purposes
  *****************************************************************************/
 
-static void gatt_srv_test_init(void)
+static void gatt_srv_test_init(bool bPrintHelp)
 {
 #if !defined(Linux_x86_64) || !defined(WILINK18)
     gBleApi = GattSrv::getInstance();
@@ -608,7 +608,8 @@ static void gatt_srv_test_init(void)
     AddCommand((char*) "MM", AutoHelp);
 
     /* Next display the available commands.                              */
-    DisplayHelp(NULL);
+    if (bPrintHelp)
+        DisplayHelp(NULL);
 
 #ifndef DISABLE_CONFIGURE_SIGTTIN_SIGNAL
     /* Configure the SIGTTIN signal so that this application can run in  */
@@ -640,13 +641,13 @@ static void gatt_srv_test_init(void)
 /* function retrieves a String of user input, parses the user input  */
 /* into Command and Parameters, and finally executes the Command or  */
 /* Displays an Error Message if the input is not a valid Command.    */
-static void user_interface(void)
+static void user_interface(bool bPrintHelp)
 {
     UserCommand_t TempCommand;
     int  Result = !Ble::Error::EXIT_CODE;
     char UserInput[MAX_COMMAND_LENGTH];
 
-    gatt_srv_test_init();
+    gatt_srv_test_init(bPrintHelp);
 
     /* This is the main loop of the program.  It gets user input from the*/
     /* command window, make a call to the command parser, and command    */
@@ -675,8 +676,10 @@ static void user_interface(void)
                 /* Start a newline for the results.                         */
                 printf("\r\n");
 
-                if (!strcmp(UserInput, "leadv"))
+                if (!strcmp(UserInput, "leadv") || !strcmp(UserInput, "ad"))
                     sprintf(UserInput, "StartAdvertising 118 200");
+                else if (!strcmp(UserInput, "stopad") || !strcmp(UserInput, "st"))
+                    sprintf(UserInput, "StopAdvertising 0");
 
                 /* The string input by the user contains a value, now run   */
                 /* the string through the Command Parser.                   */
@@ -703,7 +706,6 @@ static void user_interface(void)
             Result = Ble::Error::EXIT_CODE;
     }
 }
-
 
 ///
 /// \brief execute_hci_cmd
@@ -786,6 +788,7 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
 ///
 extern "C" int gatt_server_start(const char* arguments)
 {
+    bool bPrintHelp = FALSE;
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
@@ -810,9 +813,10 @@ extern "C" int gatt_server_start(const char* arguments)
             goto autodone;
         }
     }
+    else
+        bPrintHelp = TRUE;
 
 autodone:
-    user_interface();
-
+    user_interface(bPrintHelp);
     return 0;
 }

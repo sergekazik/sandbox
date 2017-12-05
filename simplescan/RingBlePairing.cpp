@@ -140,12 +140,16 @@ BlePairing::BlePairing() :
 /// \brief BlePairing::Initialize
 /// \return Ble::Error
 ///
-int BlePairing::Initialize()
+int BlePairing::Initialize(char *aDeviceName)
 {
     int ret_val = Error::UNDEFINED;
 
     // BLE Device Configuration
-    // TODO: populate with proper values
+    if (aDeviceName != NULL)
+    {
+        // override device name
+        strncpy(mRingDeviceName, aDeviceName, DEV_NAME_LEN);
+    }
 
     DeviceConfig_t config[] =
     { // config tag                         count   params
