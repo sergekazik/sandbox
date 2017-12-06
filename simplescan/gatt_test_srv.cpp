@@ -39,12 +39,13 @@ extern "C" {            // Bluetopia SDK API
 
 #include "RingGattApi.hh"
 #include "RingBlePairing.hh"
-#include "gatt_test_srv.h"  // for this test only
+#include "gatt_test_srv.h"
 
 using namespace Ring;
 using namespace Ring::Ble;
 
 #define DEVELOPMENT_TEST_NO_SECURITY    1   // for tests only, should be set to 0
+#define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }
 
 static BleApi* gBleApi = NULL;
 
@@ -712,7 +713,7 @@ static void user_interface(bool bPrintHelp)
 /// \param aCmd
 /// \return
 ///
-extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
+int execute_hci_cmd(eConfig_cmd_t aCmd)
 {
 #if defined(BCM43)
     int ctl;
@@ -781,42 +782,50 @@ extern "C" int execute_hci_cmd(eConfig_cmd_t aCmd)
     return 0;
 }
 
-///
-/// \brief gatt_server_start
-/// \param arguments - expected NULL or "--autoinit"
-/// \return errno
-///
-extern "C" int gatt_server_start(const char* arguments)
+int main(int argc, char ** argv)
 {
-    bool bPrintHelp = FALSE;
+    int arg_idx, ret_val = 0;
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
-        printf("failed to obtain BlePairing instance. Abort.\n");
+        printf("BlePairing instance is needed to define pairing services\n");
+        printf("ERROR: failed to obtain BlePairing instance. Abort.\n");
         return -777;
     }
 
-    if (arguments != NULL && Pairing && !strcmp(arguments, "--autoinit"))
+    for (arg_idx = argc-1; arg_idx > 0; arg_idx--)
     {
-        printf("---starting in a sec...---\n");
-        sleep(2);
+        if (0) {;} // plaseholder for following "else if"
+#ifdef BLUEZ_TOOLS_SUPPORT
+        // perform HCI commands:
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--up", eConfig_UP)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--down", eConfig_DOWN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--piscan", eConfig_PISCAN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noscan", eConfig_NOSCAN)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--leadv", eConfig_LEADV)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noleadv", eConfig_NOLEADV)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--class", eConfig_CLASS)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hciinit", eConfig_ALLUP)
+        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hcishutdown", eConfig_ALLDOWN)
+#endif // BLUEZ_TOOLS_SUPPORT
 
-        int ret_val = Pairing->Initialize();
-        if (Ble::Error::NONE != ret_val)
+        else // if (!strcmp(arguments, "--autoinit"))
         {
-            printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
-            goto autodone;
-        }
-        if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
-        {
-            printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
-            goto autodone;
+            printf("---starting in a sec...---\n");
+            sleep(2);
+
+            if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
+            {
+                printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
+                break;
+            }
+            if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
+            {
+                printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+                break;
+            }
+            user_interface(TRUE);
         }
     }
-    else
-        bPrintHelp = TRUE;
-
-autodone:
-    user_interface(bPrintHelp);
-    return 0;
+    return ret_val;
 }

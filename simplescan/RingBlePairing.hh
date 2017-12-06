@@ -5,7 +5,6 @@
 #include <stdlib.h>
 
 #include "RingBleApi.hh"
-#include "RingGattApi.hh"
 
 namespace Ring { namespace Ble {
 
@@ -29,7 +28,7 @@ private:
 
 public:
     int Initialize(char *aDeviceName = NULL);
-    int StartAdvertising();
+    int StartAdvertising(int aTimeout = 0);
     int StopAdvertising();
     int Shutdown();
 

@@ -36,10 +36,12 @@
 #include <bluetooth/rfcomm.h>
 
 #include "version.h"
-#include "gatt_test_srv.h"
+#include "RingBlePairing.hh"
+
+using namespace Ring;
+using namespace Ring::Ble;
 
 #define COMM_BUF_LEN    1024
-#define VALIDATE_AND_EXEC_ARGUMENT(_arg, _val, _cmd ) (!strcmp(_arg, _val)) { execute_hci_cmd(_cmd); }
 
 #ifdef BLUEZ_TOOLS_SUPPORT
 
@@ -231,7 +233,7 @@ int raw_test_scan(void)
 ///
 /// \brief print_help
 ///
-void print_help(void)
+static void print_help(void)
 {
     printf("********************************************************\n");
     printf("* BT/LE test tool (date %s)\n", version_date);
@@ -260,7 +262,120 @@ void print_help(void)
     printf("--gatt                  load Bluetopia GATT Server sample\n");
     printf("------------------------------------------------\n");
 #endif
+}
 
+static void print_subhelp(void)
+{
+    printf("********************************************************\n");
+    printf("interactive commands for Pairing API:\n");
+    printf("------------------------------------------------\n");
+    printf("init            Pairing->Initialize()\n");
+    printf("startad         Pairing->StartAdvertising()\n");
+    printf("stopad          Pairing->StopAdvertising()\n");
+    printf("quit            Pairing->Shutdown() and exit.\n");
+    printf("********************************************************\n");
+}
+
+///
+/// \brief pairing_test_run
+/// \param arguments - expected NULL or "--autoinit"
+/// \return errno
+///
+static int pairing_test_run(const char* arguments)
+{
+    int ret_val = 0;
+    bool bDone = false;
+    BlePairing *Pairing = BlePairing::getInstance();
+    if (Pairing == NULL)
+    {
+        printf("failed to obtain BlePairing instance. Abort.\n");
+        return -777;
+    }
+
+    if (arguments != NULL && !strcmp(arguments, "--autoinit"))
+    {
+        printf("---starting in a sec...---\n");
+        sleep(2);
+
+        if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
+        {
+            printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
+            goto autodone;
+        }
+        if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
+        {
+            printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+            goto autodone;
+        }
+    }
+
+    print_subhelp();
+    while (!bDone)
+    {
+        static const int command_lineSize = 0xff;
+        char command_line[command_lineSize];
+
+        printf("TEST> ");
+        fflush(stdout);
+        /* Read a line from standard input.                               */
+        ret_val = read(STDIN_FILENO, command_line, command_lineSize);
+
+        /* Check if the read succeeded.                                   */
+        if(ret_val > 0)
+        {
+            /* The read succeeded, replace the new line character with a   */
+            /* null character to delimit the string.                       */
+            command_line[ret_val - 1] = '\0';
+            command_line[ret_val] = '\0';
+            /* Stop the loop.                                              */
+        }
+        else
+        {
+            printf("read error. abort\n");
+            goto autodone;
+        }
+
+        if (!strcmp(command_line, "quit"))
+        {
+            ret_val = Pairing->Shutdown();
+            printf("Pairing->Shutdown() ret = %d, Exit.\n", ret_val);
+            bDone = true;
+        }
+        else if (!strcmp(command_line, "init"))
+        {
+            if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
+            {
+                printf("Pairing->Initialize() failed, ret = %d", ret_val);
+            }
+            else
+            {
+                printf("Pairing->Initialize() ret = %d", ret_val);
+            }
+        }
+        else if (!strcmp(command_line, "startad"))
+        {
+            if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
+            {
+                printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+            }
+            else
+            {
+                printf("Pairing->StartAdvertising ret = %d\n", ret_val);
+            }
+        }
+        else if (!strcmp(command_line, "stopad"))
+        {
+            ret_val = Pairing->StopAdvertising();
+            printf("Pairing->StopAdvertising ret = %d\n", ret_val);
+        }
+        else
+        {
+            print_subhelp();
+        }
+    }
+
+autodone:
+    return 0;
 }
 
 ///
@@ -351,27 +466,16 @@ int main(int argc, char **argv)
             }
             break;
         }
-        // perform HCI commands:
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--up", eConfig_UP)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--down", eConfig_DOWN)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--piscan", eConfig_PISCAN)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noscan", eConfig_NOSCAN)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--leadv", eConfig_LEADV)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--noleadv", eConfig_NOLEADV)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--class", eConfig_CLASS)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hciinit", eConfig_ALLUP)
-        else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hcishutdown", eConfig_ALLDOWN)
-
 #endif // BLUEZ_TOOLS_SUPPORT
 
 #if defined(WILINK18) || defined(Linux_x86_64)
         else if (!strcmp(argv[arg_idx], "--gattauto"))
         {
-            ret = gatt_server_start("--autoinit");
+            ret = pairing_test_run("--autoinit");
         }
         else if (!strcmp(argv[arg_idx], "--gatt"))
         {
-            ret = gatt_server_start(NULL);
+            ret = pairing_test_run(NULL);
         }
 #endif // defined(WILINK18) || defined(Linux_x86_64)
     }

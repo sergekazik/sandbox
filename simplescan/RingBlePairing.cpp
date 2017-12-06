@@ -208,7 +208,7 @@ int BlePairing::Initialize(char *aDeviceName)
 /// \brief BlePairing::StartAdvertising
 /// \return  Ble::Error
 ///
-int BlePairing::StartAdvertising()
+int BlePairing::StartAdvertising(int aTimeout)
 {
     int ret_val = Error::UNDEFINED;
 
@@ -219,6 +219,12 @@ int BlePairing::StartAdvertising()
     }
     else
     {
+        if (aTimeout > 0)
+        {
+            // override default mAdvertisingTimeout_sec
+            mAdvertisingTimeout_sec = aTimeout;
+        }
+
         // start advertising
         unsigned int adv_flags = Advertising::Discoverable  | Advertising::Connectable      |
                                  Advertising::AdvertiseName | Advertising::AdvertiseTxPower | Advertising::AdvertiseAppearance;
@@ -250,7 +256,8 @@ int BlePairing::StopAdvertising()
         ParameterList_t params = {1, {{NULL, 0}}};
         if (Ble::Error::NONE != (ret_val = mBleApi->StopAdvertising(&params)))
         {
-            BOT_NOTIFY_ERROR("mBleApi->StopAdvertising failed, ret = %d, Abort.", ret_val);
+            // ret_val can be != Error::NONE also if adv was not started or already expired
+            BOT_NOTIFY_WARNING("mBleApi->StopAdvertising ret = %d", ret_val);
         }
     }
     return ret_val;

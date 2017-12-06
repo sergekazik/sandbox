@@ -50,21 +50,21 @@ LDFLAGS_APP = -lbluetooth
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
-TARGET_CLIENT = deprecated/gatt_client_x86
+TARGET_GATT = test_gatt
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
-SRCS_APP = test_ble.cpp gatt_test_srv.cpp test_stubs.cpp
-SRCS_CLIENT = deprecated/gatt_client_x86.cpp
+SRCS_APP = test_ble.cpp test_stubs.cpp
+SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
 
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
-OBJS_APP = test_ble.o gatt_test_srv.o test_stubs.o
-OBJS_CLIENT = deprecated/gatt_client_x86.o
+OBJS_APP = test_ble.o test_stubs.o
+OBJS_GATT = gatt_test_srv.o test_stubs.o
 
 RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_CLIENT)
+all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT)
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)
@@ -73,8 +73,8 @@ $(TARGET_LIB): $(OBJS_LIB)
 $(TARGET_APP): $(OBJS_APP)
 	$(CC) $(OBJS_APP) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
-$(TARGET_CLIENT): $(OBJS_CLIENT)
-	$(CC) $(OBJS_CLIENT) $(LDFLAGS_APP) -o $@
+$(TARGET_GATT): $(OBJS_GATT)
+	$(CC) $(OBJS_GATT) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
@@ -91,5 +91,5 @@ clean_obj:
 	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_CLIENT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_CLIENT) *.o *.d
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) *.o *.d
 

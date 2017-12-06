@@ -6,3 +6,4 @@ libRingBle.a
 gatt_client_x86
 pairing_client_x86
 pairing_client_x86.cfg
+test_gatt
