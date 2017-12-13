@@ -157,3 +157,5 @@ WILINK18/RingGattApi.hh
 deprecated/pairing_client_x86.cfg
 deprecated/gatt_client_x86.cpp
 deprecated/pairing_client_x86.cfg
+../../ring-nm/ble/test.pairing.exp
+../../ring-nm/ble/device.exclude.lst

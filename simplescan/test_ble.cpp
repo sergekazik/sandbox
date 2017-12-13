@@ -59,27 +59,40 @@ int raw_test_listen(void)
 
     // allocate socket
     s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+    // s = socket(PF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, BTPROTO_HCI);
+    // s = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_HCI);
 
     // bind socket to port 1 of the first available
     // local bluetooth adapter
-    loc_addr.rc_family = AF_BLUETOOTH;
+    loc_addr.rc_family = AF_BLUETOOTH; // PF_BLUETOOTH; //
     loc_addr.rc_bdaddr = bdaddr_any;
     loc_addr.rc_channel = (uint8_t) 1;
 
     bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
 
-    // put socket into listening mode
-    listen(s, 1);
+    while (1) {
+        // put socket into listening mode
+        listen(s, 1);
 
-    // accept one connection
-    client = accept(s, (struct sockaddr *)&rem_addr, &opt);
+        // accept one connection
+        client = accept(s, (struct sockaddr *)&rem_addr, &opt);
 
-    ba2str( &rem_addr.rc_bdaddr, buf );
-    fprintf(stderr, "accepted connection from %s\n", buf);
+        ba2str( &rem_addr.rc_bdaddr, buf );
+        fprintf(stderr, "accepted connection from %s\n", buf);
+        if (0 == memcmp("00:00:00:00:00:00", buf, 17))
+        {
+            close(client);
+            sleep(1);
+            memset(buf, 0, sizeof(buf));
+            continue;
+        }
+        break;
+    }
+
     memset(buf, 0, sizeof(buf));
-
     // read data from the client
     bytes_read = read(client, buf, sizeof(buf));
+    printf("read %d bytes_read\n", bytes_read);
     if( bytes_read > 0 ) {
         printf("received [%s]\n", buf);
 
@@ -352,7 +365,7 @@ static int pairing_test_run(const char* arguments)
                 printf("Pairing->Initialize() ret = %d", ret_val);
             }
         }
-        else if (!strcmp(command_line, "startad"))
+        else if (strstr(command_line, "sta"))
         {
             if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
             {
@@ -363,13 +376,18 @@ static int pairing_test_run(const char* arguments)
                 printf("Pairing->StartAdvertising ret = %d\n", ret_val);
             }
         }
-        else if (!strcmp(command_line, "stopad"))
+        else if (strstr(command_line, "sto"))
         {
             ret_val = Pairing->StopAdvertising();
             printf("Pairing->StopAdvertising ret = %d\n", ret_val);
         }
+        else if (!strcmp(command_line, "11"))
+        {
+            ret_val = Pairing->PrintStatus();
+        }
         else
         {
+            Pairing->PrintStatus();
             print_subhelp();
         }
     }

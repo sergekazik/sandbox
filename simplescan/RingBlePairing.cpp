@@ -294,6 +294,26 @@ int BlePairing::Shutdown()
 }
 
 ///
+/// \brief BlePairing::Status
+/// \return
+///
+int BlePairing::PrintStatus()
+{
+    int ret_val = Error::UNDEFINED;
+
+    if (mBleApi == NULL)
+    {
+        BOT_NOTIFY_WARNING("BlePairing failed to obtain BleApi instance");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    else if (Ble::Error::NONE != (ret_val = mBleApi->QueryLocalDeviceProperties(NULL)))
+    {
+        BOT_NOTIFY_ERROR("mBleApi->QueryLocalDeviceProperties failed.");
+    }
+    return ret_val;
+}
+
+///
 /// \brief BlePairing::getValByKeyfromJson
 /// \param json
 /// \param key

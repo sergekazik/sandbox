@@ -32,6 +32,9 @@ public:
     int StopAdvertising();
     int Shutdown();
 
+    // status debug
+    int PrintStatus();
+
 private:
     unsigned int   mPairingServiceIndex;
     ServiceInfo_t *mServiceTable;

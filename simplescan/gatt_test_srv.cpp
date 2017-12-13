@@ -785,6 +785,7 @@ int execute_hci_cmd(eConfig_cmd_t aCmd)
 int main(int argc, char ** argv)
 {
     int arg_idx, ret_val = 0;
+    bool bStartUI = false;
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
@@ -809,23 +810,29 @@ int main(int argc, char ** argv)
         else if VALIDATE_AND_EXEC_ARGUMENT(argv[arg_idx], "--hcishutdown", eConfig_ALLDOWN)
 #endif // BLUEZ_TOOLS_SUPPORT
 
-        else // if (!strcmp(arguments, "--autoinit"))
-        {
-            printf("---starting in a sec...---\n");
-            sleep(2);
+        else {
+            bStartUI = true;
+            if (!strcmp(argv[arg_idx], "--autoinit"))
+            {
+                bStartUI = true;
+                printf("---starting in a sec...---\n");
+                sleep(2);
 
-            if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
-            {
-                printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
-                break;
+                if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
+                {
+                    printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
+                    break;
+                }
+                if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
+                {
+                    printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+                    break;
+                }
             }
-            if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
-            {
-                printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
-                break;
-            }
-            user_interface(TRUE);
         }
     }
+
+    if (bStartUI)
+        user_interface(TRUE);
     return ret_val;
 }
