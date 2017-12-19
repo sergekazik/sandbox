@@ -157,5 +157,10 @@ WILINK18/RingGattApi.hh
 deprecated/pairing_client_x86.cfg
 deprecated/gatt_client_x86.cpp
 deprecated/pairing_client_x86.cfg
-../../ring-nm/ble/test.pairing.exp
 ../../ring-nm/ble/device.exclude.lst
+../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/Makefile
+../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/src/EncHandshake.cpp
+../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/test/main.cpp
+../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/include/EncHandshake.hpp
+../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/btgatt-server.c
+../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/uuid-helper.c

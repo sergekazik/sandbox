@@ -100,3 +100,58 @@ int main(int argc, char** argv)
         printf("%s", config_buffer);
     return 0;
 }
+
+
+namespace Ring { namespace Ble { namespace Crypto {
+class Client
+{
+public:
+    Client(char *aShared, int aLength);
+    ///
+    /// \brief GetPublicKey
+    /// \param aKey - [out] buffer to copy
+    /// \param aLength [in/out]: [in] max aKey [out] lenght of the returned public key
+    /// \return pointer to aKey
+    ///
+    char *GetPublicKey(char *aKey, int &aLength);
+    ///
+    /// \brief ProcessPublicPayload
+    /// \param aPayload
+    /// \param aLength [in] is length of aPayload to process
+    /// \return error code
+    ///
+    int ProcessPublicPayload(char *aPayload, int aLength);
+    ///
+    /// \brief Encrypt
+    /// \param aSrc [in] buffer to encrypt
+    /// \param aSrcLen [in] lenght of aSrc
+    /// \param aDest [out] buffer to copy encrypted output
+    /// \param aDestLen [in/out]: [in] max aDest [out] lenght of the encrypted output
+    /// \return pointer to aDest
+    ///
+    char* Encrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen);
+private:
+};
+
+class Server
+{
+public:
+    Server(char *aClientPublicKey, int aLength);
+    ///
+    /// \brief GetPublicPayload
+    /// \param aPayload - [out] buffer to copy
+    /// \param aLength [in/out]: [in] max aPayload [out] lenght of the returned aPayload
+    /// \return pointer to aPayload
+    ///
+    char *GetPublicPayload(char *aPayload, int &aLength);
+    ///
+    /// \brief Decrypt
+    /// \param aSrc [in] buffer to decrypt
+    /// \param aSrcLen [in] lenght of aSrc
+    /// \param aDest [out] buffer to copy decrypted output
+    /// \param aDestLen [in/out]: [in] max aDest [out] lenght of the decrypted output
+    /// \return pointer to aDest
+    ///
+    char* Decrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen);
+};
+}}}

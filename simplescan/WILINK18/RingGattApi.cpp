@@ -7004,35 +7004,40 @@ void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttr
 void GattSrv::DumpData(Boolean_t String, unsigned int Length, Byte_t *Data)
 {
     int  offset, ascidx;
-    #define buf_len 0xff
+    const int buf_len = 0x7f;
     char Buf[buf_len];
     char Ascii[buf_len];
 
     if ((Length) && (Data))
     {
-        /* Initialize the temporary buffer.                               */
-        BTPS_MemInitialize(Buf, 0, buf_len);
-        BTPS_MemInitialize(Ascii, 0, buf_len);
-
-        offset = 0;
-        ascidx = 0;
-
-        for (int i = 0; (i < (int) Length) && (i < buf_len); i++)
+        for (int i = 0; i < (int) Length;)
         {
+
+            /* Initialize the temporary buffer.                               */
+            BTPS_MemInitialize(Buf, 0, buf_len);
+            BTPS_MemInitialize(Ascii, 0, buf_len);
+
+            offset = 0;
+            ascidx = 0;
+
+            for (; (offset < (buf_len - 4)) && (ascidx < buf_len-1) && (i < (int) Length); i++)
+            {
+                if (!String)
+                {
+                    Ascii[ascidx++] = ((Data[i] >= ' ') && (Data[i] < 0x7F)) ? Data[i] : ' ';
+                    offset += sprintf(&Buf[offset], "%02X ", Data[i]);
+                }
+                else
+                {
+                    offset += sprintf(&Buf[offset], "%c", (char)Data[i]);
+                }
+            }
+
+            BOT_NOTIFY_TRACE("%s", Buf);
             if (!String)
             {
-                Ascii[ascidx++] = ((Data[i] >= ' ') && (Data[i] < 0x7F)) ? Data[i] : ' ';
-                offset += sprintf(&Buf[offset], "%02X ", Data[i]);
+                BOT_NOTIFY_TRACE("%s", Ascii);
             }
-            else
-            {
-                offset += sprintf(&Buf[offset], "%c", (char)Data[i]);
-            }
-        }
-        BOT_NOTIFY_TRACE("%s", Buf);
-        if (!String)
-        {
-            BOT_NOTIFY_TRACE("%s", Ascii);
         }
     }
 }
