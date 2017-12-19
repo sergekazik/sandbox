@@ -14,7 +14,7 @@ int main()
 {
     const char *str = "abcdef";
     if (str[2] == 2[str])
-        cout << strlen(str)+2 << " " << strlen(str+2) << endl;
+        cout << strlen(str)+2 << " vs " << strlen(str+2) << " " << __LINE__ << endl;
     return 0;
 }
 
