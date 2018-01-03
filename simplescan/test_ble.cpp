@@ -25,15 +25,18 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <bluetooth/rfcomm.h>
+#endif
 
 #include "version.h"
 #include "RingBlePairing.hh"
@@ -43,7 +46,7 @@ using namespace Ring::Ble;
 
 #define COMM_BUF_LEN    1024
 
-#ifdef BLUEZ_TOOLS_SUPPORT
+#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
 
 ///
 /// \brief raw_test_listen
@@ -251,7 +254,7 @@ static void print_help(void)
     printf("********************************************************\n");
     printf("* BT/LE test tool (date %s)\n", version_date);
     printf("********************************************************\n");
-#ifdef BLUEZ_TOOLS_SUPPORT
+#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
     printf("--scan                  scan for bluetooth device\n");
     printf("--listen                listen for incoming connection, read once\n");
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
@@ -410,7 +413,7 @@ int main(int argc, char **argv)
     {
         if (0) {;} // plaseholder for following "else if"
 
-#ifdef BLUEZ_TOOLS_SUPPORT
+#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
         else if (!strcmp(argv[arg_idx], "--scan"))
         {
             ret = raw_test_scan();

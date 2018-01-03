@@ -33,13 +33,14 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers    \
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	\
+	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I. -I$(BLE_CS)					    \
-	    -DBLUEZ_TOOLS_SUPPORT			    \
 	    -DTEST_CONSOLE_WRITE			    \
 	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
 	     $(BTPIA_SDK_INC)
+#	     -DBLUEZ_TOOLS_SUPPORT			    \
 
 CXXFLAGS = $(CFLAGS)
 
@@ -51,6 +52,9 @@ RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 TARGET_GATT = test_gatt
+
+CRYPTO_TARGET_LIB = libRingCrypto.so
+CRYPTO_TARGET_APP = test_crypto
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
 SRCS_APP = test_ble.cpp test_stubs.cpp
@@ -64,7 +68,7 @@ RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT)
+all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)
@@ -76,9 +80,39 @@ $(TARGET_APP): $(OBJS_APP)
 $(TARGET_GATT): $(OBJS_GATT)
 	$(CC) $(OBJS_GATT) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
+$(TARGET_TEST_CRYPTO): $(OBJS_TEST_CRYPTO)
+	$(CC) $(OBJS_TEST_CRYPTO) $(LDFLAGS_APP) -o $@
+
+CRYPTO_CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14 \
+		    -I./include -Wno-unused-result
+
+#CXXFLAGS = $(CRYPTO_CFLAGS)
+
+CRYPTO_LDFLAGS_LIB = -shared -L/usr/lib/x86_64-linux-gnu/ -lsodium
+CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread
+
+RM = rm -f
+CC = g++
+
+CRYPTO_SRCS_LIB = test_handshake.cpp
+CRYPTO_SRCS_APP = crypto/test_crypto.cpp
+
+CRYPTO_OBJS_LIB = crypto/test_handshake.o
+CRYPTO_OBJS_APP = crypto/test_crypto.o
+
+.PHONY: all
+all: ${CRYPTO_TARGET_LIB} $(CRYPTO_TARGET_APP)
+
+$(CRYPTO_TARGET_LIB): $(CRYPTO_OBJS_LIB)
+	$(CC) $(CRYPTO_OBJS_LIB) $(CRYPTO_CFLAGS) $(CRYPTO_LDFLAGS_LIB) -o $@
+
+$(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
+	$(CC) $(CRYPTO_OBJS_APP) $(CRYPTO_CFLAGS) $(CRYPTO_LDFLAGS_APP) -o $@
+
 cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
+	# @cp -u -v crypto/*.cpp crypto/*.h $(RING_BLE)/crypto
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@echo "-----------------------------------------------------"
@@ -91,5 +125,5 @@ clean_obj:
 	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) *.o *.d
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d
 

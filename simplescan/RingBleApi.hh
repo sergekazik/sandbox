@@ -352,6 +352,9 @@ namespace Characteristic
         Read,
         Write,
         Confirmed,
+        // GAP events
+        Connected,
+        Disconnected,
     };
     enum  Property
     {

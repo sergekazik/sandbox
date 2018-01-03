@@ -164,3 +164,6 @@ deprecated/pairing_client_x86.cfg
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/include/EncHandshake.hpp
 ../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/btgatt-server.c
 ../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/uuid-helper.c
+crypto/test_crypto.cpp
+crypto/test_handshake.cpp
+crypto/test_handshake.h

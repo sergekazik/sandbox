@@ -58,7 +58,10 @@ BleApi* GattSrv::getInstance()
     return (BleApi*) instance;
 }
 
-GattSrv::GattSrv() : mServiceCount(0),
+GattSrv::GattSrv() : mDEVMCallbackID(0),
+                    mGATMCallbackID(0),
+                    mAuthenticationCallbackID(0),
+                    mServiceCount(0),
                     mServiceTable(NULL),
                     mServiceMutex(NULL),
                     mPrepareWriteList(NULL)
@@ -387,39 +390,46 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
     if (!mOnCharCb)
         return Error::NOT_REGISTERED;
 
-    int ServiceIdx = GetServiceIndexById(aServiceID);
-    if (ServiceIdx == Error::NOT_FOUND)
-        return Error::NOT_FOUND;
-
-    int AttribueIdx = GetAttributeIdxByOffset(aServiceID, aAttrOffset);
-    if (AttribueIdx == Error::NOT_FOUND)
-        return Error::NOT_FOUND;
-
-    Ble::Characteristic::Access AccessType;
-
-    switch (aEventType)
+    if (aEventType == getGATTConnected || aEventType == getGATTDisconnected)
     {
-    case getGATTReadRequest:
-        AccessType = Ble::Characteristic::Read;
-        break;
-
-    case getGATTWriteRequest:
-    case getGATTSignedWrite:
-    // case getGATTPrepareWriteRequest: - in progress should not be called
-    case getGATTCommitPrepareWrite:
-        AccessType = Ble::Characteristic::Write;
-        break;
-
-    case getGATTHandleValueConfirmation:
-        AccessType = Ble::Characteristic::Confirmed;
-        break;
-
-    default:
-        return Error::INVALID_PARAMETERS;
+        (*(mOnCharCb))(0, 0, aEventType == getGATTConnected ? Ble::Characteristic::Connected : Ble::Characteristic::Disconnected);
     }
+    else
+    {
+        int ServiceIdx = GetServiceIndexById(aServiceID);
+        if (ServiceIdx == Error::NOT_FOUND)
+            return Error::NOT_FOUND;
 
-    // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Accessed aAccessType);
-    (*(mOnCharCb))(ServiceIdx, AttribueIdx, AccessType);
+        int AttribueIdx = GetAttributeIdxByOffset(aServiceID, aAttrOffset);
+        if (AttribueIdx == Error::NOT_FOUND)
+            return Error::NOT_FOUND;
+
+        Ble::Characteristic::Access AccessType;
+
+        switch (aEventType)
+        {
+        case getGATTReadRequest:
+            AccessType = Ble::Characteristic::Read;
+            break;
+
+        case getGATTWriteRequest:
+        case getGATTSignedWrite:
+        // case getGATTPrepareWriteRequest: - in progress should not be called
+        case getGATTCommitPrepareWrite:
+            AccessType = Ble::Characteristic::Write;
+            break;
+
+        case getGATTHandleValueConfirmation:
+            AccessType = Ble::Characteristic::Confirmed;
+            break;
+
+        default:
+            return Error::INVALID_PARAMETERS;
+        }
+
+        // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Accessed aAccessType);
+        (*(mOnCharCb))(ServiceIdx, AttribueIdx, AccessType);
+    }
     return Error::NONE;
 }
 
@@ -6094,6 +6104,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
             BOT_NOTIFY_DEBUG("    Connection Type: %s", (EventData->EventData.ConnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
             BOT_NOTIFY_DEBUG("    Remote Address:  %s", Buffer);
             BOT_NOTIFY_DEBUG("    MTU:             %u", EventData->EventData.ConnectedEventData.MTU);
+            gatt->ProcessRegisteredCallback(EventData->EventType, 0,0);
             break;
         case getGATTDisconnected:
            BOT_NOTIFY_DEBUG("GATT Disconnect Event");
@@ -6102,6 +6113,8 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
 
             BOT_NOTIFY_DEBUG("    Connection Type: %s", (EventData->EventData.DisconnectedEventData.ConnectionType == gctLE)?"LE":"BR/EDR");
             BOT_NOTIFY_DEBUG("    Remote Address:  %s", Buffer);
+
+            gatt->ProcessRegisteredCallback(EventData->EventType, 0,0);
             break;
         case getGATTConnectionMTUUpdate:
            BOT_NOTIFY_DEBUG("GATT Connection MTU Update Event");

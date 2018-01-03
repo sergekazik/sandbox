@@ -158,6 +158,7 @@ private:
     void print_le_states(uint64_t states);
     char *get_minor_device_name(int major, int minor);
 
+#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
 public:
     // HCI methods
     void HCIrstat(int ctl, int hdev);
@@ -197,6 +198,7 @@ public:
     void HCIrevision(int hdev);
     void HCIblock(int hdev, char *opt);
     void HCIunblock(int hdev, char *opt);
+#endif
 };
 
 } } /* namespace Ring::Ble */

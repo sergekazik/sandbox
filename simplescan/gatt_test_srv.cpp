@@ -715,7 +715,8 @@ static void user_interface(bool bPrintHelp)
 ///
 int execute_hci_cmd(eConfig_cmd_t aCmd)
 {
-#if defined(BCM43)
+#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
+
     int ctl;
     static struct hci_dev_info di;
     bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
