@@ -167,3 +167,5 @@ deprecated/pairing_client_x86.cfg
 crypto/test_crypto.cpp
 crypto/test_handshake.cpp
 crypto/test_handshake.h
+crypto/RingCrypto.cpp
+crypto/RingCrypto.hh

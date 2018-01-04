@@ -94,10 +94,10 @@ CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread
 RM = rm -f
 CC = g++
 
-CRYPTO_SRCS_LIB = test_handshake.cpp
+CRYPTO_SRCS_LIB = test_handshake.cpp RingCrypto.cpp
 CRYPTO_SRCS_APP = crypto/test_crypto.cpp
 
-CRYPTO_OBJS_LIB = crypto/test_handshake.o
+CRYPTO_OBJS_LIB = crypto/test_handshake.o crypto/RingCrypto.o
 CRYPTO_OBJS_APP = crypto/test_crypto.o
 
 .PHONY: all
@@ -115,6 +115,7 @@ cpringble:
 	# @cp -u -v crypto/*.cpp crypto/*.h $(RING_BLE)/crypto
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
+	@cp -u crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
 	@echo "-----------------------------------------------------"
 
 prepro:
