@@ -5096,7 +5096,7 @@ int GattSrv::GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((u
                                 BOT_NOTIFY_INFO("Notification sent successfully.");
                             else
                             {
-                                BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueIndication() %d, %s", ret_val, ERR_ConvertErrorCodeToString(ret_val));
+                                BOT_NOTIFY_ERROR("Error - GATM_SendHandleValueNotification() %d, %s", ret_val, ERR_ConvertErrorCodeToString(ret_val));
                                 ret_val = Error::FUNCTION;
                             }
                         }

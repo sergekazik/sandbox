@@ -8,3 +8,4 @@ pairing_client_x86
 pairing_client_x86.cfg
 test_gatt
 test_crypto
+cryptoclient.cfg

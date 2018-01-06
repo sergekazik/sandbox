@@ -35,7 +35,7 @@ void debug_print(const char* name, const Ring::ByteArr& arr)
     printf("\n");
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 #if TEST_SODIUM_DIRECT
     //  this code demonstrates how to use lib and prints all the internal data
@@ -124,18 +124,52 @@ int main()
         client.encrypt(msg);
 #else
 
+    char outstr[0xff];
+    if (argc > 1)
+    {
+        // suppress all debug if in the command mode
+        Ring::Ble::Crypto::Debug::Suppress(true);
+    }
+
     char client_public[0xff];
+    memset(client_public, 0, 0xff);
+
     Ring::Ble::Crypto::Client client((char*) sign_pub, sizeof(sign_pub));
     int client_public_lenght = sizeof(client_public);
     client.GetPublicKey(client_public, client_public_lenght);
 
+    // single command mode client get public key
+    if (argc > 1 && !strcmp(argv[1], "-gpk"))
+    {
+        memset(outstr, 0, 0xff);
+        int offset = sprintf(outstr, "gpk:");
+        for (int i = 0; i < client_public_lenght; i++)
+            offset += sprintf(&outstr[offset], "%02x", (unsigned char) client_public[i]);
+        printf("%s\n", outstr);
+        return Ring::Ble::Crypto::Error::NO_ERROR;
+    }
+
     // the prepared client_public key is supposed to be sent to server and used to init server
-    Ring::Ble::Crypto::Server server(client_public, client_public_lenght, sign_priv);
     char server_public[0xff];
     int server_public_lenght = sizeof(server_public);
+    Ring::Ble::Crypto::Server server(client_public, client_public_lenght, sign_priv);
     server.GetPublicPayload(server_public, server_public_lenght);
-
     // the prepared server_public payload to be sent back to client and processed
+
+    //-------------------------- step 2 -------------------------------------------------
+
+    // single command mode client process public payload
+    if (argc > 2 && !strcmp(argv[1], "-ppp"))
+    {
+        server_public_lenght = strlen(argv[2]) / 2;
+        for (int idx = 0; idx < server_public_lenght; idx++)
+        {
+            int val;
+            sscanf(&argv[2][idx*2], "%02x", &val);
+            server_public[idx] = (unsigned char) val;
+        }
+    }
+
     int ret = client.ProcessPublicPayload(server_public, server_public_lenght);
     if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
     {
@@ -144,9 +178,29 @@ int main()
         return ret;
     }
 
-    char msg[0xff] = "HelloServerMessage-fromClinet";
+    if (argc > 2 && !strcmp(argv[1], "-ppp"))
+    {
+        memset(outstr, 0, 0xff);
+        int offset = sprintf(outstr, "ppp:");
+        for (int i = 0; i < server_public_lenght; i++)
+            offset += sprintf(&outstr[offset], "%02x", (unsigned char) server_public[i]);
+        printf("%s\n", outstr);
+
+        client.SaveSecrets();
+        return Ring::Ble::Crypto::Error::NO_ERROR;
+    }
+
+    //-------------------------- step 3 -------------------------------------------------
+    char msg[0xff] = "HelloServerMessage-fromClient";
     char crypted[0xff];
     int crypted_len = sizeof(crypted);
+
+    // single command to encrypt the given message
+    if (argc > 2 && !strcmp(argv[1], "-enc"))
+    {
+        sprintf(msg, "%s", argv[2]);
+        client.RestoreSecrets();
+    }
 
     ret = client.Encrypt(msg, strlen(msg), crypted, crypted_len);
     if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
@@ -156,23 +210,61 @@ int main()
         return ret;
     }
 
+    if (argc > 2 && !strcmp(argv[1], "-enc"))
+    {
+        printf("msg:%s\n", msg);
+        memset(outstr, 0, 0xff);
+        int offset = sprintf(outstr, "enc:");
+        for (int i = 0; i < crypted_len; i++)
+            offset += sprintf(&outstr[offset], "%02x", (unsigned char) crypted[i]);
+        printf("%s\n", outstr);
+        return Ring::Ble::Crypto::Error::NO_ERROR;
+    }
+
+    //-------------------------- step 4 -------------------------------------------------
     char decrypted[0xff];
     int decrypted_len = sizeof(decrypted);
 
-    // crypted is to be sent to server and decoded by it
-    ret = server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+    // single command to decrypt the given message
+    if (argc > 2 && !strcmp(argv[1], "-dec"))
+    {
+        crypted_len = strlen(argv[2]) / 2;
+        for (int idx = 0; idx < crypted_len; idx++)
+        {
+            int val;
+            sscanf(&argv[2][idx*2], "%02x", &val);
+            crypted[idx] = (unsigned char) val;
+        }
+        client.RestoreSecrets();
+        ret = client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+    }
+    else
+    {
+        // crypted is to be sent to server and decoded by it
+        ret = server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+    }
+
     if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
     {
         // some error, abort
         printf("ret.Decrypt != Crypto::Error::NO_ERROR) = %d\n", ret);
         return ret;
     }
-    printf("test ok: msg: %s\n", msg);
-    Ring::Ble::Crypto::Debug::DumpArray("enc: ", Ring::Ble::Crypto::ByteArr(crypted, crypted + crypted_len));
-    printf("test ok: dec: %s\n", decrypted);
+
+    decrypted[decrypted_len]='\0';
+
+    if (argc > 2 && !strcmp(argv[1], "-dec"))
+    {
+        printf("enc:%s\n", argv[2]);
+        printf("dec:%s\n", decrypted);
+        return Ring::Ble::Crypto::Error::NO_ERROR;
+    }
+
+    printf("test ok: origin: %s\n", msg);
+    Ring::Ble::Crypto::Debug::DumpArray("encrypted:", Ring::Ble::Crypto::ByteArr(crypted, crypted + crypted_len));
+    printf("test ok: decrypted: %s\n", decrypted);
 
     // here is test of backward functionality when server encrypt and client decrypt it
-
 
     sprintf(msg, "HelloClientMessage-fromServer");
     ret = server.Encrypt(msg, strlen(msg), crypted, crypted_len);
@@ -191,9 +283,10 @@ int main()
         printf("ret.Decrypt != Crypto::Error::NO_ERROR) = %d\n", ret);
         return ret;
     }
-    printf("test ok: msg: %s\n", msg);
-    Ring::Ble::Crypto::Debug::DumpArray("enc: ", Ring::Ble::Crypto::ByteArr(crypted, crypted + crypted_len));
-    printf("test ok: dec: %s\n", decrypted);
+    printf("test ok: origin: %s\n", msg);
+    Ring::Ble::Crypto::Debug::DumpArray("encrypted:", Ring::Ble::Crypto::ByteArr(crypted, crypted + crypted_len));
+    decrypted[decrypted_len]='\0';
+    printf("test ok: decrypted: %s\n", decrypted);
 
 #endif
 
