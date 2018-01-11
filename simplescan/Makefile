@@ -89,7 +89,7 @@ CRYPTO_CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14 \
 #CXXFLAGS = $(CRYPTO_CFLAGS)
 
 CRYPTO_LDFLAGS_LIB = -shared -L/usr/lib/x86_64-linux-gnu/ -lsodium
-CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread
+CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread -L/usr/lib/x86_64-linux-gnu/ -lsodium
 
 RM = rm -f
 CC = g++

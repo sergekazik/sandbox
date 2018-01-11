@@ -6,12 +6,27 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
+#include <sodium.h>
 
 #define TEST_SODIUM_DIRECT  0
 
+#include "version.h"
 #include "test_handshake.h"
 #include "RingCrypto.hh"
 
+#if 1
+static const uint8_t sign_priv[] = {
+
+    0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
+    0x8a,0x00,0x21,0xdd,0x5a,0x9c,0x15,0xf0,0x0e,0xa7,0x46,0xc0,0xf8,0x21,0x22,0x38,
+    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
+    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
+};
+static const uint8_t sign_pub[] = {
+    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
+    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
+};
+#else
 static const uint8_t sign_priv[] = {
     0x2b,0xf8,0x4f,0x99,0x6a,0xfa,0xb6,0x53,0xd0,0x57,0x9f,0xb0,0x5a,0x7b,0xa2,0xd1,
     0xca,0xd2,0xa4,0x80,0x13,0x2d,0x98,0xf9,0x82,0xe0,0x1c,0x49,0x7c,0x84,0xa0,0x49,
@@ -22,6 +37,7 @@ static const uint8_t sign_pub[] = {
     0xbb,0x30,0x38,0xee,0x8c,0x71,0x2b,0x47,0x86,0xfb,0x57,0x5c,0xa0,0x57,0xf6,0x81,
     0xa5,0xef,0x24,0xfa,0x49,0x8f,0x25,0xf4,0x8d,0xe1,0xe0,0xfa,0x49,0x70,0xc4,0x97
 };
+#endif
 
 using namespace std;
 
@@ -33,6 +49,52 @@ void debug_print(const char* name, const Ring::ByteArr& arr)
         printf("%02x", c);
     }
     printf("\n");
+}
+
+static bool print_help(char* arg)
+{
+    if (!strcmp(arg, "--help") || !strcmp(arg, "-h") || !strcmp(arg, "?"))
+    {
+        printf("test_crypto v. %s\nusage:\n--------------------------------------\n",version_date);
+        printf("-gpk            get public key\n");
+        printf("-ppp <payload>  process public payload\n");
+        printf("-enc <input>    encrypt input\n");
+        printf("-dec <input>    decrypt input\n");
+        printf("--------------------------------------\nExamples:\n");
+        printf("$ test_crypto -gpk\n");
+        printf("gpk:e16cd2059882ce425a132bf708aff17314a5b44ddcd13d4d4e511fb901886b2c\n");
+        printf("$ test_crypto -ppp 0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
+        printf("ppp:0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
+        printf("$ test_crypto -enc HelloWorld\n");
+        printf("msg:HelloWorld\n");
+        printf("enc:0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
+        printf("$ test_crypto -dec 0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
+        printf("enc:0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
+        printf("dec:HelloWorld\n");
+
+        return true;
+    }
+    return false;
+}
+
+static bool print_gen(char *arg)
+{
+    if (!strcmp(arg, "--generate") || !strcmp(arg, "-gen"))
+    {
+        (void) sodium_init();
+        unsigned char pk[32];
+        unsigned char sk[32];
+
+        crypto_box_seed_keypair(pk, sk, (const unsigned char*) "3245;lkjh fd[0g946 /ljf"); // just string to seed
+        crypto_sign_keypair(pk, sk);
+
+        Ring::ByteArr tpk(pk, pk+32);
+        Ring::ByteArr tsk(sk, sk + 32);
+        debug_print("pub", tpk);
+        debug_print("prv", tsk);
+        return true;
+    }
+    return false;
 }
 
 int main(int argc, char* argv[])
@@ -127,6 +189,11 @@ int main(int argc, char* argv[])
     char outstr[0xff];
     if (argc > 1)
     {
+        if (print_help(argv[1]))
+            return Ring::Ble::Crypto::Error::NO_ERROR;
+        if (print_gen(argv[1]))
+            return Ring::Ble::Crypto::Error::NO_ERROR;
+
         // suppress all debug if in the command mode
         Ring::Ble::Crypto::Debug::Suppress(true);
     }
@@ -292,3 +359,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+

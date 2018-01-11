@@ -17,8 +17,8 @@ Client::Client(char *aShared, int aLenght) :
     (void) sodium_init();
 
     //  genearate private/public key pair
-    mLocalPublicKey = ByteArr (crypto_box_PUBLICKEYBYTES);  // ? crypto_box_publickeybytes()
-    mLocalPrivateKey = ByteArr (crypto_box_SECRETKEYBYTES); // ? crypto_box_secretkeybytes()
+    mLocalPublicKey = ByteArr (crypto_box_PUBLICKEYBYTES);
+    mLocalPrivateKey = ByteArr (crypto_box_SECRETKEYBYTES);
     mSignaturePublic = ByteArr(aShared, aShared + aLenght);
 
     crypto_box_keypair(mLocalPublicKey.data(), mLocalPrivateKey.data());
