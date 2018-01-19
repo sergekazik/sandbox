@@ -112,10 +112,9 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
-	# @cp -u -v crypto/*.cpp crypto/*.h $(RING_BLE)/crypto
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
-	@cp -u crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
+	#@cp -u -v crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
 	@echo "-----------------------------------------------------"
 
 prepro:

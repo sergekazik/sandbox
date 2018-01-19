@@ -2,9 +2,13 @@
 #define __RING_GATT_SERVICE_DEFINITION_H__
 
 // Helper macro
+#if defined(BCM43)
+#define MAKEUUID16(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+#else
 #define MAKEUUID16(_q, _w, _e, _r, _t, _y, _u, _i, _o, _p, _a, _s, _d, _f, _g, _h) {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+#endif
 #define MAKERINGUUID(_attr_idx) MAKEUUID16(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,35,_attr_idx)
-#define MAKEPAYLOAD(_pld) (unsigned int) strlen(_pld), (Byte_t *) _pld
+#define MAKEPAYLOAD(_pld) (unsigned int) strlen(_pld), (unsigned char *) _pld
 
 #define BLE_PACKET_LEN              18
 #define RING_PAIRING_SERVICE_UUID   MAKEUUID16(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB)
@@ -22,6 +26,35 @@
 
 #ifdef RING_BLE_PAIRING_SERVICES_DEFINE
 #undef RING_BLE_PAIRING_SERVICES_DEFINE
+#endif
+
+/*********************************************************************
+ *  characteristic def example
+ * expected output (example):
+ * uint128_t SET_PUBLIC_KEY = {0x00,0x00,0xFA,0xCE,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x35,0x01};
+ * uint128_t GET_PUBLIC_PAYLOAD = {0x00,0x00,0xFA,0xCE,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x35,0x02};
+
+//    gatt_db_service_add_characteristic(service, &uuid,      \
+//        BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,   \
+//        BT_GATT_CHRC_PROP_READ | BT_GATT_CHRC_PROP_WRITE | BT_GATT_CHRC_PROP_NOTIFY,    \
+//        gatt_svc_chngd_ccc_read_cb, gatt_svc_chngd_ccc_write_cb,    \
+//        __argpld);
+
+*********************************************************************/
+
+#ifdef DECLARE_BCM_RING_CHARACTERISTIC_UUID
+#undef DECLARE_BCM_RING_CHARACTERISTIC_UUID
+#define RING_BLE_PAIRING_SERVICES_DEFINE(__arg0, __arg1, __arg2, __arg3, __arg4, __arg5, __argpld) uint128_t uuid##__arg1 = {__arg5};
+#endif
+
+#ifdef ADD_BCM_RING_CHARACTERISTICS
+#undef ADD_BCM_RING_CHARACTERISTICS
+#define RING_BLE_PAIRING_SERVICES_DEFINE(__arg0, __arg1, __arg2, __arg3, __arg4, __arg5, __argpld) add_ring_characteristic(ringsvc, __arg1, uuid##__arg1, (void*) server, __argpld);
+#endif
+
+#ifdef BCM_DEFINE_CHAR_INFO_LIST
+#undef BCM_DEFINE_CHAR_INFO_LIST
+#define RING_BLE_PAIRING_SERVICES_DEFINE(__arg0, __arg1, __arg2, __arg3, __arg4, __arg5, __argpld) {0, #__arg1},
 #endif
 
 /*********************************************************************
