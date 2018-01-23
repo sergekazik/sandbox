@@ -198,3 +198,4 @@ version.h
 ../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/gatt-server.c
 ../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/gatt_db.c
 ../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/gatt_db.h
+../../low-powered-doorbell-fw/ambarella/ring/ringnm/make.inc

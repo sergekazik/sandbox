@@ -21,7 +21,6 @@ public:
     static char mPublicPayload[ATT_MTU_MAX];
     static char mMacAddress[DEV_MAC_ADDR_LEN];
     static char mNetworkInfo[ATT_MTU_MAX];
-    static void getValByKeyfromJson(const char* json_str, const char* key, char* val, int len);
 
 private:
     BlePairing();

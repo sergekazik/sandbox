@@ -40,7 +40,10 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	\
 	    -DTEST_CONSOLE_WRITE			    \
 	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
 	     $(BTPIA_SDK_INC)
-#	     -DBLUEZ_TOOLS_SUPPORT			    \
+
+ifeq ($(BLE_CS), BCM43)
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT
+endif
 
 CXXFLAGS = $(CFLAGS)
 

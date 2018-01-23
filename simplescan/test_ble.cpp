@@ -254,27 +254,28 @@ static void print_help(void)
     printf("********************************************************\n");
     printf("* BT/LE test tool (date %s)\n", version_date);
     printf("********************************************************\n");
-#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
+#if defined(STANDARD_BT_NO_BLE) && (defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64)))
     printf("--scan                  scan for bluetooth device\n");
     printf("--listen                listen for incoming connection, read once\n");
     printf("--conn <dev_addr>       connect to device MAC address, write once\n");
     printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
     printf("------------------------------------------------\n");
 #endif
-#if defined(BCM43) || defined(Linux_x86_64)
-    printf("--up                    hciconfig hci0 up\n");
-    printf("--down                  hciconfig hci0 down\n");
-    printf("--piscan                hciconfig hci0 piscan\n");
-    printf("--noscan                hciconfig hci0 noscan\n");
-    printf("--leadv                 hciconfig hci0 leadv\n");
-    printf("--noleadv               hciconfig hci0 noleadv\n");
-    printf("--class                 hciconfig hci0 class 0x280430\n");
-    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
-    printf("--hcishutdown           noleadv, noscan, down\n");
-    printf("------------------------------------------------\n");
-#endif  // not "else if"!
-#if defined(WILINK18) || defined(Linux_x86_64)
+//#if defined(BCM43) || defined(Linux_x86_64)
+//    printf("--up                    hciconfig hci0 up\n");
+//    printf("--down                  hciconfig hci0 down\n");
+//    printf("--piscan                hciconfig hci0 piscan\n");
+//    printf("--noscan                hciconfig hci0 noscan\n");
+//    printf("--leadv                 hciconfig hci0 leadv\n");
+//    printf("--noleadv               hciconfig hci0 noleadv\n");
+//    printf("--class                 hciconfig hci0 class 0x280430\n");
+//    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
+//    printf("--hcishutdown           noleadv, noscan, down\n");
+//    printf("------------------------------------------------\n");
+//#endif  // not "else if"!
+#if defined(WILINK18) || defined(Linux_x86_64) || (defined(BLUEZ_TOOLS_SUPPORT) && defined(BCM43))
     printf("--gattauto              run Bluetopia GATT Server sample\n");
+    printf("--auto                  auto run Bluetopia GATT Server sample\n");
     printf("--gatt                  load Bluetopia GATT Server sample\n");
     printf("------------------------------------------------\n");
 #endif
@@ -310,12 +311,14 @@ static int pairing_test_run(const char* arguments)
 
     if (arguments != NULL && !strcmp(arguments, "--autoinit"))
     {
+#if defined(WILINK18)
         printf("---starting in a sec...---\n");
         sleep(2);
+#endif
 
-        if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
+        if (Ble::Error::NONE != (ret_val = Pairing->Initialize((char*) "RingTEST-BLE")))
         {
-            printf("Pairing->Initialize() failed, ret = %d. Abort", ret_val);
+            printf("Pairing->Initialize() failed, ret = %d. Abort\n", ret_val);
             goto autodone;
         }
         if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
@@ -413,7 +416,7 @@ int main(int argc, char **argv)
     {
         if (0) {;} // plaseholder for following "else if"
 
-#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
+#if defined(STANDARD_BT_NO_BLE) && (defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64)))
         else if (!strcmp(argv[arg_idx], "--scan"))
         {
             ret = raw_test_scan();
@@ -489,8 +492,10 @@ int main(int argc, char **argv)
         }
 #endif // BLUEZ_TOOLS_SUPPORT
 
-#if defined(WILINK18) || defined(Linux_x86_64)
-        else if (!strcmp(argv[arg_idx], "--gattauto"))
+#if defined(WILINK18) || defined(Linux_x86_64) || (defined(BLUEZ_TOOLS_SUPPORT) && defined(BCM43))
+
+        else if (!strcmp(argv[arg_idx], "--gattauto") ||
+                 !strcmp(argv[arg_idx], "--auto"))
         {
             ret = pairing_test_run("--autoinit");
         }

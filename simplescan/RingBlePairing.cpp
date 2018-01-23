@@ -67,7 +67,7 @@ enum GattAttributeIndexByName {
 /* -------------------------------------------------------------*
  * static callback function declaration
  * -------------------------------------------------------------*/
-static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType);
+static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Property::Access aAccessType);
 std::function<int(int, void*, int)> ringDataCb = NULL;
 
 /* -------------------------------------------------------------*
@@ -330,41 +330,17 @@ int BlePairing::PrintStatus()
 }
 
 ///
-/// \brief BlePairing::getValByKeyfromJson
-/// \param json
-/// \param key
-/// \param val
-/// \note dummy json parser to be replaced with something actual
-///
-void BlePairing::getValByKeyfromJson(const char* json_str, const char* key, char* val, int len)
-{
-    if (json_str && key && val) {
-        memset(val, 0, len);
-        char *pStart = (char*) strstr(json_str, key);
-        if (pStart) {
-            pStart += strlen(key)+3; //3 for ":"
-            char *pEnd = (char*) strchr(pStart, '"');
-            if (pEnd && (pEnd > pStart)) {
-                int ln = pEnd-pStart+1;
-                if (ln > len) ln = len;
-                strncpy(val, pStart, ln-1);
-            }
-        }
-    }
-}
-
-///
 /// \brief OnAttributeAccessCallback
 /// \param aServiceIdx
 /// \param aAttributeIdx
 /// \param aAccessType
 ///
-static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Access aAccessType)
+static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Property::Access aAccessType)
 {
     static const unsigned int service_id = sServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
     static const AttributeInfo_t *attribute_list = sServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
 
-    if (aAccessType == Ble::Characteristic::Disconnected)
+    if (aAccessType == Ble::Property::Disconnected)
     {
         // special case to re-enable advertisement if it was susspended by connection, but
         // user didn't cancel the request to start it
@@ -372,7 +348,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
 
         if (pairing_inst)
         {
-            BOT_NOTIFY_DEBUG("Ble::Characteristic::Disconnected, ads = %d, %s", pairing_inst->isAdvertisingRequested()?1:0, pairing_inst->isAdvertisingRequested()?"restarting":"");
+            BOT_NOTIFY_DEBUG("Ble::Property::Disconnected, ads = %d, %s", pairing_inst->isAdvertisingRequested()?1:0, pairing_inst->isAdvertisingRequested()?"restarting":"");
             if (pairing_inst->isAdvertisingRequested())
             {
                 pairing_inst->StartAdvertising();
@@ -381,8 +357,8 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
         return;
     }
 
-    BOT_NOTIFY_INFO("pairing-sample_callback on Ble::Characteristic::%s for %s %s\n",
-           aAccessType == Ble::Characteristic::Read ? "Read": aAccessType == Ble::Characteristic::Write ? "Write":"Confirmed",
+    BOT_NOTIFY_INFO("pairing-sample_callback on Ble::Property::%s for %s %s\n",
+           aAccessType == Ble::Property::Read ? "Read": aAccessType == Ble::Property::Write ? "Write":"Confirmed",
            sServiceTable[aServiceIdx].ServiceName, sServiceTable[aServiceIdx].AttributeList[aAttributeIdx].AttributeName);
 
 #if !defined(Linux_x86_64) || !defined(WILINK18)
@@ -401,7 +377,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
 
     switch (aAccessType)
     {
-    case Ble::Characteristic::Read:
+    case Ble::Property::Read:
         BOT_NOTIFY_DEBUG("Read");
         bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
         switch (aAttributeIdx)
@@ -423,12 +399,12 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::C
             ringDataCb(aAttributeIdx, NULL, 0);
         }
         break;
-    case Ble::Characteristic::Confirmed:
+    case Ble::Property::Confirmed:
         bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);
         // other things todo...
         break;
 
-    case Ble::Characteristic::Write:
+    case Ble::Property::Write:
         {
             BOT_NOTIFY_DEBUG("Write");
             bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx);

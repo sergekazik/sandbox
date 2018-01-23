@@ -61,14 +61,9 @@ BleApi* GattSrv::getInstance()
 GattSrv::GattSrv() : mDEVMCallbackID(0),
                     mGATMCallbackID(0),
                     mAuthenticationCallbackID(0),
-                    mServiceCount(0),
-                    mServiceTable(NULL),
                     mServiceMutex(NULL),
                     mPrepareWriteList(NULL)
 {
-
-    mOnCharCb = NULL;
-
     /* Initialize the default Secure Simple Pairing parameters.          */
     mIOCapability    = DEFAULT_IO_CAPABILITY;
     mLEIOCapability  = DEFAULT_LE_IO_CAPABILITY;
@@ -392,7 +387,7 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
 
     if (aEventType == getGATTConnected || aEventType == getGATTDisconnected)
     {
-        (*(mOnCharCb))(0, 0, aEventType == getGATTConnected ? Ble::Characteristic::Connected : Ble::Characteristic::Disconnected);
+        (*(mOnCharCb))(0, 0, aEventType == getGATTConnected ? Ble::Property::Connected : Ble::Property::Disconnected);
     }
     else
     {
@@ -404,30 +399,30 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
         if (AttribueIdx == Error::NOT_FOUND)
             return Error::NOT_FOUND;
 
-        Ble::Characteristic::Access AccessType;
+        Ble::Property::Access AccessType;
 
         switch (aEventType)
         {
         case getGATTReadRequest:
-            AccessType = Ble::Characteristic::Read;
+            AccessType = Ble::Property::Read;
             break;
 
         case getGATTWriteRequest:
         case getGATTSignedWrite:
         // case getGATTPrepareWriteRequest: - in progress should not be called
         case getGATTCommitPrepareWrite:
-            AccessType = Ble::Characteristic::Write;
+            AccessType = Ble::Property::Write;
             break;
 
         case getGATTHandleValueConfirmation:
-            AccessType = Ble::Characteristic::Confirmed;
+            AccessType = Ble::Property::Confirmed;
             break;
 
         default:
             return Error::INVALID_PARAMETERS;
         }
 
-        // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttributeIdx, Ble::Characteristic::Accessed aAccessType);
+        // typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttributeIdx, Ble::Property::Accessed aAccessType);
         (*(mOnCharCb))(ServiceIdx, AttribueIdx, AccessType);
     }
     return Error::NONE;
@@ -786,102 +781,6 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
     return ret_val;
 }
 
-int GattSrv::Configure(DeviceConfig_t* aConfig)
-{
-    int ret_val = Error::UNDEFINED;
-
-    while (aConfig != NULL && aConfig->tag != Ble::Config::EOL)
-    {
-        switch (aConfig->tag)
-        {
-        case Ble::Config::ServiceTable:
-            if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.Params[0].strParam != NULL))
-            {
-                mServiceCount = aConfig->params.Params[0].intParam;
-                mServiceTable = (ServiceInfo_t *) aConfig->params.Params[0].strParam;
-                BOT_NOTIFY_DEBUG("Service Table configure succeeded, count=%d", mServiceCount);
-                ret_val = Error::NONE;
-            }
-            else
-            {
-                /* One or more of the necessary parameters is/are invalid.     */
-                BOT_NOTIFY_ERROR("Usage: Ble::Config::ServiceTable: ServiceInfo_t *ptr, int numOfSvc");
-                ret_val = Error::INVALID_PARAMETERS;
-            }
-            break;
-
-        case Ble::Config::LocalDeviceName:
-            ret_val = SetLocalDeviceName(&aConfig->params);
-            break;
-
-        case Ble::Config::LocalClassOfDevice:
-            ret_val = SetLocalClassOfDevice(&aConfig->params);
-            break;
-
-        case Ble::Config::Discoverable:
-            ret_val = SetDiscoverable(&aConfig->params);
-            break;
-
-        case Ble::Config::Connectable:
-            ret_val = SetConnectable(&aConfig->params);
-            break;
-
-        case Ble::Config::Pairable:
-            ret_val = SetPairable(&aConfig->params);
-            break;
-
-        case Ble::Config::RemoteDeviceLinkActive:
-            ret_val = SetRemoteDeviceLinkActive(&aConfig->params);
-            break;
-
-        case Ble::Config::LocalDeviceAppearance:
-            ret_val = SetLocalDeviceAppearance(&aConfig->params);
-            break;
-
-        case Ble::Config::AdvertisingInterval:
-            ret_val = SetAdvertisingInterval(&aConfig->params);
-            break;
-
-        case Ble::Config::AndUpdateConnectionAndScanBLEParameters:
-            ret_val = SetAndUpdateConnectionAndScanBLEParameters(&aConfig->params);
-            break;
-
-        case Ble::Config::AuthenticatedPayloadTimeout:
-            ret_val = SetAuthenticatedPayloadTimeout(&aConfig->params);
-            break;
-
-        case Ble::Config::RegisterGATTCallback:
-            ret_val = RegisterGATMEventCallback(&aConfig->params);
-            break;
-
-        case Ble::Config::RegisterService:
-            ret_val = GATTRegisterService(&aConfig->params);
-            break;
-
-        case Ble::Config::RegisterAuthentication:
-            ret_val = RegisterAuthentication(&aConfig->params);
-            break;
-
-        case Ble::Config::SetSimplePairing:
-            ret_val = ChangeSimplePairingParameters(&aConfig->params);
-            break;
-
-        case Ble::Config::EnableBluetoothDebug:
-            ret_val = EnableBluetoothDebug(&aConfig->params);
-            break;
-
-        default:
-            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d", aConfig->tag);
-            ret_val = Error::INVALID_PARAMETERS;
-            break;
-        }
-        if (ret_val != Error::NONE)
-            break;
-        aConfig++;
-    }
-    return ret_val;
-}
-
 /* The following function is responsible for setting the Local Name  */
 /* Device Property of the local device.  This function returns zero  */
 /* if successful and a negative value if an error occurred.          */
@@ -900,6 +799,11 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
         {
             LocalDeviceProperties.DeviceNameLength = strlen(aParams->Params[0].strParam);
             strcpy(LocalDeviceProperties.DeviceName, aParams->Params[0].strParam);
+        }
+        else
+        {
+            LocalDeviceProperties.DeviceNameLength = strlen(mDeviceName);
+            strcpy(LocalDeviceProperties.DeviceName, mDeviceName);
         }
 
         BOT_NOTIFY_DEBUG("Attempting to set Device Name to: \"%s\".", LocalDeviceProperties.DeviceName);

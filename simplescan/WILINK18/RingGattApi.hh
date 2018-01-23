@@ -34,7 +34,6 @@ private:
 
 public:
     int Initialize();
-    int Configure(DeviceConfig_t* aConfig);
 
     int QueryDevicePower();
     int SetDevicePower(Ble::ConfigArgument::Arg aOnOff);
@@ -190,9 +189,6 @@ protected:
     unsigned int   mDEVMCallbackID;            // callback ID of the currently registered Device Manager
     unsigned int   mGATMCallbackID;            // Callback ID of the currently registered Generic Attribute Profile Manager Event Callback.
     unsigned int   mAuthenticationCallbackID;  // current Authentication Callback ID that is assigned from the Device Manager when the local
-    unsigned int   mServiceCount;              // the current number of services passed to register
-    ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
-    onCharacteristicAccessCallback  mOnCharCb; // callback to client function on characteristic change - Note: single user only
 
     GAP_IO_Capability_t mIOCapability;         // current I/O Capabilities that are to be used for Secure SimplePairing.
     GAP_LE_IO_Capability_t	mLEIOCapability;   // current I/O Capabilities that are to be used for LE pairing

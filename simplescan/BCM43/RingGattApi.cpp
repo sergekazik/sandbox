@@ -25,6 +25,9 @@
 #ifndef BCM43
 #error WRONG RingGattSrv platform-related file included into build
 #endif
+#if !defined(BLUEZ_TOOLS_SUPPORT)
+#error REQUIRED CONFIG_AMBARELLA_BLUEZ_TOOLS_SUPPORT and CONFIG_AMBARELLA_BLUETOOTH5_TOOL_SUPPORT
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -40,6 +43,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "Bot_Notifier.h"
 #include "RingGattApi.hh"
@@ -55,185 +59,200 @@ BleApi* GattSrv::getInstance() {
     return (BleApi*) instance;
 }
 
-GattSrv::GattSrv() :
-   mDeviceClass("0x280430")
-  ,mDeviceName("Ring Doorbell Ampak BCM43")
+GattSrv::GattSrv()
 {
 }
+
+int GattSrv::Initialize()
+{
+    int ctl, ret = Error::NONE;
+    if (!mInitialized)
+    {
+        BOT_NOTIFY_DEBUG("GattSrv::Initialize");
+        struct hci_dev_info di;
+        if (0 <= (ctl = open_socket(di)))
+        {
+            HCIup(ctl, di.dev_id);
+            HCIscan(ctl, di.dev_id, (char*) "piscan");
+            HCIle_adv(di.dev_id, NULL);
+
+            close(ctl);
+            mInitialized = true;
+        }
+        else
+            ret = Error::FAILED_INITIALIZE;
+    }
+    return ret;
+}
+
+int GattSrv::Shutdown()
+{
+    int ctl, ret = Error::NONE;
+    if (mInitialized)
+    {
+        struct hci_dev_info di;
+        if (0 <= (ctl = open_socket(di)))
+        {
+            HCIno_le_adv(di.dev_id);
+            HCIscan(ctl, di.dev_id, (char*) "noscan");
+            HCIdown(ctl, di.dev_id);
+
+            close(ctl);
+            mInitialized = false;
+        }
+        else
+            ret = Error::FAILED_INITIALIZE;
+    }
+    return ret;
+}
+int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)))
+{
+    int ret_val = Error::UNDEFINED;
+    if (mInitialized)
+    {
+        if ((aParams) && (aParams->NumberofParameters))
+        {
+            strncpy(mDeviceName, aParams->Params[0].strParam, DEV_NAME_LEN);
+        }
+
+        BOT_NOTIFY_DEBUG("Attempting to set Device Name to: \"%s\".", mDeviceName);
+        HCIname(di.dev_id, mDeviceName);
+        ret_val = Error::NONE;
+    }
+    else
+    {
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    return ret_val;
+}
+
+int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused)))
+{
+    int ret_val = Error::UNDEFINED;
+    if (mInitialized)
+    {
+        if ((aParams) && (aParams->NumberofParameters))
+        {
+            strncpy(mDeviceClass, aParams->Params[0].strParam, DEV_CLASS_LEN);
+        }
+
+        BOT_NOTIFY_DEBUG("Attempting to set Device Name to: \"%s\".", mDeviceName);
+        HCIclass(di.dev_id, mDeviceClass);
+        ret_val = Error::NONE;
+    }
+    else
+    {
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    return ret_val;
+}
+
+int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetConnectable(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetPairable(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetRemoteDeviceLinkActive(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::ChangeSimplePairingParameters(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unused)))
+{   // nothing todo at this time
+    return Error::NONE;
+}
+
+/**********************************************************
+ * Helper functions
+ *********************************************************/
 
 int GattSrv::open_socket(struct hci_dev_info &di) {
     int ctl = -1;
     (void) di;
 
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+//    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
 
     /* Open HCI socket  */
     if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
-        perror("Can't open HCI socket.");
-        return errno;
+        BOT_NOTIFY_ERROR("Can't open HCI socket. %s (%d)", strerror(errno), errno);
+        return Error::FAILED_INITIALIZE;
     }
 
-    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
-    {
-        perror("Can't get device info");
-        return errno;
-    }
 
-    di.dev_id = 0;
+//    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
+//    {
+//        BOT_NOTIFY_ERROR("open_socket: Can't get device info. %s (%d)", strerror(errno), errno);
+//        return Error::FAILED_INITIALIZE;
+//    }
 
-    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
-        int dd = hci_open_dev(di.dev_id);
-        hci_read_bd_addr(dd, &di.bdaddr, 1000);
-        hci_close_dev(dd);
-    }
-#endif
+      di.dev_id = 0;
+
+//    if (hci_test_bit(HCI_RAW, &di.flags) && !bacmp(&di.bdaddr, &_BDADDR_ANY)) {
+//        int dd = hci_open_dev(di.dev_id);
+//        hci_read_bd_addr(dd, &di.bdaddr, 1000);
+//        hci_close_dev(dd);
+//    }
     return ctl;
 }
 
-int GattSrv::Initialize() {
-    int ctl = 1;
-
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-    struct hci_dev_info di;
-    if (0 <= (ctl = open_socket(di)))
-    {
-        HCIup(ctl, di.dev_id);
-        HCIscan(ctl, di.dev_id, (char*) "piscan");
-        HCIclass(di.dev_id, mDeviceClass);
-        HCIle_adv(di.dev_id, NULL);
-
-        close(ctl);
-        ctl = Error::NONE;
-    }
-#endif
-    return ctl;
-}
-
-int GattSrv::Shutdown() {
-    int ctl = 1;
-
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-    struct hci_dev_info di;
-    if (0 <= (ctl = open_socket(di)))
-    {
-        HCIno_le_adv(di.dev_id);
-        HCIscan(ctl, di.dev_id, (char*) "noscan");
-        HCIdown(ctl, di.dev_id);
-
-        close(ctl);
-        ctl = Error::NONE;
-    }
-#endif
-    return ctl;
-}
-
-int GattSrv::Configure(DeviceConfig_t* aConfig) {
-    int ret_val = Error::UNDEFINED;
-
-    struct hci_dev_info di;
-    int ctl = 1;
-
-    ctl = open_socket(di);
-
-    while (0 <= ctl && aConfig != NULL && aConfig->tag != Ble::Config::EOL)
-    {
-        switch (aConfig->tag)
-        {
-        case Ble::Config::ServiceTable:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::LocalDeviceName:
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-            HCIname(di.dev_id, mDeviceName);
-            ret_val = Error::NONE;
-#endif
-            break;
-
-        case Ble::Config::LocalClassOfDevice:
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-            HCIclass(di.dev_id, mDeviceClass);
-            ret_val = Error::NONE;
-#endif
-            break;
-
-        case Ble::Config::Discoverable:
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-            HCIle_adv(di.dev_id, NULL);
-            ret_val = Error::NONE;
-#endif
-            break;
-
-        case Ble::Config::Connectable:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::Pairable:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::RemoteDeviceLinkActive:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::LocalDeviceAppearance:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::AdvertisingInterval:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::AndUpdateConnectionAndScanBLEParameters:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::AuthenticatedPayloadTimeout:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::RegisterGATTCallback:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::RegisterService:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::RegisterAuthentication:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::SetSimplePairing:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        case Ble::Config::EnableBluetoothDebug:
-            ret_val = Error::NOT_IMPLEMENTED;
-            break;
-
-        default:
-            BOT_NOTIFY_ERROR("Device Config: unknown tag = %d", aConfig->tag);
-            ret_val = Error::INVALID_PARAMETERS;
-            break;
-        }
-
-        if (ret_val != Error::NONE)
-            break;
-
-        aConfig++;
-    }
-
-    close(ctl);
-    return ret_val;
-}
 
 /**************************** HCI ******************************/
 /**************************** HCI ******************************/
 /**************************** HCI ******************************/
-#if defined(FULL_HCI_API) && defined(BLUEZ_TOOLS_SUPPORT)
-
 void GattSrv::print_pkt_type(struct hci_dev_info *di) {
     char *str;
     str = hci_ptypetostr(di->pkt_type);
@@ -260,7 +279,7 @@ void GattSrv::print_dev_features(struct hci_dev_info *di, int format) {
             di->features[6], di->features[7]);
 
     if (format) {
-        char *tmp = lmp_featurestostr(di->features, "\t\t", 63);
+        char *tmp = (char*) lmp_featurestostr(di->features, "\t\t", 63);
         BOT_NOTIFY_DEBUG("%s", tmp);
         bt_free(tmp);
     }
@@ -375,7 +394,7 @@ void GattSrv::HCIle_adv(int hdev, char *opt) {
         hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-        perror("Could not open device");
+        BOT_NOTIFY_ERROR("Could not open device");
         return;
     }
     memset(&adv_params_cp, 0, sizeof(adv_params_cp));
@@ -425,7 +444,7 @@ void GattSrv::HCIno_le_adv(int hdev) {
         hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-        perror("Could not open device");
+        BOT_NOTIFY_ERROR("Could not open device");
         return;
     }
     memset(&advertise_cp, 0, sizeof(advertise_cp));
@@ -674,7 +693,7 @@ void GattSrv::HCIfeatures(int hdev) {
                      (max_page > 0) ? " page 0" : "",
                      features[0], features[1], features[2], features[3],
             features[4], features[5], features[6], features[7]);
-    tmp = lmp_featurestostr(di.features, "\t\t", 63);
+    tmp = (char*) lmp_featurestostr(di.features, "\t\t", 63);
     BOT_NOTIFY_DEBUG("%s", tmp);
     bt_free(tmp);
     for (i = 1; i <= max_page; i++) {
@@ -719,7 +738,7 @@ void GattSrv::HCIname(int hdev, char *opt) {
     hci_close_dev(dd);
 }
 
-char *GattSrv::get_minor_device_name(int major, int minor) {
+const char *GattSrv::get_minor_device_name(int major, int minor) {
     switch (major) {
     case 0:	/* misc */
         return "";
@@ -1096,7 +1115,7 @@ void GattSrv::HCIcommands(int hdev) {
                 BOT_NOTIFY_DEBUG(" %d", n);
         BOT_NOTIFY_DEBUG(")");
     }
-    str = hci_commandstostr(cmds, "\t", 71);
+    str = (char*) hci_commandstostr(cmds, "\t", 71);
     BOT_NOTIFY_DEBUG("%s", str);
     bt_free(str);
     hci_close_dev(dd);
@@ -1548,7 +1567,7 @@ void GattSrv::HCIblock(int hdev, char *opt) {
     }
     str2ba(opt, &bdaddr);
     if (ioctl(dd, HCIBLOCKADDR, &bdaddr) < 0) {
-        perror("ioctl(HCIBLOCKADDR)");
+        BOT_NOTIFY_ERROR("ioctl(HCIBLOCKADDR)");
         return;
     }
     hci_close_dev(dd);
@@ -1571,7 +1590,7 @@ void GattSrv::HCIunblock(int hdev, char *opt) {
     else
         str2ba(opt, &bdaddr);
     if (ioctl(dd, HCIUNBLOCKADDR, &bdaddr) < 0) {
-        perror("ioctl(HCIUNBLOCKADDR)");
+        BOT_NOTIFY_ERROR("ioctl(HCIUNBLOCKADDR)");
         return;
     }
     hci_close_dev(dd);
@@ -1591,4 +1610,3 @@ void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
                      addr, di->acl_mtu, di->acl_pkts,
                      di->sco_mtu, di->sco_pkts);
 }
-#endif

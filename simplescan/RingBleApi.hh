@@ -346,7 +346,7 @@ namespace ConfigArgument { enum Arg {
     FTS_File = 3,
 };}
 
-namespace Characteristic
+namespace Property
 {
     enum Access {
         Read,
@@ -356,7 +356,7 @@ namespace Characteristic
         Connected,
         Disconnected,
     };
-    enum  Property
+    enum Permission
     {
         R__     = GATM_CHARACTERISTIC_PROPERTIES_READ,
         _W_     = GATM_CHARACTERISTIC_PROPERTIES_WRITE,
@@ -395,13 +395,18 @@ public:
         BLE_APPEARANCE_MOTION_SENSOR            = 1345,
     };
 
-    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, Characteristic::Access aAccessType);
+    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, Ble::Property::Access aAccessType);
 
     ~BleApi();
 
 protected:
     BleApi();
-    bool          mInitialized;      // initialization state
+    bool            mInitialized;              // initialization state
+    unsigned int    mServiceCount;             // the current number of services passed to register
+    ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
+    char mDeviceClass[DEV_CLASS_LEN];          // class of the device, e.g. 0x280430
+    char mDeviceName[DEV_NAME_LEN];            // device name, e.g. RingSetup-BT
+    onCharacteristicAccessCallback  mOnCharCb; // callback to client function on characteristic change - Note: single user only
 
 public:
     virtual int Initialize() = 0;
@@ -415,7 +420,13 @@ public:
     virtual int QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused))) = 0;
 
     // configuration
-    virtual int Configure(DeviceConfig_t* aConfig) = 0;
+    virtual int Configure(DeviceConfig_t* aConfig);
+    virtual int SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int SetConnectable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int SetPairable(ParameterList_t *aParams __attribute__ ((unused))) = 0;
+    virtual int SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((unused))) = 0;
 
     virtual int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
