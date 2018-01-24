@@ -17,7 +17,21 @@
 
 #include "RingBleApi.hh"
 
+struct server_ref {
+    struct bt_att *att;
+    struct gatt_db *db;
+    struct bt_gatt_server *gatt;
+};
+
 namespace Ring { namespace Ble {
+
+typedef struct _GattServerInfo {
+    int fd;
+    int hci_socket;
+    uint16_t ring_svc_handle;
+    pthread_t hci_thread_id;
+    server_ref *sref;
+} GattServerInfo_t;
 
 class GattSrv : BleApi
 {
@@ -25,6 +39,7 @@ public:
     static BleApi* getInstance();
     static const int IOCAPABILITIESSTRINGS_SIZE;
     static const char *IOCapabilitiesStrings[];
+    static GattServerInfo_t mServer;
 
 private:
     static GattSrv* instance;
@@ -34,7 +49,7 @@ public:
     int Initialize();
 
     int QueryDevicePower() { return Error::NOT_IMPLEMENTED; }
-    int SetDevicePower(Ble::ConfigArgument::Arg aOnOff) { (void) aOnOff; return Error::NOT_IMPLEMENTED; }
+    int SetDevicePower(Ble::ConfigArgument::Arg aOnOff);
 
     int ShutdownService() { return Error::NOT_IMPLEMENTED; }
     int Shutdown();
@@ -52,8 +67,6 @@ public:
 
     int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
-    int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) { (void) aCb; return Error::NOT_IMPLEMENTED; }
-    int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) { (void) aCb; return Error::NOT_IMPLEMENTED; }
 
     int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
@@ -121,8 +134,8 @@ public:
 
     // Advertising
     int SetAdvertisingInterval(ParameterList_t *aParams __attribute__ ((unused)));
-    int StartAdvertising(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
-    int StopAdvertising(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)));
+    int StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)));
 
     int SetAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute__ ((unused)));
     int QueryAuthenticatedPayloadTimeout(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
@@ -157,11 +170,6 @@ private:
     void print_dev_features(struct hci_dev_info *di, int format);
     void print_le_states(uint64_t states);
     const char *get_minor_device_name(int major, int minor);
-
-protected: // Ring implementation specific
-    unsigned int   mServiceCount;              // the current number of services passed to register
-    ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
-    onCharacteristicAccessCallback  mOnCharCb; // callback to client function on characteristic change - Note: single user only
 
 public:
     // HCI methods

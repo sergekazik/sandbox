@@ -354,32 +354,6 @@ int GattSrv::UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((un
     return ret_val;
 }
 
-int GattSrv::RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
-{
-    if (!aCb)
-        return Error::INVALID_PARAMETERS;
-    if (!mInitialized)
-        return Error::NOT_INITIALIZED;
-    if (mOnCharCb)
-        return Error::INVALID_STATE;
-
-    mOnCharCb = aCb;
-    return Error::NONE;
-}
-
-int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
-{
-    if (!aCb)
-        return Error::INVALID_PARAMETERS;
-    if (!mInitialized)
-        return Error::NOT_INITIALIZED;
-    if (!mOnCharCb || mOnCharCb != aCb)
-        return Error::INVALID_STATE;
-
-    mOnCharCb = NULL;
-    return Error::NONE;
-}
-
 int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)
 {
     if (!mOnCharCb)

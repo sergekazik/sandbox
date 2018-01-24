@@ -27,6 +27,7 @@ extern "C" {
 #define BUF_LEN 1024
 #define CASE_FORM_TYPE(__type) case BOT_NOTIFY_##__type##_T: sprintf(typeString, #__type ":"); break;
 
+BOT_NOTIFY_TYPE_T GetLogLevel(void) {return BOT_NOTIFY_TRACE_T;}
 BOT_RET_CODE_T Bot_Notify(BOT_NOTIFY_TYPE_T type, uint32_t line, char const *fnName, char const *fileName, char const *format, ...)
 {
     (void) line;

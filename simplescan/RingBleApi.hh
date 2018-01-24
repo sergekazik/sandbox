@@ -333,6 +333,7 @@ namespace Error { enum Error {
     INVALID_STATE       = -11,// Already set or single use error
     NOT_REGISTERED      = -12,// Callback is not registered
     FAILED_INITIALIZE   = -13,//
+    PTHREAD_ERROR       = -14,// create or cancel error
 };}
 
 namespace ConfigArgument { enum Arg {
@@ -430,8 +431,8 @@ public:
 
     virtual int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
     virtual int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused))) = 0;
-    virtual int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) = 0;
-    virtual int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb) = 0;
+    virtual int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
+    virtual int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
     // discovery
     virtual int StartDeviceDiscovery(ParameterList_t *aParams __attribute__ ((unused))) = 0;

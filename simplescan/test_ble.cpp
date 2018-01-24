@@ -46,8 +46,7 @@ using namespace Ring::Ble;
 
 #define COMM_BUF_LEN    1024
 
-#if defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
-
+#if defined(STANDARD_BT_NO_BLE) && defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64))
 ///
 /// \brief raw_test_listen
 /// \return
@@ -242,7 +241,6 @@ int raw_test_scan(void)
     close( sock );
     return 0;
 }
-
 #endif //  BLUEZ_TOOLS_SUPPORT
 
 
@@ -329,13 +327,16 @@ static int pairing_test_run(const char* arguments)
     }
 
     print_subhelp();
+
     while (!bDone)
     {
+
         static const int command_lineSize = 0xff;
         char command_line[command_lineSize];
 
         printf("TEST> ");
         fflush(stdout);
+
         /* Read a line from standard input.                               */
         ret_val = read(STDIN_FILENO, command_line, command_lineSize);
 
@@ -511,6 +512,10 @@ int main(int argc, char **argv)
         print_help();
     }
 
+    char cmd[255];
+    printf("enter command:");
+    scanf("%s", cmd);
+    printf("%s", cmd);
     printf("%s ----- done; ret val=%d\n", argv[0], ret);
     return ret;
 }

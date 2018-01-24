@@ -612,7 +612,6 @@ static void gatt_srv_test_init(bool bPrintHelp)
     if (bPrintHelp)
         DisplayHelp(NULL);
 
-#ifndef DISABLE_CONFIGURE_SIGTTIN_SIGNAL
     /* Configure the SIGTTIN signal so that this application can run in  */
     /* the background.                                                   */
     struct sigaction SignalAction;
@@ -634,7 +633,6 @@ static void gatt_srv_test_init(bool bPrintHelp)
     /* until we have re-entered the foreground before attempting to read */
     /* from standard input again.                                        */
     sigaction(SIGTTIN, &SignalAction, NULL);
-#endif
 }
 
 /* This function is responsible for taking the input from the user   */

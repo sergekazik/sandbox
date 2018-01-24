@@ -48,10 +48,29 @@
 #include "Bot_Notifier.h"
 #include "RingGattApi.hh"
 
+extern "C"
+{
+    #include "lib/bluetooth.h"
+    #include "lib/hci.h"
+    #include "lib/hci_lib.h"
+    #include "lib/l2cap.h"
+    #include "lib/uuid.h"
+
+    #include "src/shared/mainloop.h"
+    #include "src/shared/util.h"
+    #include "src/shared/att.h"
+    #include "src/shared/queue.h"
+    #include "src/shared/timeout.h"
+    #include "src/shared/gatt-server.h"
+
+    #include "gatt_db.h"
+}
+
 using namespace Ring;
 using namespace Ring::Ble;
 
 GattSrv* GattSrv::instance = NULL;
+GattServerInfo_t GattSrv::mServer;
 
 BleApi* GattSrv::getInstance() {
     if (instance == NULL)
@@ -61,7 +80,12 @@ BleApi* GattSrv::getInstance() {
 
 GattSrv::GattSrv()
 {
+    memset(&GattSrv::mServer, 0, sizeof(GattSrv::mServer));
 }
+
+// static callback definitions
+typedef int (*cb_on_accept) (int fd);
+static void* l2cap_le_att_listen_and_accept(void *data);
 
 int GattSrv::Initialize()
 {
@@ -69,12 +93,10 @@ int GattSrv::Initialize()
     if (!mInitialized)
     {
         BOT_NOTIFY_DEBUG("GattSrv::Initialize");
-        struct hci_dev_info di;
         if (0 <= (ctl = open_socket(di)))
         {
             HCIup(ctl, di.dev_id);
             HCIscan(ctl, di.dev_id, (char*) "piscan");
-            HCIle_adv(di.dev_id, NULL);
 
             close(ctl);
             mInitialized = true;
@@ -90,10 +112,8 @@ int GattSrv::Shutdown()
     int ctl, ret = Error::NONE;
     if (mInitialized)
     {
-        struct hci_dev_info di;
         if (0 <= (ctl = open_socket(di)))
         {
-            HCIno_le_adv(di.dev_id);
             HCIscan(ctl, di.dev_id, (char*) "noscan");
             HCIdown(ctl, di.dev_id);
 
@@ -135,10 +155,10 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
     {
         if ((aParams) && (aParams->NumberofParameters))
         {
-            strncpy(mDeviceClass, aParams->Params[0].strParam, DEV_CLASS_LEN);
+            sprintf(mDeviceClass, "%06X", aParams->Params[0].intParam);
         }
 
-        BOT_NOTIFY_DEBUG("Attempting to set Device Name to: \"%s\".", mDeviceName);
+        BOT_NOTIFY_DEBUG("Attempting to set Class of Device to: \"%s\".", mDeviceClass);
         HCIclass(di.dev_id, mDeviceClass);
         ret_val = Error::NONE;
     }
@@ -150,6 +170,86 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
     }
     return ret_val;
 }
+
+///
+/// \brief GattSrv::StartAdvertising
+/// \param aParams
+/// \return error code
+/// Multifunctional:
+///     -start LE adv,
+///     - launch listeninng pthread on HCI socket for incoming connections
+///
+int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
+{
+    int ret_val = Error::UNDEFINED;
+    if (mInitialized)
+    {
+        BOT_NOTIFY_DEBUG("Starting LE adv");
+        HCIle_adv(di.dev_id, NULL);
+
+        ret_val = pthread_create(&mServer.hci_thread_id, NULL, l2cap_le_att_listen_and_accept, NULL);
+        if (ret_val != Error::NONE)
+        {
+            BOT_NOTIFY_ERROR("failed to create pthread %s (%d)", strerror(errno), errno);
+            mServer.hci_thread_id = 0;
+            ret_val = Error::PTHREAD_ERROR;
+        }
+    }
+    else
+    {
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    return ret_val;
+}
+
+///
+/// \brief GattSrv::StopAdvertising
+/// \param aParams
+/// \return error code
+/// Multifunctional:
+///     - stop LE adv
+///     - stop listenning pthread if still listen on the socket
+///
+int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
+{
+    int ret_val = Error::UNDEFINED;
+    if (mInitialized)
+    {
+        BOT_NOTIFY_DEBUG("Stopping LE adv");
+        HCIno_le_adv(di.dev_id);
+
+        ret_val = Error::NONE;
+        if (mServer.hci_thread_id != 0)
+        {
+            // TODO: graceful pthread terminate
+
+            if (mServer.hci_socket >= 0)
+            {
+                shutdown(mServer.hci_socket, SHUT_RDWR);
+                mServer.hci_socket = -1;
+            }
+
+            ret_val = pthread_cancel(mServer.hci_thread_id);
+            mServer.hci_thread_id = 0;
+
+            if (ret_val != Error::NONE)
+            {
+                BOT_NOTIFY_ERROR("failed to cancel pthread %s (%d)", strerror(errno), errno);
+                ret_val = Error::PTHREAD_ERROR;
+            }
+        }
+    }
+    else
+    {
+        /* Not Initialized, flag an error.                                */
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    return ret_val;
+}
+
 
 int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
 {   // nothing todo at this time
@@ -216,6 +316,12 @@ int GattSrv::EnableBluetoothDebug(ParameterList_t *aParams __attribute__ ((unuse
     return Error::NONE;
 }
 
+int GattSrv::SetDevicePower(Ble::ConfigArgument::Arg aOnOff)
+{   // nothing todo at this time
+    (void) aOnOff;
+    return Error::NONE;
+}
+
 /**********************************************************
  * Helper functions
  *********************************************************/
@@ -232,10 +338,9 @@ int GattSrv::open_socket(struct hci_dev_info &di) {
         return Error::FAILED_INITIALIZE;
     }
 
-
 //    if (ioctl(ctl, HCIGETDEVINFO, (void *) &di))
 //    {
-//        BOT_NOTIFY_ERROR("open_socket: Can't get device info. %s (%d)", strerror(errno), errno);
+//        BOT_NOTIFY_ERROR("Can't get device info. %s (%d)", strerror(errno), errno);
 //        return Error::FAILED_INITIALIZE;
 //    }
 
@@ -279,7 +384,7 @@ void GattSrv::print_dev_features(struct hci_dev_info *di, int format) {
             di->features[6], di->features[7]);
 
     if (format) {
-        char *tmp = (char*) lmp_featurestostr(di->features, "\t\t", 63);
+        char *tmp = (char*) lmp_featurestostr(di->features, (char *) "\t\t", 63);
         BOT_NOTIFY_DEBUG("%s", tmp);
         bt_free(tmp);
     }
@@ -538,7 +643,7 @@ void GattSrv::HCIiac(int hdev, char *opt) {
             if (i < n - 1)
                 BOT_NOTIFY_DEBUG(", ");
         }
-        BOT_NOTIFY_DEBUG("");
+        // BOT_NOTIFY_DEBUG("");
     }
     close(s);
 }
@@ -693,7 +798,7 @@ void GattSrv::HCIfeatures(int hdev) {
                      (max_page > 0) ? " page 0" : "",
                      features[0], features[1], features[2], features[3],
             features[4], features[5], features[6], features[7]);
-    tmp = (char*) lmp_featurestostr(di.features, "\t\t", 63);
+    tmp = (char*) lmp_featurestostr(di.features, (char *) "\t\t", 63);
     BOT_NOTIFY_DEBUG("%s", tmp);
     bt_free(tmp);
     for (i = 1; i <= max_page; i++) {
@@ -989,23 +1094,23 @@ void GattSrv::HCIclass(int hdev, char *opt) {
 }
 
 void GattSrv::HCIvoice(int hdev, char *opt) {
-    static char *icf[] = {	"Linear",
-                            "u-Law",
-                            "A-Law",
-                            "Reserved"
+    static char *icf[] = {	(char *) "Linear",
+                            (char *) "u-Law",
+                            (char *) "A-Law",
+                            (char *) "Reserved"
                          };
-    static char *idf[] = {	"1's complement",
-                            "2's complement",
-                            "Sign-Magnitude",
-                            "Reserved"
+    static char *idf[] = {	(char *) "1's complement",
+                            (char *) "2's complement",
+                            (char *) "Sign-Magnitude",
+                            (char *) "Reserved"
                          };
-    static char *iss[] = {	"8 bit",
-                            "16 bit"
+    static char *iss[] = {	(char *) "8 bit",
+                            (char *) "16 bit"
                          };
-    static char *acf[] = {	"CVSD",
-                            "u-Law",
-                            "A-Law",
-                            "Reserved"
+    static char *acf[] = {	(char *) "CVSD",
+                            (char *) "u-Law",
+                            (char *) "A-Law",
+                            (char *) "Reserved"
                          };
     int s = hci_open_dev(hdev);
     if (s < 0) {
@@ -1087,7 +1192,7 @@ void GattSrv::HCIoob_data(int hdev) {
     BOT_NOTIFY_DEBUG("\n\tRandomizer:");
     for (i = 0; i < 16; i++)
         BOT_NOTIFY_DEBUG(" %02x", randomizer[i]);
-    BOT_NOTIFY_DEBUG("");
+    // BOT_NOTIFY_DEBUG("");
     hci_close_dev(dd);
 }
 
@@ -1115,7 +1220,7 @@ void GattSrv::HCIcommands(int hdev) {
                 BOT_NOTIFY_DEBUG(" %d", n);
         BOT_NOTIFY_DEBUG(")");
     }
-    str = (char*) hci_commandstostr(cmds, "\t", 71);
+    str = (char*) hci_commandstostr(cmds, (char *) "\t", 71);
     BOT_NOTIFY_DEBUG("%s", str);
     bt_free(str);
     hci_close_dev(dd);
@@ -1263,7 +1368,7 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
                 BOT_NOTIFY_DEBUG("\tFlags:");
                 for (i = 0; i < len - 1; i++)
                     BOT_NOTIFY_DEBUG(" 0x%2.2x", *((uint8_t *) (ptr + i)));
-                BOT_NOTIFY_DEBUG("");
+                // BOT_NOTIFY_DEBUG("");
                 break;
             case 0x02:
             case 0x03:
@@ -1273,7 +1378,7 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
                     uint16_t val = bt_get_le16((ptr + (i * 2)));
                     BOT_NOTIFY_DEBUG(" 0x%4.4x", val);
                 }
-                BOT_NOTIFY_DEBUG("");
+                // BOT_NOTIFY_DEBUG("");
                 break;
             case 0x08:
             case 0x09:
@@ -1303,7 +1408,7 @@ void GattSrv::HCIinq_data(int hdev, char *opt) {
             }
             ptr += (len - 1);
         }
-        BOT_NOTIFY_DEBUG("");
+        // BOT_NOTIFY_DEBUG("");
     }
     hci_close_dev(dd);
 }
@@ -1609,4 +1714,222 @@ void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
     BOT_NOTIFY_DEBUG("\tBD Address: %s  ACL MTU: %d:%d  SCO MTU: %d:%d",
                      addr, di->acl_mtu, di->acl_pkts,
                      di->sco_mtu, di->sco_pkts);
+}
+
+/**************************************************************
+ * static functions and callbacks implementation
+ * ***********************************************************/
+//static void add_ring_characteristic(struct gatt_db_attribute *ringsvc, int handle_idx, uint128_t u, void* user_data, unsigned int pld_size, unsigned char *pld)
+//{
+//    bt_uuid_t uuid;
+//    bt_uuid128_create(&uuid, u);
+
+//    struct gatt_db_attribute *attr_new =  gatt_db_service_add_characteristic(ringsvc, &uuid,
+//                                          BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+//                                          BT_GATT_CHRC_PROP_READ | BT_GATT_CHRC_PROP_WRITE | BT_GATT_CHRC_PROP_NOTIFY,
+//                                          NULL, NULL, // don't overwrite callbacks for read/write
+//                                          user_data);
+
+//    sChInfoList[handle_idx].handle = gatt_db_attribute_get_handle(attr_new);
+
+//    if (pld_size > 0)
+//    {
+//        // printf("add_ring_characteristic write %d bytes payload [%s]\n", pld_size, pld);
+//        gatt_db_attribute_write(attr_new, 0, (void *) pld, pld_size,
+//                                BT_ATT_OP_WRITE_REQ,
+//                                NULL, confirm_write, NULL);
+//    }
+//}
+
+//static void populate_ring_service(void)
+//{
+//    bt_uuid_t uuid;
+//    struct gatt_db_attribute *ringsvc;
+
+//    /* Add the RING service*/
+//    static uint128_t RING_PAIRING_SVC = {{0x00,0x00,0xFA,0xCE,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB}};
+//    bt_uuid128_create(&uuid, RING_PAIRING_SVC);
+//    ringsvc = gatt_db_add_service_ext(server->db, &uuid, true, 32, ring_characteristic_read_cb, ring_characteristic_write_cb);
+//    server->ring_svc_handle = gatt_db_attribute_get_handle(ringsvc);
+
+//    #define DECLARE_BCM_RING_CHARACTERISTIC_UUID
+//    #include "gatt_svc_defs.h"
+
+//    #define ADD_BCM_RING_CHARACTERISTICS
+//    #include "gatt_svc_defs.h"
+
+//    bool ret = gatt_db_service_set_active(ringsvc, true);
+//    printf("populate_ring_service %d, ret %d\n", __LINE__, ret);
+//}
+#if 1 // ndef Linux_x86_64
+static void att_disconnect_cb(int err, void *user_data)
+{
+    (void) user_data;
+    BOT_NOTIFY_INFO("Device disconnected: %s", strerror(err));
+}
+
+static void att_debug_cb(const char *str, void *user_data)
+{
+    const char *prefix = (const char *) user_data;
+    BOT_NOTIFY_INFO("%s %s\n", prefix, str);
+}
+
+static void gatt_debug_cb(const char *str, void *user_data)
+{
+    const char *prefix = (const char *) user_data;
+    BOT_NOTIFY_INFO("%s %s\n", prefix, str);
+}
+
+int server_create(void)
+{
+    uint16_t mtu = 0;
+    struct server_ref *server = new0(struct server_ref, 1);
+    if (!server) {
+        BOT_NOTIFY_ERROR("Failed to allocate memory for server reference");
+        goto fail;
+    }
+
+    server->att = bt_att_new(GattSrv::mServer.fd, false);
+    if (!server->att) {
+        BOT_NOTIFY_ERROR("Failed to initialze ATT transport layer");
+        goto fail;
+    }
+
+    if (!bt_att_set_close_on_unref(server->att, true)) {
+        BOT_NOTIFY_ERROR("Failed to set up ATT transport layer");
+        goto fail;
+    }
+
+    if (!bt_att_register_disconnect(server->att, att_disconnect_cb, NULL, NULL)) {
+        BOT_NOTIFY_ERROR("Failed to set ATT disconnect handler");
+        goto fail;
+    }
+
+    server->db = gatt_db_new();
+    if (!server->db) {
+        BOT_NOTIFY_ERROR("Failed to create GATT database");
+        goto fail;
+    }
+
+    server->gatt = bt_gatt_server_new(server->db, server->att, mtu);
+    if (!server->gatt) {
+        BOT_NOTIFY_ERROR("Failed to create GATT server");
+        goto fail;
+    }
+
+    GattSrv::mServer.sref = server;
+    // enable debug for levels TRACE DEBUG and INFO
+    if (GetLogLevel() > BOT_NOTIFY_WARNING_T) {
+        bt_att_set_debug(server->att, att_debug_cb, (void*) "att: ", NULL);
+        bt_gatt_server_set_debug(server->gatt, gatt_debug_cb, (void*) "server: ", NULL);
+    }
+
+    /* bt_gatt_server already holds a reference */
+    populate_ring_service();
+
+    return Error::NONE;
+
+fail:
+    if (server->db)
+        gatt_db_unref(server->db);
+    if (server->att)
+        bt_att_unref(server->att);
+    if (GattSrv::mServer.fd >=0 )
+    {
+        close(GattSrv::mServer.fd);
+        GattSrv::mServer.fd = -1;
+    }
+    return Error::FAILED_INITIALIZE;
+}
+#else
+int server_create(void) {return 0;}
+#endif
+
+///
+/// \brief l2cap_le_att_listen_and_accept
+/// \param data
+/// \return
+///
+static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
+{
+    #define ATT_CID 4
+    int nsk;
+    struct sockaddr_l2 srcaddr, addr;
+    socklen_t optlen;
+    struct bt_security btsec;
+    char ba[18];
+    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+
+    bdaddr_t src_addr;
+    int dev_id = -1;
+    int sec = BT_SECURITY_LOW;
+    uint8_t src_type = BDADDR_LE_PUBLIC;
+
+    if (dev_id == -1)
+        bacpy(&src_addr, &_BDADDR_ANY);
+    else if (hci_devba(dev_id, &src_addr) < 0) {
+        BOT_NOTIFY_ERROR("Adapter not available %s (%d)", strerror(errno), errno);
+        return (void*) EXIT_FAILURE;
+    }
+
+    GattSrv::mServer.hci_socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+    if (GattSrv::mServer.hci_socket < 0) {
+        BOT_NOTIFY_ERROR("Failed to create L2CAP socket %s (%d)", strerror(errno), errno);
+        goto fail;
+    }
+
+    /* Set up source address */
+    memset(&srcaddr, 0, sizeof(srcaddr));
+    srcaddr.l2_family = AF_BLUETOOTH;
+    srcaddr.l2_cid = htobs(ATT_CID);
+    srcaddr.l2_bdaddr_type = src_type;
+    bacpy(&srcaddr.l2_bdaddr, &src_addr);
+
+    if (bind(GattSrv::mServer.hci_socket, (struct sockaddr *) &srcaddr, sizeof(srcaddr)) < 0) {
+        BOT_NOTIFY_ERROR("Failed to bind L2CAP socket %s (%d)", strerror(errno), errno);
+        goto fail;
+    }
+
+    /* Set the security level */
+    memset(&btsec, 0, sizeof(btsec));
+    btsec.level = sec;
+    if (setsockopt(GattSrv::mServer.hci_socket, SOL_BLUETOOTH, BT_SECURITY, &btsec, sizeof(btsec)) != 0) {
+        BOT_NOTIFY_ERROR("Failed to set L2CAP security level");
+        goto fail;
+    }
+
+    if (listen(GattSrv::mServer.hci_socket, 10) < 0) {
+        BOT_NOTIFY_ERROR("Listening on socket failed %s (%d)", strerror(errno), errno);
+        goto fail;
+    }
+
+    BOT_NOTIFY_DEBUG("Started listening on ATT channel. Waiting for connections");
+
+    memset(&addr, 0, sizeof(addr));
+    optlen = sizeof(addr);
+    nsk = accept(GattSrv::mServer.hci_socket, (struct sockaddr *) &addr, &optlen);
+    if (nsk < 0) {
+        BOT_NOTIFY_ERROR("Accept failed %s (%d)", strerror(errno), errno);
+        goto fail;
+    }
+
+    ba2str(&addr.l2_bdaddr, ba);
+    BOT_NOTIFY_DEBUG("Connect from %s", ba);
+    close(GattSrv::mServer.hci_socket);
+    GattSrv::mServer.hci_socket = -1;
+    BOT_NOTIFY_DEBUG("GattSrv::mServer.hci_socket released...");
+
+    GattSrv::mServer.fd = nsk;
+    if (Error::NONE == server_create())
+        BOT_NOTIFY_DEBUG("Running GATT server");
+    else
+        BOT_NOTIFY_ERROR("GATT server ini failed");
+
+    pthread_exit(NULL);
+    return (void*) 0;
+
+fail:
+    close(GattSrv::mServer.hci_socket);
+    pthread_exit(NULL);
+    return (void*) -1;
 }

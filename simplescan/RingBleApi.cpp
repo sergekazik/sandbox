@@ -138,3 +138,30 @@ int BleApi::Configure(DeviceConfig_t* aConfig)
     }
     return ret_val;
 }
+
+int BleApi::RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
+{
+    if (!aCb)
+        return Error::INVALID_PARAMETERS;
+    if (!mInitialized)
+        return Error::NOT_INITIALIZED;
+    if (mOnCharCb)
+        return Error::INVALID_STATE;
+
+    mOnCharCb = aCb;
+    return Error::NONE;
+}
+
+int BleApi::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
+{
+    if (!aCb)
+        return Error::INVALID_PARAMETERS;
+    if (!mInitialized)
+        return Error::NOT_INITIALIZED;
+    if (!mOnCharCb || mOnCharCb != aCb)
+        return Error::INVALID_STATE;
+
+    mOnCharCb = NULL;
+    return Error::NONE;
+}
+

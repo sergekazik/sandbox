@@ -167,7 +167,6 @@ crypto/test_handshake.cpp
 crypto/test_handshake.h
 crypto/RingCrypto.cpp
 crypto/RingCrypto.hh
-../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/test_btgatt.c
 BCM43/RingGattApi.cpp
 BCM43/RingGattApi.hh
 crypto/RingCrypto.cpp
@@ -196,6 +195,7 @@ version.h
 ../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/gatt-client.c
 ../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/gatt-helpers.c
 ../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/gatt-server.c
-../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/gatt_db.c
-../../low-powered-doorbell-fw/ambarella/ring/ble/BCM43/gatt_db.h
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/make.inc
+BCM43/gatt_db.c
+BCM43/gatt_db.h
+BCM43/test_btgatt.c

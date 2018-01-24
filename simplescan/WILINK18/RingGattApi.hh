@@ -54,8 +54,6 @@ public:
 
     int RegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
     int UnRegisterEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
-    int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
-    int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
     int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)));
     int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused)));

@@ -8,13 +8,13 @@ $(info BLE_CS = [${BLE_CS}])
 # Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
-CC = g++
+CC = gcc
 
 ################################################################################
 ## Third party path/defs/stabs
 ################################################################################
 AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
-BLUEZ_INC = -I$(PREBUILD_3RD_PARTY_DIR)/bluez5/include
+BLUEZ_548  = $(AMB_TOPDIR)/prebuild/third-party/armv7-a-hf/bluez5/bluez-5.48
 
 RING_TOP = $(AMB_TOPDIR)/ring
 RING_BLE = $(AMB_TOPDIR)/ring/ble
@@ -33,37 +33,82 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpskrnl/threaded  \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	\
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I. -I$(BLE_CS)					    \
 	    -DTEST_CONSOLE_WRITE			    \
 	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
-	     $(BTPIA_SDK_INC)
+	    $(BTPIA_SDK_INC)
 
 ifeq ($(BLE_CS), BCM43)
-CFLAGS += -DBLUEZ_TOOLS_SUPPORT
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548)
 endif
 
 CXXFLAGS = $(CFLAGS)
 
 #LDFLAGS_LIB = -shared -lbluetooth
 #LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
-LDFLAGS_APP = -lbluetooth
+LDFLAGS_APP = -lbluetooth -lpthread
 
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 TARGET_GATT = test_gatt
+TARGET_BLZ = libBluez.so
 
 CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
-SRCS_APP = test_ble.cpp test_stubs.cpp
+SRCS_BLZ = ./BCM43/gatt_db.c		\
+	    $(BLUEZ_548)/lib/bluetooth.c \
+	    $(BLUEZ_548)/lib/hci.c	\
+	    $(BLUEZ_548)/lib/sdp.c	\
+	    $(BLUEZ_548)/lib/uuid.c	\
+	    $(BLUEZ_548)/src/uuid-helper.c			    \
+	    $(BLUEZ_548)/src/shared/att.c	\
+	    $(BLUEZ_548)/src/shared/btsnoop.c   \
+	    $(BLUEZ_548)/src/shared/ecc.c	\
+	    $(BLUEZ_548)/src/shared/gap.c	\
+	    $(BLUEZ_548)/src/shared/gatt-helpers.c	\
+	    $(BLUEZ_548)/src/shared/gatt-server.c	\
+	    $(BLUEZ_548)/src/shared/hfp.c	\
+	    $(BLUEZ_548)/src/shared/io-mainloop.c	\
+	    $(BLUEZ_548)/src/shared/mainloop.c  \
+	    $(BLUEZ_548)/src/shared/mgmt.c	\
+	    $(BLUEZ_548)/src/shared/pcap.c	\
+	    $(BLUEZ_548)/src/shared/queue.c	\
+	    $(BLUEZ_548)/src/shared/ringbuf.c   \
+	    $(BLUEZ_548)/src/shared/timeout-mainloop.c  \
+	    $(BLUEZ_548)/src/shared/util.c	\
+	    $(BLUEZ_548)/src/shared/crypto.c
+SRCS_APP = test_ble.cpp test_stubs.cpp BCM43/test_hello.cpp
 SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
-
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
+OBJ_BLZ =  ./BCM43/gatt_db.o		\
+	    $(BLUEZ_548)/lib/bluetooth.o \
+	    $(BLUEZ_548)/lib/hci.o	\
+	    $(BLUEZ_548)/lib/sdp.o	\
+	    $(BLUEZ_548)/lib/uuid.o	\
+	    $(BLUEZ_548)/src/uuid-helper.o			    \
+	    $(BLUEZ_548)/src/shared/att.o	\
+	    $(BLUEZ_548)/src/shared/btsnoop.o   \
+	    $(BLUEZ_548)/src/shared/ecc.o	\
+	    $(BLUEZ_548)/src/shared/gap.o	\
+	    $(BLUEZ_548)/src/shared/gatt-helpers.o	\
+	    $(BLUEZ_548)/src/shared/gatt-server.o	\
+	    $(BLUEZ_548)/src/shared/hfp.o	\
+	    $(BLUEZ_548)/src/shared/io-mainloop.o	\
+	    $(BLUEZ_548)/src/shared/mainloop.o  \
+	    $(BLUEZ_548)/src/shared/mgmt.o	\
+	    $(BLUEZ_548)/src/shared/pcap.o	\
+	    $(BLUEZ_548)/src/shared/queue.o	\
+	    $(BLUEZ_548)/src/shared/ringbuf.o   \
+	    $(BLUEZ_548)/src/shared/timeout-mainloop.o  \
+	    $(BLUEZ_548)/src/shared/util.o	\
+	    $(BLUEZ_548)/src/shared/crypto.o
+
 OBJS_APP = test_ble.o test_stubs.o
 OBJS_GATT = gatt_test_srv.o test_stubs.o
 
@@ -72,6 +117,9 @@ RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
+
+$(TARGET_BLZ): $(OBJ_BLZ)
+	$(CC) $(OBJ_BLZ) $(LDFLAGS_LIB) -shared -o $@
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)
