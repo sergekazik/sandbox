@@ -59,7 +59,12 @@ static AttributeInfo_t SrvTable0[] = {
 #define RING_PAIRING_TABLE_ATTR_ENUM
 enum GattAttributeIndexByName {
     #include "gatt_svc_defs.h"
+    RING_PAIRING_TABLE_ATTR_MAX
 };
+// compiler time check for characteristics max
+#if !(RING_CHARACTERISTICS_MAX > RING_PAIRING_TABLE_ATTR_MAX)
+#error "RING_CHARACTERISTICS_MAX > RING_PAIRING_TABLE_ATTR_MAX"
+#endif
 
 #define RING_PAIRING_SERVICE_INFO_DEFINE
 #include "gatt_svc_defs.h"
@@ -282,7 +287,7 @@ int BlePairing::Shutdown()
 
         if (Ble::Error::NONE != (ret_val = mBleApi->GATTUnRegisterService(&svc_params)))
         {
-            BOT_NOTIFY_ERROR("mBleApi->GATTUnRegisterServicefailed.");
+            BOT_NOTIFY_ERROR("mBleApi->GATTUnRegisterService failed.");
         }
         if (Ble::Error::NONE != (ret_val = mBleApi->UnRegisterGATMEventCallback(&null_params)))
         {
@@ -290,7 +295,7 @@ int BlePairing::Shutdown()
         }
         if (Ble::Error::NONE != (ret_val = mBleApi->UnRegisterAuthentication(&null_params)))
         {
-            BOT_NOTIFY_ERROR("mBleApi->UnRegisterAuthenticationCallback failed.");
+            BOT_NOTIFY_ERROR("mBleApi->UnRegisterAuthentication failed.");
         }
         if (Ble::Error::NONE != (ret_val = mBleApi->UnregisterCharacteristicAccessCallback(OnAttributeAccessCallback)))
         {

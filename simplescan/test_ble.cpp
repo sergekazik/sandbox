@@ -512,10 +512,6 @@ int main(int argc, char **argv)
         print_help();
     }
 
-    char cmd[255];
-    printf("enter command:");
-    scanf("%s", cmd);
-    printf("%s", cmd);
     printf("%s ----- done; ret val=%d\n", argv[0], ret);
     return ret;
 }

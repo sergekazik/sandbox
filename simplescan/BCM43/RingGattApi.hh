@@ -16,6 +16,7 @@
 #include <bluetooth/hci_lib.h>
 
 #include "RingBleApi.hh"
+#include "RingBlePairing.hh"
 
 struct server_ref {
     struct bt_att *att;
@@ -31,6 +32,7 @@ typedef struct _GattServerInfo {
     uint16_t ring_svc_handle;
     pthread_t hci_thread_id;
     server_ref *sref;
+    uint16_t ring_attr_handle[RING_CHARACTERISTICS_MAX];
 } GattServerInfo_t;
 
 class GattSrv : BleApi
@@ -110,7 +112,7 @@ public:
     int DeleteSDPAttribute(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
 
     int RegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused)));
-    int UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int UnRegisterAuthentication(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NONE; }
 
     int PINCodeResponse(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int PassKeyResponse(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
@@ -120,10 +122,10 @@ public:
 
     // GATT
     int RegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused)));
-    int UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int UnRegisterGATMEventCallback(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NONE; }
     int GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused)));
-    int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NONE; }
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen) { (void) aAttrData; (void) aAttrLen; (void) aAttrOffset; (void) aServiceID; return Error::NOT_IMPLEMENTED; }
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }

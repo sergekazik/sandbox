@@ -101,7 +101,7 @@
 #ifdef RING_PAIRING_TABLE_SERVICE_DEFINE_TABLE
 #undef RING_PAIRING_TABLE_SERVICE_DEFINE_TABLE
 #define RING_BLE_GATT_SERVER_TEST_DEFINE(__arg1, __arg2)
-#define RING_BLE_PAIRING_SERVICES_DEFINE(__arg0, __arg1, __arg2, __arg3, __arg4, __arg5, __argpld) { atCharacteristic, __arg0, (void *) &Srv0Attr_##__arg1, #__arg1 },
+#define RING_BLE_PAIRING_SERVICES_DEFINE(__arg0, __arg1, __arg2, __arg3, __arg4, __arg5, __argpld) { atCharacteristic, __arg0, (void *) &Srv0Attr_##__arg1, (char*) #__arg1 },
 #endif
 
 /*********************************************************************

@@ -10,6 +10,8 @@
 
 namespace Ring { namespace Ble {
 
+#define RING_CHARACTERISTICS_MAX                24
+
 class BlePairing
 {
 public:
@@ -33,6 +35,7 @@ public:
     int StopAdvertising();
     int Shutdown();
     bool isAdvertisingRequested() { return mAdvertisingRequested; }
+    const ServiceInfo_t *GetServiceTable() {return mServiceTable; }
 
     // status debug
     int PrintStatus();
