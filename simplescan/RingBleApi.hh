@@ -10,6 +10,7 @@
 
 namespace Ring { namespace Ble {
 
+#define RING_PAIRING_SVC_IDX                0
 #define MAX_SUPPORTED_COMMANDS              (75)    /* Denotes the maximum number of User Commands that are supported by this application. */
 #define MAX_COMMAND_LENGTH                  (128)   /* Denotes the max buffer size used for user commands input via the User Interface. */
 #define MAX_NUM_OF_PARAMETERS               (4)     /* Denotes the max number of parameters a command can have. */

@@ -117,6 +117,8 @@ int GattSrv::Shutdown()
     int ctl, ret = Error::NONE;
     if (mInitialized)
     {
+        mainloop_quit();
+
         if (0 <= (ctl = open_socket(di)))
         {
             HCIscan(ctl, di.dev_id, (char*) "noscan");
@@ -250,6 +252,42 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     return ret_val;
 }
 
+///
+/// \brief GattSrv::NotifyCharacteristic
+/// \param aServiceIdx
+/// \param aAttributeIdx
+/// \param aStrPayload
+/// \return
+///
+int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload)
+{
+    int ret_val = Error::INVALID_PARAMETERS;
+    if (aServiceIdx == RING_PAIRING_SVC_IDX)
+    {
+        const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
+        if (svc && aAttributeIdx < (int) svc->NumberAttributes)
+        {
+            BOT_NOTIFY_DEBUG("sending %s Notify \"%s\"", svc->AttributeList[aAttributeIdx].AttributeName, aStrPayload);
+            bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.ring_attr_handle[aAttributeIdx], (const uint8_t*) aStrPayload, strlen(aStrPayload));
+            ret_val = Error::NONE;
+        }
+    }
+    return ret_val;
+}
+
+///
+/// \brief GattSrv::ProcessRegisteredCallback
+/// \param aEventType
+/// \param aServiceID
+/// \param aAttrOffset - ! here in BCM43 is used as aAttrIdx
+/// \return
+///
+int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)
+{
+    if (mOnCharCb)
+        (*(mOnCharCb))(aServiceID, aAttrOffset, (Ble::Property::Access) aEventType);
+    return Error::NONE;
+}
 
 int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
 {   // nothing todo at this time
@@ -1722,18 +1760,14 @@ void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
 static uint16_t find_attr_idx_by_handle(gatt_db_attribute *attrib)
 {
     uint16_t idx = RING_CHARACTERISTICS_MAX;
-    BlePairing* ins = BlePairing::getInstance();
-    if (ins)
+    const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
+    if (svc)
     {
-        const ServiceInfo_t* svc = ins->GetServiceTable();
-        if (svc)
+        uint16_t handle = gatt_db_attribute_get_handle(attrib);
+        for (idx = 0; idx < svc->NumberAttributes; idx++)
         {
-            uint16_t handle = gatt_db_attribute_get_handle(attrib);
-            for (idx = 0; idx < svc->NumberAttributes; idx++)
-            {
-                if (GattSrv::mServer.ring_attr_handle[idx] == handle)
-                    break;
-            }
+            if (GattSrv::mServer.ring_attr_handle[idx] == handle)
+                break;
         }
     }
     return idx;
@@ -1744,27 +1778,20 @@ static void gatt_attr_read_cb(struct gatt_db_attribute *attrib,
                     uint8_t opcode, struct bt_att *att,
                     void *user_data)
 {
-
     (void) offset;
     (void) opcode;
     (void) att;
     (void) user_data;
 
     const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
-    uint16_t idx = find_attr_idx_by_handle(attrib);
+    uint16_t AttribueIdx = find_attr_idx_by_handle(attrib);
 
-    if (idx < svc->NumberAttributes)
+    if (AttribueIdx < svc->NumberAttributes)
     {
-        BOT_NOTIFY_DEBUG("gatt_attr_read_cb called for [%s]", svc->AttributeList[idx].AttributeName);
-
-        // test test test
-        if (!strcmp("GET_PAIRING_STATE", svc->AttributeList[idx].AttributeName))
-        {
-            uint8_t value[] = {"OK-notify"};
-            BOT_NOTIFY_DEBUG("sending Notify \"%s\"", value);
-            bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, gatt_db_attribute_get_handle(attrib), value, sizeof(value));
-
-        }
+        BOT_NOTIFY_DEBUG("gatt_attr_read_cb called for [%s]", svc->AttributeList[AttribueIdx].AttributeName);
+        GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
+        // note: AttribueIdx is passed as offset on purpose
+        gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Read, RING_PAIRING_SVC_IDX, AttribueIdx);
     }
     else
         BOT_NOTIFY_WARNING("gatt_attr_read_cb UNKNOWN for id %d", id);
@@ -1781,10 +1808,15 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
     (void) user_data;
 
     const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
-    uint16_t idx = find_attr_idx_by_handle(attrib);
+    uint16_t AttribueIdx = find_attr_idx_by_handle(attrib);
 
-    if (idx < svc->NumberAttributes)
-        BOT_NOTIFY_DEBUG("gatt_attr_write_cb called for [%s] for %d bytes, [%s]", svc->AttributeList[idx].AttributeName, (int) len, (char*) value);
+    if (AttribueIdx < svc->NumberAttributes)
+    {
+        BOT_NOTIFY_DEBUG("gatt_attr_write_cb called for [%s] for %d bytes, [%s]", svc->AttributeList[AttribueIdx].AttributeName, (int) len, (char*) value);
+        GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
+        // note: AttribueIdx is passed as offset on purpose
+        gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Write, RING_PAIRING_SVC_IDX, AttribueIdx);
+    }
     else
         BOT_NOTIFY_WARNING("gatt_attr_write_cb UNKNOWN called for id %d with %d bytes, [%s]", id, (int) len, (char*) value);
 }
@@ -1850,6 +1882,9 @@ static void att_disconnect_cb(int err, void *user_data)
 {
     (void) user_data;
     BOT_NOTIFY_INFO("Device disconnected: %s; exiting GATT Server loop", strerror(err));
+
+    GattSrv * gatt = (GattSrv*) GattSrv::getInstance();
+    gatt->ProcessRegisteredCallback((GATM_Event_Type_t)Ble::Property::Disconnected, RING_PAIRING_SVC_IDX, -1);
     mainloop_quit();
 }
 
@@ -1947,6 +1982,7 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     struct bt_security btsec;
     char ba[18];
     bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
+    GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
 
     bdaddr_t src_addr;
     int dev_id = -1;
@@ -2012,6 +2048,8 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
         BOT_NOTIFY_DEBUG("Running GATT server");
     else
         BOT_NOTIFY_ERROR("GATT server ini failed");
+
+    gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Connected, RING_PAIRING_SVC_IDX, -1);
 
     mainloop_run();
 

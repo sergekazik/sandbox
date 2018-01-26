@@ -147,7 +147,6 @@ static ServiceInfo_t sServiceTable[] =
         "RING_PAIRING_SVC"                            // ServiceName (for internal use only and not advertised to clients)
     },
 };
-#define RING_PAIRING_SVC_IDX                                          0
 #define RING_GATT_SERVICES_COUNT                                     (sizeof(sServiceTable)/sizeof(ServiceInfo_t))
 #endif
 

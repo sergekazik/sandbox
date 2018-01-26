@@ -392,6 +392,16 @@ static int pairing_test_run(const char* arguments)
         {
             ret_val = Pairing->PrintStatus();
         }
+        else if (!strcmp(command_line, "notify"))
+        {
+//            if (!strcmp("GET_PAIRING_STATE", svc->AttributeList[idx].AttributeName))
+//            {
+//                uint8_t value[] = {"OK-notify"};
+//                BOT_NOTIFY_DEBUG("sending Notify \"%s\"", value);
+//                bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, gatt_db_attribute_get_handle(attrib), value, sizeof(value));
+
+//            }
+        }
         else
         {
             Pairing->PrintStatus();

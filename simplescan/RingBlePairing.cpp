@@ -280,7 +280,8 @@ int BlePairing::Shutdown()
     }
     else
     {   // deactivate GATT Server
-        this->StopAdvertising();
+        if (mAdvertisingRequested)
+            this->StopAdvertising();
 
         ParameterList_t null_params= {0,   {{NULL, Ble::ConfigArgument::None}}};
         ParameterList_t svc_params = {1,   {{NULL, mPairingServiceIndex}}};
@@ -362,18 +363,16 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
         return;
     }
 
-    BOT_NOTIFY_INFO("pairing-sample_callback on Ble::Property::%s for %s %s\n",
+    BOT_NOTIFY_INFO("OnAttributeAccessCallback Ble::Property::%s for %s %s\n",
            aAccessType == Ble::Property::Read ? "Read": aAccessType == Ble::Property::Write ? "Write":"Confirmed",
            sServiceTable[aServiceIdx].ServiceName, sServiceTable[aServiceIdx].AttributeList[aAttributeIdx].AttributeName);
 
-#if !defined(Linux_x86_64) || !defined(WILINK18)
     BleApi* bleApi = GattSrv::getInstance();
     if (bleApi == NULL)
     {
         BOT_NOTIFY_ERROR("OnAttributeAccessCallback failed to obtain BleApi instance");
         return;
     }
-#endif
 
     Ble::GATT_UUID_t uuid;
     uuid.UUID_Type     = Ble::guUUID_128;
@@ -463,14 +462,13 @@ int BlePairing::registerRingDataCallback(std::function<int(int, void*, int)> cal
 
 int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
 {
-#if !defined(Linux_x86_64) || !defined(WILINK18)
     BleApi* bleApi = GattSrv::getInstance();
     if (bleApi == NULL)
     {
         BOT_NOTIFY_ERROR("updateAttribute failed to obtain BleApi instance");
         return Error::FAILED_INITIALIZE;
     }
-#endif
+
     unsigned int service_id = sServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
 
     // only when str_data is valid

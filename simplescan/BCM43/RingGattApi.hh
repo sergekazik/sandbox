@@ -129,7 +129,7 @@ public:
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen) { (void) aAttrData; (void) aAttrLen; (void) aAttrOffset; (void) aServiceID; return Error::NOT_IMPLEMENTED; }
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
-    int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload) { (void) aServiceIdx; (void) aAttributeIdx; (void) aStrPayload; return Error::NOT_IMPLEMENTED; }
+    int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload);
     int ListCharacteristics(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int ListDescriptors(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTQueryPublishedServices(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
@@ -158,7 +158,7 @@ public:
     int GetServiceIndexById(unsigned int ServiceID)  { (void) ServiceID; return Error::NOT_IMPLEMENTED; }
     AttributeInfo_t *SearchServiceListByOffset(unsigned int ServiceID, unsigned int AttributeOffset)  { (void) ServiceID; (void) AttributeOffset; return NULL; }
     int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset)  { (void) ServiceID; (void) AttributeOffset; return Error::NOT_IMPLEMENTED; }
-    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)  { (void) aEventType; (void) aServiceID; (void) aAttrOffset; return Error::NOT_IMPLEMENTED; }
+    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
     void SaveRemoteDeviceAddress(BD_ADDR_t aConnectedMACAddress)  { (void) aConnectedMACAddress; return; }
 
 private:
