@@ -49,66 +49,20 @@ CXXFLAGS = $(CFLAGS)
 
 #LDFLAGS_LIB = -shared -lbluetooth
 #LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
-LDFLAGS_APP = -lbluetooth -lpthread
+LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548
 
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
 TARGET_GATT = test_gatt
-TARGET_BLZ = libBluez.so
 
 CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
 
 SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
-SRCS_BLZ = ./BCM43/gatt_db.c		\
-	    $(BLUEZ_548)/lib/bluetooth.c \
-	    $(BLUEZ_548)/lib/hci.c	\
-	    $(BLUEZ_548)/lib/sdp.c	\
-	    $(BLUEZ_548)/lib/uuid.c	\
-	    $(BLUEZ_548)/src/uuid-helper.c			    \
-	    $(BLUEZ_548)/src/shared/att.c	\
-	    $(BLUEZ_548)/src/shared/btsnoop.c   \
-	    $(BLUEZ_548)/src/shared/ecc.c	\
-	    $(BLUEZ_548)/src/shared/gap.c	\
-	    $(BLUEZ_548)/src/shared/gatt-helpers.c	\
-	    $(BLUEZ_548)/src/shared/gatt-server.c	\
-	    $(BLUEZ_548)/src/shared/hfp.c	\
-	    $(BLUEZ_548)/src/shared/io-mainloop.c	\
-	    $(BLUEZ_548)/src/shared/mainloop.c  \
-	    $(BLUEZ_548)/src/shared/mgmt.c	\
-	    $(BLUEZ_548)/src/shared/pcap.c	\
-	    $(BLUEZ_548)/src/shared/queue.c	\
-	    $(BLUEZ_548)/src/shared/ringbuf.c   \
-	    $(BLUEZ_548)/src/shared/timeout-mainloop.c  \
-	    $(BLUEZ_548)/src/shared/util.c	\
-	    $(BLUEZ_548)/src/shared/crypto.c
 SRCS_APP = test_ble.cpp test_stubs.cpp BCM43/test_hello.cpp
 SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
-OBJ_BLZ =  ./BCM43/gatt_db.o		\
-	    $(BLUEZ_548)/lib/bluetooth.o \
-	    $(BLUEZ_548)/lib/hci.o	\
-	    $(BLUEZ_548)/lib/sdp.o	\
-	    $(BLUEZ_548)/lib/uuid.o	\
-	    $(BLUEZ_548)/src/uuid-helper.o			    \
-	    $(BLUEZ_548)/src/shared/att.o	\
-	    $(BLUEZ_548)/src/shared/btsnoop.o   \
-	    $(BLUEZ_548)/src/shared/ecc.o	\
-	    $(BLUEZ_548)/src/shared/gap.o	\
-	    $(BLUEZ_548)/src/shared/gatt-helpers.o	\
-	    $(BLUEZ_548)/src/shared/gatt-server.o	\
-	    $(BLUEZ_548)/src/shared/hfp.o	\
-	    $(BLUEZ_548)/src/shared/io-mainloop.o	\
-	    $(BLUEZ_548)/src/shared/mainloop.o  \
-	    $(BLUEZ_548)/src/shared/mgmt.o	\
-	    $(BLUEZ_548)/src/shared/pcap.o	\
-	    $(BLUEZ_548)/src/shared/queue.o	\
-	    $(BLUEZ_548)/src/shared/ringbuf.o   \
-	    $(BLUEZ_548)/src/shared/timeout-mainloop.o  \
-	    $(BLUEZ_548)/src/shared/util.o	\
-	    $(BLUEZ_548)/src/shared/crypto.o
-
 OBJS_APP = test_ble.o test_stubs.o
 OBJS_GATT = gatt_test_srv.o test_stubs.o
 
@@ -117,9 +71,6 @@ RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
-
-$(TARGET_BLZ): $(OBJ_BLZ)
-	$(CC) $(OBJ_BLZ) $(LDFLAGS_LIB) -shared -o $@
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)

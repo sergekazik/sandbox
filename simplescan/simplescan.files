@@ -199,3 +199,4 @@ version.h
 BCM43/gatt_db.c
 BCM43/gatt_db.h
 BCM43/test_btgatt.c
+make_bluez_548.mak

@@ -2013,14 +2013,12 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     else
         BOT_NOTIFY_ERROR("GATT server ini failed");
 
-#ifndef Linux_x86_64
     mainloop_run();
 
     BOT_NOTIFY_DEBUG("GATT server exited mainloop, releasing...");
     server_destroy(GattSrv::mServer.sref);
     GattSrv::mServer.sref = NULL;
     GattSrv::mServer.hci_thread_id = 0;
-#endif
 
     pthread_exit(NULL);
     return (void*) 0;
