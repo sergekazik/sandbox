@@ -893,6 +893,7 @@ failed:
 
 static void signal_cb(int signum, void *user_data)
 {
+    (void) user_data;
     switch (signum) {
     case SIGINT:
     case SIGTERM:

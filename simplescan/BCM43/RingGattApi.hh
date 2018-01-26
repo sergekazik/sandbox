@@ -73,7 +73,7 @@ public:
     int SetLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int QueryLocalRemoteDebugZoneMask(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int SetDebugZoneMaskPID(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
-    int QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
+    int QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused)));
     int SetLocalDeviceAppearance(ParameterList_t *aParams __attribute__ ((unused)));
 
     // discovery
@@ -126,7 +126,7 @@ public:
     int GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTRegisterService(ParameterList_t *aParams __attribute__ ((unused)));
     int GATTUnRegisterService(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NONE; }
-    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen) { (void) aAttrData; (void) aAttrLen; (void) aAttrOffset; (void) aServiceID; return Error::NOT_IMPLEMENTED; }
+    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
     int GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int GATTNotifyCharacteristic(ParameterList_t *aParams __attribute__ ((unused))) { return Error::NOT_IMPLEMENTED; }
     int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload);

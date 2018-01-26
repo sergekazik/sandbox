@@ -91,6 +91,7 @@ GattSrv::GattSrv()
 // static callback definitions
 typedef int (*cb_on_accept) (int fd);
 static void* l2cap_le_att_listen_and_accept(void *data);
+static void confirm_write(struct gatt_db_attribute *attr, int err, void *user_data);
 
 int GattSrv::Initialize()
 {
@@ -148,7 +149,6 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
     }
     else
     {
-        /* Not Initialized, flag an error.                                */
         BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
@@ -171,7 +171,6 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
     }
     else
     {
-        /* Not Initialized, flag an error.                                */
         BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
@@ -189,7 +188,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
-    if (mInitialized && mServiceTable && mServiceCount)
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes)
     {
         BOT_NOTIFY_DEBUG("Starting LE adv");
         HCIle_adv(di.dev_id, NULL);
@@ -204,7 +203,6 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not Initialized, flag an error.                                */
         BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
@@ -236,7 +234,7 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 
         if (mServer.hci_thread_id > 0)
         {
-            // TODO: graceful pthread terminate
+            mainloop_quit();
             ret_val = pthread_cancel(mServer.hci_thread_id);
             mServer.hci_thread_id = 0;
             BOT_NOTIFY_ERROR("cancel GATT pthread ret_val %d, Errno: %s (%d)", ret_val, strerror(errno), errno);
@@ -245,7 +243,6 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
     }
     else
     {
-        /* Not Initialized, flag an error.                                */
         BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
@@ -262,15 +259,74 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload)
 {
     int ret_val = Error::INVALID_PARAMETERS;
-    if (aServiceIdx == RING_PAIRING_SVC_IDX)
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
     {
-        const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
-        if (svc && aAttributeIdx < (int) svc->NumberAttributes)
+        if (aServiceIdx == RING_PAIRING_SVC_IDX)
         {
-            BOT_NOTIFY_DEBUG("sending %s Notify \"%s\"", svc->AttributeList[aAttributeIdx].AttributeName, aStrPayload);
-            bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.ring_attr_handle[aAttributeIdx], (const uint8_t*) aStrPayload, strlen(aStrPayload));
-            ret_val = Error::NONE;
+            if (aAttributeIdx < (int) mServiceTable->NumberAttributes)
+            {
+                BOT_NOTIFY_DEBUG("sending %s Notify \"%s\"", mServiceTable->AttributeList[aAttributeIdx].AttributeName, aStrPayload);
+                bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.ring_attr_handle[aAttributeIdx], (const uint8_t*) aStrPayload, strlen(aStrPayload));
+                ret_val = Error::NONE;
+            }
         }
+    }
+    else
+    {
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
+        ret_val = Error::NOT_INITIALIZED;
+    }
+    return ret_val;
+}
+
+///
+/// \brief GattSrv::GATTUpdateCharacteristic
+/// \param aServiceID
+/// \param aAttrOffset
+/// \param aAttrData
+/// \param aAttrLen
+/// \return
+///
+int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen)
+{
+    int ret_val = Error::NOT_INITIALIZED;
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
+    {
+        if ((aServiceID == mServiceTable->ServiceID) && aAttrData && aAttrLen)
+        {
+            ret_val = Error::NOT_FOUND;
+            // find attribute idx by offset
+            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable->NumberAttributes; attributeIdx++)
+            {
+                // BOT_NOTIFY_TRACE("mServiceTable->AttributeList[%d].AttributeOffset = %d == %d ?", attributeIdx, mServiceTable->AttributeList[attributeIdx].AttributeOffset, aAttrOffset);
+                if ((int) mServiceTable->AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
+                {
+                    struct gatt_db_attribute * attr = gatt_db_get_attribute(GattSrv::mServer.sref->db, GattSrv::mServer.ring_attr_handle[attributeIdx]);
+                    if (attr)
+                    {
+                        gatt_db_attribute_write(attr, 0,
+                                                (const uint8_t *) aAttrData, aAttrLen,
+                                                BT_ATT_OP_WRITE_REQ, NULL,
+                                                confirm_write, (void*) mServiceTable->AttributeList[attributeIdx].AttributeName);
+                        ret_val = Error::NONE;
+                    }
+                    else
+                    {
+                        BOT_NOTIFY_ERROR("Failed to access aAttrOffset %d, %s", aAttrOffset, mServiceTable->AttributeList[attributeIdx].AttributeName);
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            BOT_NOTIFY_ERROR("GATTUpdateCharacteristic INVALID_PARAMETERS, %d, %d, %08X, %d", aServiceID, aAttrOffset, (int) (unsigned long) aAttrData, aAttrLen);
+            ret_val = Error::INVALID_PARAMETERS;
+        }
+    }
+    else
+    {
+        BOT_NOTIFY_ERROR("Platform Manager has not been Initialized.");
     }
     return ret_val;
 }
@@ -286,6 +342,19 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
 {
     if (mOnCharCb)
         (*(mOnCharCb))(aServiceID, aAttrOffset, (Ble::Property::Access) aEventType);
+    return Error::NONE;
+}
+
+///
+/// \brief QueryLocalDeviceProperties
+/// \param aParams - not used
+/// \return
+///
+int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused)))
+{
+    print_dev_hdr(&di);
+    HCIname(di.dev_id, NULL);
+    HCIclass(di.dev_id, NULL);
     return Error::NONE;
 }
 
@@ -1109,24 +1178,24 @@ void GattSrv::HCIclass(int hdev, char *opt) {
         }
         print_dev_hdr(&di);
         BOT_NOTIFY_DEBUG("\tClass: 0x%02x%02x%02x", cls[2], cls[1], cls[0]);
-        BOT_NOTIFY_DEBUG("\tService Classes: ");
+        char strtmp[123] = "";
         if (cls[2]) {
-            unsigned int i;
+            unsigned int i, offset = 0;
             int first = 1;
             for (i = 0; i < (sizeof(services) / sizeof(*services)); i++)
                 if (cls[2] & (1 << i)) {
                     if (!first)
-                        BOT_NOTIFY_DEBUG(", ");
-                    BOT_NOTIFY_DEBUG("%s", services[i]);
+                        offset += sprintf(&strtmp[offset], ", ");
+                    offset += sprintf(&strtmp[offset], "%s", services[i]);
                     first = 0;
                 }
+            BOT_NOTIFY_DEBUG("\tService Classes: %s", strtmp);
         } else
-            BOT_NOTIFY_DEBUG("Unspecified");
-        BOT_NOTIFY_DEBUG("\n\tDevice Class: ");
+            BOT_NOTIFY_DEBUG("\tService Classes: %s", "Unspecified");
         if ((cls[1] & 0x1f) >= sizeof(major_devices) / sizeof(*major_devices))
-            BOT_NOTIFY_DEBUG("Invalid Device Class!");
+            BOT_NOTIFY_DEBUG("\n\tInvalid Device Class!");
         else
-            BOT_NOTIFY_DEBUG("%s, %s", major_devices[cls[1] & 0x1f],
+            BOT_NOTIFY_DEBUG("\n\tDevice Class: %s, %s", major_devices[cls[1] & 0x1f],
                     get_minor_device_name(cls[1] & 0x1f, cls[0] >> 2));
     }
 }
@@ -1968,6 +2037,19 @@ fail:
     return Error::FAILED_INITIALIZE;
 }
 
+static void signal_cb(int signum, void *user_data)
+{
+    (void) user_data;
+    switch (signum) {
+    case SIGINT:
+    case SIGTERM:
+        mainloop_quit();
+        break;
+    default:
+        break;
+    }
+}
+
 ///
 /// \brief l2cap_le_att_listen_and_accept
 /// \param data
@@ -2051,6 +2133,12 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
 
     gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Connected, RING_PAIRING_SVC_IDX, -1);
 
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+
+    mainloop_set_signal(&mask, signal_cb, NULL, NULL);
     mainloop_run();
 
     BOT_NOTIFY_DEBUG("GATT server exited mainloop, releasing...");

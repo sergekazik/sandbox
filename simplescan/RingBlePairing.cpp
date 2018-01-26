@@ -424,6 +424,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
             switch (aAttributeIdx)
             {
             case SET_PUBLIC_KEY:
+            case GET_PAIRING_STATE:
                 /*
                        "\tOn geting PUBLIC_KEY the device generates Public/Private keys. A randomly generated nonce start\n" \
                        "\tset of 20 bytes is generated. The the device then takes the public key, and signs it using ed25519\n" \
@@ -432,6 +433,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
                        "\tThe device notifies the payload ready with GET_PAIRING_STATE value PAYLOAD_READY\n\n");
                */
 
+                BOT_NOTIFY_DEBUG("Updating GET_PUBLIC_PAYLOAD and Notify Ready");
                 bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(GET_PUBLIC_PAYLOAD), SET_ATTRIBUTE_STR_VAL(BlePairing::mPublicPayload));
                 bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, BlePairing::mPayloadReady);
 
