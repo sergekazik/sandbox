@@ -1193,9 +1193,9 @@ void GattSrv::HCIclass(int hdev, char *opt) {
         } else
             BOT_NOTIFY_DEBUG("\tService Classes: %s", "Unspecified");
         if ((cls[1] & 0x1f) >= sizeof(major_devices) / sizeof(*major_devices))
-            BOT_NOTIFY_DEBUG("\n\tInvalid Device Class!");
+            BOT_NOTIFY_DEBUG("\tInvalid Device Class!");
         else
-            BOT_NOTIFY_DEBUG("\n\tDevice Class: %s, %s", major_devices[cls[1] & 0x1f],
+            BOT_NOTIFY_DEBUG("\tDevice Class: %s, %s", major_devices[cls[1] & 0x1f],
                     get_minor_device_name(cls[1] & 0x1f, cls[0] >> 2));
     }
 }
@@ -1857,7 +1857,7 @@ static void gatt_attr_read_cb(struct gatt_db_attribute *attrib,
 
     if (AttribueIdx < svc->NumberAttributes)
     {
-        BOT_NOTIFY_DEBUG("gatt_attr_read_cb called for [%s]", svc->AttributeList[AttribueIdx].AttributeName);
+        // BOT_NOTIFY_TRACE("gatt_attr_read_cb called for [%s]", svc->AttributeList[AttribueIdx].AttributeName);
         GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
         // note: AttribueIdx is passed as offset on purpose
         gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Read, RING_PAIRING_SVC_IDX, AttribueIdx);
@@ -1881,7 +1881,7 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
 
     if (AttribueIdx < svc->NumberAttributes)
     {
-        BOT_NOTIFY_DEBUG("gatt_attr_write_cb called for [%s] for %d bytes, [%s]", svc->AttributeList[AttribueIdx].AttributeName, (int) len, (char*) value);
+        // BOT_NOTIFY_TRACE("gatt_attr_write_cb called for [%s] for %d bytes, [%s]", svc->AttributeList[AttribueIdx].AttributeName, (int) len, (char*) value);
         GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
         // note: AttribueIdx is passed as offset on purpose
         gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Write, RING_PAIRING_SVC_IDX, AttribueIdx);
