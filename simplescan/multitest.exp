@@ -60,20 +60,22 @@ puts $expect_out(buffer);
 puts "==============================\r"
 set buf [split $expect_out(buffer) "\n"]
 set pld ""
+set public_payload "public_payload.log"
+set outFileId [open $public_payload "w"]
 for {set idx 0} {$idx<10} {incr idx} {
     set pubpl [lindex $buf $idx]
     if {[string match "*list*" $pubpl]} {
 	break
     } 
-    append pld '\n|' $pubpl
+    append pld '\n' $pubpl
+    puts $outFileId "$pubpl"
 }
 puts "$pld"
+close $outFileId
+
 puts "-------------------------------\r"
 puts "disconnecting.....\r"
 send "disconnect\r"
 expect "Connected: no"
 send "quit\r"
-close
-
-
 
