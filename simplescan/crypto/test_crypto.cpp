@@ -51,7 +51,7 @@ static bool print_help(char* arg)
         printf("-dec <input>    decrypt input\n");
         printf("--------------------------------------\nExamples:\n");
         printf("$ test_crypto -gpk\n");
-        printf("gpk:e16cd2059882ce425a132bf708aff17314a5b44ddcd13d4d4e511fb901886b2c\n");
+        printf("gpk:220 195 210 183 120 127 217 131 175 141 4 23 235 56 157 134 114 146 242 122 65 220 213 246 208 58 221 169 142 230 91 97:gpk\n");
         printf("$ test_crypto -ppp 0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
         printf("ppp:0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
         printf("$ test_crypto -enc HelloWorld\n");
@@ -200,7 +200,8 @@ int main(int argc, char* argv[])
         memset(outstr, 0, 0xff);
         int offset = sprintf(outstr, "gpk:");
         for (int i = 0; i < client_public_lenght; i++)
-            offset += sprintf(&outstr[offset], "%02x", (unsigned char) client_public[i]);
+            offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) client_public[i]);
+        sprintf(&outstr[offset], ":gpk");
         printf("%s\n", outstr);
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
@@ -217,10 +218,15 @@ int main(int argc, char* argv[])
     // single command mode client process public payload
     if (argc > 2 && !strcmp(argv[1], "-ppp"))
     {
+        int val;
         server_public_lenght = strlen(argv[2]) / 2;
-        for (int idx = 0; idx < server_public_lenght; idx++)
+        if (1 != sscanf(&argv[2][0], "%02x", &val))
         {
-            int val;
+            printf("\"%s\" - doesn't look like HEX payload\n", argv[2]);
+            return -777;
+        }
+        else for (int idx = 0; idx < server_public_lenght; idx++)
+        {
             sscanf(&argv[2][idx*2], "%02x", &val);
             server_public[idx] = (unsigned char) val;
         }
@@ -240,6 +246,7 @@ int main(int argc, char* argv[])
         int offset = sprintf(outstr, "ppp:");
         for (int i = 0; i < server_public_lenght; i++)
             offset += sprintf(&outstr[offset], "%02x", (unsigned char) server_public[i]);
+        sprintf(&outstr[offset], ":ppp");
         printf("%s\n", outstr);
 
         client.SaveSecrets();
@@ -273,6 +280,7 @@ int main(int argc, char* argv[])
         int offset = sprintf(outstr, "enc:");
         for (int i = 0; i < crypted_len; i++)
             offset += sprintf(&outstr[offset], "%02x", (unsigned char) crypted[i]);
+        sprintf(&outstr[offset], ":enc");
         printf("%s\n", outstr);
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
@@ -311,8 +319,8 @@ int main(int argc, char* argv[])
 
     if (argc > 2 && !strcmp(argv[1], "-dec"))
     {
-        printf("enc:%s\n", argv[2]);
-        printf("dec:%s\n", decrypted);
+        printf("enc:%s:enc\n", argv[2]);
+        printf("dec:%s:dec\n", decrypted);
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
 

@@ -1,0 +1,79 @@
+set ring_name "RingTEST-BLE"
+
+spawn bluetoothctl
+set blueID $spawn_id
+expect "Agent registered"
+
+puts "\r"
+#spawn ./test_crypto -gpk
+#expect ":gpk"
+#puts $expect_out(buffer)
+#set buf [split $expect_out(buffer) ":"]
+#set gpk [lindex $buf 1]
+#puts "gpk = $gpk\r"
+
+set spawn_id $blueID
+#send "write $gpk\r"
+#expect {
+#    "Invalid" {}
+#    "No attribute" {}
+#}
+#send "quit\r"
+
+send "select 5C:F3:70:84:E8:8B\r"
+send "devices\r"
+send "list\r"
+expect "Controller"
+send "connect 43:34:1B:00:1F:AC\r"
+
+set timeout 20
+set device_connected 0
+expect {
+    "Failed to connect:"	{
+	puts "\n\nfailed to connect\n\n"
+    }
+    "not available" 		{
+	puts "\n\ndevice went offline or removed from the list, abort.\n\n"
+    }
+    "ServicesResolved: yes"	{
+	set device_connected 1
+    }
+     timeout    		{
+	puts "\n\nconnect timeout...\n\n"
+    }
+}
+if { $device_connected == 0 } {
+    puts "failed to connect $ring_name, exiting 10\n"
+    send "quit\n"
+    exit 10
+}
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "read\r"
+expect "Value:"
+expect $ring_name
+send "list\r"
+expect "Controller"
+
+puts "\r"
+puts "------------------------------\r"
+puts $expect_out(buffer);
+puts "==============================\r"
+set buf [split $expect_out(buffer) "\n"]
+set pld ""
+for {set idx 0} {$idx<10} {incr idx} {
+    set pubpl [lindex $buf $idx]
+    if {[string match "*list*" $pubpl]} {
+	break
+    } 
+    append pld '\n|' $pubpl
+}
+puts "$pld"
+puts "-------------------------------\r"
+puts "disconnecting.....\r"
+send "disconnect\r"
+expect "Connected: no"
+send "quit\r"
+close
+
+
+

@@ -200,3 +200,6 @@ BCM43/gatt_db.c
 BCM43/gatt_db.h
 BCM43/test_btgatt.c
 make_bluez_548.mak
+../../chime_pro-firmware/app/ble/make.inc
+../../chime_pro-firmware/app/ble/crypto/libsodium/make.inc
+multitest.exp
