@@ -8,6 +8,10 @@
 #include <cstring>
 #include <sodium.h>
 
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+
 #define TEST_SODIUM_DIRECT  0
 #define KEY_SIZE            32
 
@@ -216,22 +220,105 @@ int main(int argc, char* argv[])
     //-------------------------- step 2 -------------------------------------------------
 
     // single command mode client process public payload
-    if (argc > 2 && !strcmp(argv[1], "-ppp"))
+    char out[255];
+    memset(out, 0, 255);
+    if (argc > 2 && !strcmp(argv[1], "-ppf"))
+    {
+        char *filename = argv[2]; // public_payload.log
+        FILE *fin = fopen(filename, "rt");
+        if (!fin)
+        {
+            printf("can't open payload file \"%s\". Abort.\n", filename);
+            return -666;
+        }
+        
+        char *ch, strline[255];
+        int out_offset = 0;
+        
+        while (fgets(strline, 255, fin))
+        {
+            if (strstr(strline, "Flags") || strstr(strline, "Notifying"))
+            {
+                break;
+            }
+            
+            printf("%s", strline);
+            if (NULL != (ch = strchr(strline, ' ')) )
+            {
+                char *esc = NULL;
+                esc = strrchr(strline, 27);
+                ch = (esc?esc:ch)+1;
+                if (*ch == ' ') ch++;
+                
+                int b[16];
+                if (16 == sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ", 
+                                 &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
+                                 &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]))
+                {
+                    out_offset += sprintf(&out[out_offset],"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+                                        b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],
+                                        b[10],b[11],b[12],b[13],b[14],b[15]);
+                }
+                else while (1 == sscanf(ch, "%02x ", &b[0]))
+                {
+                    out_offset += sprintf(&out[out_offset], "%02x", b[0]);
+                    ch += 3;
+                }
+            }
+        }
+        fclose(fin);
+
+#if FILE_PARSE_DEBUG        
+        { // debug - test only        
+            char flnm_out[255];
+            sprintf(flnm_out, "%s.out", filename);
+            FILE *fout = fopen(flnm_out, "wt");
+            if (!fout)
+            {
+                printf("can't open output file \"%s\". Abort.\n", flnm_out);
+                fclose(fin);
+                return -665;
+            }
+            fputs(out, fout);
+            fclose(fout);
+            
+            /*FILE */fin = fopen(flnm_out, "rt");
+            if (!fin)
+            {
+                printf("can't open file \"%s\" for read. Abort.\n", flnm_out);
+                return -664;
+            }
+            
+            printf("---------------------------------------------\n");
+            while (fgets(strline, 255, fin))
+            {
+                printf("%s", strline);
+            }
+            printf("\n");
+            fclose(fin);
+            
+            return -0l;       
+        }
+#endif                        
+    }
+    
+    if (argc > 2 && (!strcmp(argv[1], "-ppp") || strlen(out)))
     {
         int val;
-        server_public_lenght = strlen(argv[2]) / 2;
-        if (1 != sscanf(&argv[2][0], "%02x", &val))
+        char *in = strlen(out) ? out : argv[2];
+        server_public_lenght = strlen(in) / 2;
+        if (1 != sscanf(&in[0], "%02x", &val))
         {
-            printf("\"%s\" - doesn't look like HEX payload\n", argv[2]);
+            printf("\"%s\" - doesn't look like HEX payload\n", in);
             return -777;
         }
         else for (int idx = 0; idx < server_public_lenght; idx++)
         {
-            sscanf(&argv[2][idx*2], "%02x", &val);
+            sscanf(&in[idx*2], "%02x", &val);
             server_public[idx] = (unsigned char) val;
         }
     }
-
+    
     int ret = client.ProcessPublicPayload(server_public, server_public_lenght);
     if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
     {
@@ -240,7 +327,7 @@ int main(int argc, char* argv[])
         return ret;
     }
 
-    if (argc > 2 && !strcmp(argv[1], "-ppp"))
+    if (argc > 2 && (!strcmp(argv[1], "-ppp") || strlen(out)))
     {
         memset(outstr, 0, 0xff);
         int offset = sprintf(outstr, "ppp:");

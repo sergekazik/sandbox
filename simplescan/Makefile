@@ -116,7 +116,7 @@ cpringble:
 	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
 	@cp -u BCM43/*.* -v $(RING_BLE)/BCM43
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
-	#@cp -u -v crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
+	@cp -u -v crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
 	@echo "-----------------------------------------------------"
 
 prepro:

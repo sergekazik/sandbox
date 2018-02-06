@@ -47,12 +47,20 @@ if { $device_connected == 0 } {
     send "quit\n"
     exit 10
 }
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "select-attribute /org/bluez/hci1/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
 send "read\r"
+expect {
+	"Value:" {
+	}
+	"No attribute selected" {
+	    send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+	    send "read\r"
+	    expect "Value:"
+	}
+}
+send "attribute-info\r"
 expect "Value:"
 expect $ring_name
-send "list\r"
-expect "Controller"
 
 puts "\r"
 puts "------------------------------\r"
