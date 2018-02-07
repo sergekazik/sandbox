@@ -6881,8 +6881,9 @@ void GattSrv::StrToUUIDEntry(char *UUIDStr, SDP_UUID_Entry_t *UUIDEntry)
     }
 }
 
-void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx)
+void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx, const char* aPref = NULL)
 {
+    if (aPref) BOT_NOTIFY_DEBUG("%s", aPref);
     if (mServiceTable && (aServiceIdx < mServiceCount) && (aAttributeIdx < mServiceTable[aServiceIdx].NumberAttributes))
     {
         DumpData(FALSE, ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->ValueLength,

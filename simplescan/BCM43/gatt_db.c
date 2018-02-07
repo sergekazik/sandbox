@@ -1829,6 +1829,9 @@ bool gatt_db_attribute_write(struct gatt_db_attribute *attrib, uint16_t offset,
                     gatt_db_attribute_write_t func,
                     void *user_data)
 {
+    void *buf = NULL;
+    int final_len = len + offset;
+
     if (!attrib || !func)
         return false;
 
@@ -1850,28 +1853,21 @@ bool gatt_db_attribute_write(struct gatt_db_attribute *attrib, uint16_t offset,
         return true;
     }
 
-    /* Nothing to write just skip */
-    if (len == 0)
+    /* Nothing to write just zero the attr */
+    if (len == 0) {
+        if (attrib->value)
+            free(attrib->value);
+        attrib->value = NULL;
+        attrib->value_len = 0;
         goto done;
-
-    /* For values stored in db allocate on demand */
-    if (!attrib->value || offset >= attrib->value_len ||
-                len > (unsigned) (attrib->value_len - offset)) {
-        void *buf;
-
-        buf = realloc(attrib->value, len + offset);
-        if (!buf)
-            return false;
-
-        attrib->value = buf;
-
-        /* Init data in the first allocation */
-        if (!attrib->value_len)
-            memset(attrib->value, 0, offset);
-
-        attrib->value_len = len + offset;
     }
 
+    buf = attrib->value ? realloc(attrib->value, final_len) : malloc(final_len);
+    if (!buf)
+        return false;
+
+    attrib->value = buf;
+    attrib->value_len = final_len;
     memcpy(&attrib->value[offset], value, len);
 
     if (attrib->service->write_notify) {
@@ -1880,7 +1876,6 @@ bool gatt_db_attribute_write(struct gatt_db_attribute *attrib, uint16_t offset,
 
 done:
     func(attrib, 0, user_data);
-
     return true;
 }
 

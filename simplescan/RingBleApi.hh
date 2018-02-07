@@ -507,7 +507,7 @@ public:
 
     // debug / display functions and helper functions
     virtual void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level) = 0;
-    virtual void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx) = 0;
+    virtual void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx, const char* aPref = NULL) = 0;
 
     virtual void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr) = 0;
     virtual void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address) = 0;

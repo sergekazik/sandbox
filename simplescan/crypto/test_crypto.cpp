@@ -20,7 +20,6 @@
 #include "RingCrypto.hh"
 
 static const uint8_t sign_priv[] = {
-
     0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
     0x8a,0x00,0x21,0xdd,0x5a,0x9c,0x15,0xf0,0x0e,0xa7,0x46,0xc0,0xf8,0x21,0x22,0x38,
     0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
@@ -178,7 +177,7 @@ int main(int argc, char* argv[])
     for (int i = 0; i < 10; ++i)
         client.encrypt(msg);
 #else
-
+#define FILE_PARSE_DEBUG 0
     char outstr[0xff];
     if (argc > 1)
     {
@@ -220,8 +219,8 @@ int main(int argc, char* argv[])
     //-------------------------- step 2 -------------------------------------------------
 
     // single command mode client process public payload
-    char out[255];
-    memset(out, 0, 255);
+    char out[1024];
+    memset(out, 0, sizeof(out));
     if (argc > 2 && !strcmp(argv[1], "-ppf"))
     {
         char *filename = argv[2]; // public_payload.log
@@ -231,17 +230,17 @@ int main(int argc, char* argv[])
             printf("can't open payload file \"%s\". Abort.\n", filename);
             return -666;
         }
-        
+
         char *ch, strline[255];
         int out_offset = 0;
-        
+
         while (fgets(strline, 255, fin))
         {
             if (strstr(strline, "Flags") || strstr(strline, "Notifying"))
             {
                 break;
             }
-            
+
             printf("%s", strline);
             if (NULL != (ch = strchr(strline, ' ')) )
             {
@@ -249,9 +248,9 @@ int main(int argc, char* argv[])
                 esc = strrchr(strline, 27);
                 ch = (esc?esc:ch)+1;
                 if (*ch == ' ') ch++;
-                
+
                 int b[16];
-                if (16 == sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ", 
+                if (16 == sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
                                  &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
                                  &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]))
                 {
@@ -259,17 +258,26 @@ int main(int argc, char* argv[])
                                         b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],
                                         b[10],b[11],b[12],b[13],b[14],b[15]);
                 }
-                else while (1 == sscanf(ch, "%02x ", &b[0]))
+                else
                 {
-                    out_offset += sprintf(&out[out_offset], "%02x", b[0]);
-                    ch += 3;
+                    char * ending = strstr(ch, "   ");
+                    if (ending) *ending = '\0';
+
+                    int num = sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
+                                     &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
+                                     &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]);
+
+                    for (int i = 0; i < num; i++)
+                    {
+                        out_offset += sprintf(&out[out_offset], "%02x", b[i]);
+                    }
                 }
             }
         }
         fclose(fin);
 
-#if FILE_PARSE_DEBUG        
-        { // debug - test only        
+#if FILE_PARSE_DEBUG
+        { // debug - test only
             char flnm_out[255];
             sprintf(flnm_out, "%s.out", filename);
             FILE *fout = fopen(flnm_out, "wt");
@@ -281,14 +289,14 @@ int main(int argc, char* argv[])
             }
             fputs(out, fout);
             fclose(fout);
-            
+
             /*FILE */fin = fopen(flnm_out, "rt");
             if (!fin)
             {
                 printf("can't open file \"%s\" for read. Abort.\n", flnm_out);
                 return -664;
             }
-            
+
             printf("---------------------------------------------\n");
             while (fgets(strline, 255, fin))
             {
@@ -296,12 +304,12 @@ int main(int argc, char* argv[])
             }
             printf("\n");
             fclose(fin);
-            
-            return -0l;       
+
+            return -0l;
         }
-#endif                        
+#endif
     }
-    
+
     if (argc > 2 && (!strcmp(argv[1], "-ppp") || strlen(out)))
     {
         int val;
@@ -318,7 +326,7 @@ int main(int argc, char* argv[])
             server_public[idx] = (unsigned char) val;
         }
     }
-    
+
     int ret = client.ProcessPublicPayload(server_public, server_public_lenght);
     if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
     {
@@ -443,4 +451,5 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
 

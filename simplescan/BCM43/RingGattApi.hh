@@ -148,7 +148,7 @@ public:
 
     // debug / display functions and helper functions
     void DisplayGATTUUID(GATT_UUID_t *UUID, const char *Prefix, unsigned int Level)  { (void) UUID, (void) Prefix, (void) Level; return; }
-    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx)  { (void) aServiceIdx, (void) aAttributeIdx; return; }
+    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx, const char* aPref = NULL);
 
     void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr)  {(void)  Board_Address, (void)  BoardStr; return; }
     void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address)  {(void)  BoardStr, (void)  Board_Address; return; }

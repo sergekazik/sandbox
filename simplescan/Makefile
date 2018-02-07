@@ -42,14 +42,14 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    $(BTPIA_SDK_INC)
 
 ifeq ($(BLE_CS), BCM43)
-CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548)
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -I./crypto
 endif
 
 CXXFLAGS = $(CFLAGS)
 
 #LDFLAGS_LIB = -shared -lbluetooth
 #LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
-LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548
+LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548 -lRingCrypto
 
 RM = rm -f
 TARGET_LIB = libRingBle.a

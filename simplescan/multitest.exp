@@ -5,21 +5,6 @@ set blueID $spawn_id
 expect "Agent registered"
 
 puts "\r"
-#spawn ./test_crypto -gpk
-#expect ":gpk"
-#puts $expect_out(buffer)
-#set buf [split $expect_out(buffer) ":"]
-#set gpk [lindex $buf 1]
-#puts "gpk = $gpk\r"
-
-set spawn_id $blueID
-#send "write $gpk\r"
-#expect {
-#    "Invalid" {}
-#    "No attribute" {}
-#}
-#send "quit\r"
-
 send "select 5C:F3:70:84:E8:8B\r"
 send "devices\r"
 send "list\r"
@@ -47,13 +32,13 @@ if { $device_connected == 0 } {
     send "quit\n"
     exit 10
 }
-send "select-attribute /org/bluez/hci1/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
 send "read\r"
 expect {
 	"Value:" {
 	}
 	"No attribute selected" {
-	    send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+	    send "select-attribute /org/bluez/hci1/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
 	    send "read\r"
 	    expect "Value:"
 	}
@@ -63,25 +48,92 @@ expect "Value:"
 expect $ring_name
 
 puts "\r"
-puts "------------------------------\r"
-puts $expect_out(buffer);
+#puts "------------------------------\r"
+#puts $expect_out(buffer);
 puts "==============================\r"
 set buf [split $expect_out(buffer) "\n"]
 set pld ""
 set public_payload "public_payload.log"
 set outFileId [open $public_payload "w"]
-for {set idx 0} {$idx<10} {incr idx} {
+for {set idx 0} {$idx<100} {incr idx} {
     set pubpl [lindex $buf $idx]
     if {[string match "*list*" $pubpl]} {
 	break
-    } 
-    append pld '\n' $pubpl
+    }
+    if {[string match "*$ring_name*" $pubpl]} {
+	break
+    }
+    append pld '\n $pubpl
     puts $outFileId "$pubpl"
 }
-puts "$pld"
+#puts "$pld"
+close $outFileId
+puts "-------------------------------\r"
+
+
+#---------------------- now let's write the gpk
+puts "\r"
+spawn ./test_crypto -gpk
+expect ":gpk"
+#puts $expect_out(buffer)
+set buf [split $expect_out(buffer) ":"]
+set gpk [lindex $buf 1]
+#puts "gpk = $gpk\r"
+
+set spawn_id $blueID
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0002\r"
+
+send "write $gpk\r"
+set timeout 3
+expect {
+    timeout {}
+}
+
+set timeout 20
+#-now let's re-read PAYLOAD - should be proper one
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "read\r"
+expect "Value:"
+send "attribute-info\r"
+expect "Value:"
+expect $ring_name
+
+#--- here parse the actual value and pass it to test_crypto for update
+puts "\r"
+#puts "------------------------------\r"
+#puts $expect_out(buffer);
+puts "==============================\r"
+set buf [split $expect_out(buffer) "\n"]
+set pld ""
+set public_payload "public_payload.log"
+set outFileId [open $public_payload "w"]
+for {set idx 0} {$idx<100} {incr idx} {
+    set pubpl [lindex $buf $idx]
+    if {[string match "*list*" $pubpl]} {
+	break
+    }
+    if {[string match "*$ring_name*" $pubpl]} {
+	break
+    }
+    append pld '\n $pubpl
+    puts $outFileId "$pubpl"
+}
+#puts "$pld"
 close $outFileId
 
-puts "-------------------------------\r"
+puts "\r"
+spawn ./test_crypto -ppf public_payload.log
+expect ":ppp"
+#puts $expect_out(buffer)
+set buf [split $expect_out(buffer) ":"]
+set ppp [lindex $buf 1]
+puts "ppp = $ppp\r"
+
+
+set spawn_id $blueID
+
+
+
 puts "disconnecting.....\r"
 send "disconnect\r"
 expect "Connected: no"

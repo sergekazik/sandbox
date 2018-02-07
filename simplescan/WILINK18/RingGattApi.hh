@@ -140,7 +140,7 @@ public:
     void DisplayDataElement(SDP_Data_Element_t *SDPDataElement, unsigned int Level);
     void DisplayLocalDeviceProperties(unsigned long UpdateMask, DEVM_Local_Device_Properties_t *LocalDeviceProperties);
     void DisplayRemoteDeviceProperties(unsigned long UpdateMask, DEVM_Remote_Device_Properties_t *RemoteDeviceProperties);
-    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx);
+    void DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx, const char *aPref);
 
     void BD_ADDRToStr(BD_ADDR_t Board_Address, char *BoardStr);
     void StrToBD_ADDR(char *BoardStr, BD_ADDR_t *Board_Address);

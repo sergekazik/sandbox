@@ -16,13 +16,7 @@ class BlePairing
 {
 public:
     static BlePairing* getInstance(); // singleton
-    static const char* mPayloadReady;
-    static const char* mWiFiConnected;
-    static const char* mWiFiConnectFailed;
-    static const char* mWiFiConfigFile;
-    static char mPublicPayload[ATT_MTU_MAX];
     static char mMacAddress[DEV_MAC_ADDR_LEN];
-    static char mNetworkInfo[ATT_MTU_MAX];
 
 private:
     BlePairing();
@@ -42,6 +36,8 @@ public:
     // to pass data to ringnm
     int registerRingDataCallback(std::function<int(int, void*, int)> callback);
     int updateAttribute(int attr_idx, const char * str_data, int len = 0);
+    int updateServiceTable(int attr_idx, const char * str_data, int len = 0);
+
 private:
     unsigned int   mPairingServiceIndex;
     ServiceInfo_t *mServiceTable;

@@ -358,6 +358,22 @@ int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ (
     return Error::NONE;
 }
 
+///
+/// \brief GattSrv::DisplayAttributeValue
+/// \param aServiceIdx
+/// \param aAttributeIdx
+/// \param aPref
+///
+void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttributeIdx, const char* aPref)
+{
+    if (aPref) BOT_NOTIFY_DEBUG("%s", aPref);
+    if (mServiceTable && (aServiceIdx < mServiceCount) && (aAttributeIdx < mServiceTable[aServiceIdx].NumberAttributes))
+    {
+        DumpData(0, ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->ValueLength,
+                        ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->Value);
+    }
+}
+
 int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
 {   // nothing todo at this time
     return Error::NONE;
@@ -1876,18 +1892,27 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
     (void) att;
     (void) user_data;
 
-    const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
-    uint16_t AttribueIdx = find_attr_idx_by_handle(attrib);
+    BlePairing *Pairing = BlePairing::getInstance();
+    if (Pairing) {
+        const ServiceInfo_t* svc = Pairing->GetServiceTable();
+        if (svc) {
+            uint16_t AttribueIdx = find_attr_idx_by_handle(attrib);
 
-    if (AttribueIdx < svc->NumberAttributes)
-    {
-        // BOT_NOTIFY_TRACE("gatt_attr_write_cb called for [%s] for %d bytes, [%s]", svc->AttributeList[AttribueIdx].AttributeName, (int) len, (char*) value);
-        GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
-        // note: AttribueIdx is passed as offset on purpose
-        gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Write, RING_PAIRING_SVC_IDX, AttribueIdx);
-    }
-    else
-        BOT_NOTIFY_WARNING("gatt_attr_write_cb UNKNOWN called for id %d with %d bytes, [%s]", id, (int) len, (char*) value);
+            if (AttribueIdx < svc->NumberAttributes)
+            {
+                Pairing->updateServiceTable(AttribueIdx, (const char*) value, len);
+                BleApi* bleApi = GattSrv::getInstance();
+                if (bleApi) {
+                    // note: for BCM AttribueIdx is passed as offset on purpose
+                    bleApi->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Write, RING_PAIRING_SVC_IDX, AttribueIdx);
+                } else
+                    BOT_NOTIFY_ERROR("updateServiceTable failed to obtain BleApi instance");
+            } else
+                BOT_NOTIFY_WARNING("gatt_attr_write_cb UNKNOWN called for id %d with %d bytes, [%s]", id, (int) len, (char*) value);
+        } else
+            BOT_NOTIFY_ERROR("gatt_attr_write_cb failed to get access to ServiceInfo table");
+    } else
+        BOT_NOTIFY_ERROR("gatt_attr_write_cb failed to get Pairing instance");
 }
 
 static void confirm_write(struct gatt_db_attribute *attr, int err, void *user_data)
