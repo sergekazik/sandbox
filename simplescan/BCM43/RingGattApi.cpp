@@ -1900,7 +1900,9 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
 
             if (AttribueIdx < svc->NumberAttributes)
             {
-                Pairing->updateServiceTable(AttribueIdx, (const char*) value, len);
+                int ret_val = Pairing->updateServiceTable(AttribueIdx, (const char*) value, len);
+                BOT_NOTIFY_DEBUG("Pairing->updateServiceTable ret = %d", ret_val);
+
                 BleApi* bleApi = GattSrv::getInstance();
                 if (bleApi) {
                     // note: for BCM AttribueIdx is passed as offset on purpose

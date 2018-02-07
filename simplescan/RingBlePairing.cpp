@@ -457,7 +457,7 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
 int BlePairing::updateServiceTable(int attr_idx, const char * str_data, int len)
 {
     int ret_val = Error::UNDEFINED;
-    if (!mServiceTable)
+    if (mServiceTable == NULL)
         ret_val = Error::NOT_INITIALIZED;
     else if (attr_idx >= (int) mServiceTable->NumberAttributes)
         ret_val = Error::INVALID_PARAMETERS;
@@ -466,9 +466,20 @@ int BlePairing::updateServiceTable(int attr_idx, const char * str_data, int len)
         if (len > (int) attr->MaximumValueLength)
             ret_val = Error::INVALID_PARAMETERS;
         else {
-            if (str_data && len)
-                memcpy(attr->Value, str_data, len);
-            attr->ValueLength = len;
+            if (attr->Value && attr->AllocatedValue) {
+                free(attr->Value);
+                attr->AllocatedValue = 0;
+            }
+            attr->Value = NULL;
+            attr->ValueLength = 0;
+
+            if (str_data && len) {
+                attr->Value = (unsigned char*) malloc(len);
+                if (attr->Value) {
+                    attr->AllocatedValue = 1;
+                    memcpy(attr->Value, str_data, attr->ValueLength = len);
+                }
+            }
             ret_val = Error::NONE;
         }
     }
