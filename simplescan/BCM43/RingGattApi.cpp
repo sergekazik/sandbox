@@ -113,6 +113,10 @@ int GattSrv::Initialize()
     return ret;
 }
 
+///
+/// \brief GattSrv::Shutdown
+/// \return error code
+///
 int GattSrv::Shutdown()
 {
     int ctl, ret = Error::NONE;
@@ -131,8 +135,15 @@ int GattSrv::Shutdown()
         else
             ret = Error::FAILED_INITIALIZE;
     }
+    CleanupServiceList();
     return ret;
 }
+
+///
+/// \brief GattSrv::SetLocalDeviceName
+/// \param aParams
+/// \return error code
+///
 int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
@@ -155,6 +166,11 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
     return ret_val;
 }
 
+///
+/// \brief GattSrv::SetLocalClassOfDevice
+/// \param aParams
+/// \return error code
+///
 int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
@@ -371,6 +387,25 @@ void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttr
     {
         DumpData(0, ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->ValueLength,
                         ((CharacteristicInfo_t*) mServiceTable[aServiceIdx].AttributeList[aAttributeIdx].Attribute)->Value);
+    }
+}
+
+///
+/// \brief GattSrv::CleanupServiceList
+/// Loop through the attribute list for this service and free
+/// any attributes with dynamically allocated buffers.
+///
+void GattSrv::CleanupServiceList(void)
+{
+    for (unsigned int idx=0; idx<mServiceTable->NumberAttributes; idx++) {
+        CharacteristicInfo_t *CharacteristicInfo;
+        if ((CharacteristicInfo = (CharacteristicInfo_t *)mServiceTable->AttributeList[idx].Attribute) != NULL) {
+            if ((CharacteristicInfo->AllocatedValue) && (CharacteristicInfo->Value)) {
+                free(CharacteristicInfo->Value);
+                CharacteristicInfo->Value          = NULL;
+                CharacteristicInfo->AllocatedValue = 0;
+            }
+        }
     }
 }
 
@@ -1874,7 +1909,7 @@ static void gatt_attr_read_cb(struct gatt_db_attribute *attrib,
     if (AttribueIdx < svc->NumberAttributes)
     {
         // BOT_NOTIFY_TRACE("gatt_attr_read_cb called for [%s]", svc->AttributeList[AttribueIdx].AttributeName);
-        GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
+        BleApi *gatt = GattSrv::getInstance();
         // note: AttribueIdx is passed as offset on purpose
         gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Read, RING_PAIRING_SVC_IDX, AttribueIdx);
     }
@@ -1900,8 +1935,10 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
 
             if (AttribueIdx < svc->NumberAttributes)
             {
+                // BOT_NOTIFY_TRACE("## Pairing->updateServiceTable %d bytes, offset %d", (int) len, offset);
                 int ret_val = Pairing->updateServiceTable(AttribueIdx, (const char*) value, len);
-                BOT_NOTIFY_DEBUG("Pairing->updateServiceTable ret = %d", ret_val);
+                if (ret_val != Error::NONE)
+                    BOT_NOTIFY_ERROR("Pairing->updateServiceTable failed with ret = %d", ret_val);
 
                 BleApi* bleApi = GattSrv::getInstance();
                 if (bleApi) {

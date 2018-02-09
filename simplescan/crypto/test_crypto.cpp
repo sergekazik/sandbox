@@ -374,7 +374,7 @@ int main(int argc, char* argv[])
         memset(outstr, 0, 0xff);
         int offset = sprintf(outstr, "enc:");
         for (int i = 0; i < crypted_len; i++)
-            offset += sprintf(&outstr[offset], "%02x", (unsigned char) crypted[i]);
+            offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) crypted[i]);
         sprintf(&outstr[offset], ":enc");
         printf("%s\n", outstr);
         return Ring::Ble::Crypto::Error::NO_ERROR;

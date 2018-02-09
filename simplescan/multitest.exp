@@ -1,4 +1,5 @@
 set ring_name "RingTEST-BLE"
+set ring_mane "RingTEST-3f"
 
 spawn bluetoothctl
 set blueID $spawn_id
@@ -45,7 +46,7 @@ expect {
 }
 send "attribute-info\r"
 expect "Value:"
-expect $ring_name
+expect  $ring_name
 
 puts "\r"
 #puts "------------------------------\r"
@@ -61,6 +62,9 @@ for {set idx 0} {$idx<100} {incr idx} {
 	break
     }
     if {[string match "*$ring_name*" $pubpl]} {
+	break
+    }
+    if {[string match "*$ring_mane*" $pubpl]} {
 	break
     }
     append pld '\n $pubpl
@@ -88,15 +92,15 @@ set timeout 3
 expect {
     timeout {}
 }
-
 set timeout 20
+
 #-now let's re-read PAYLOAD - should be proper one
 send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
 send "read\r"
 expect "Value:"
 send "attribute-info\r"
 expect "Value:"
-expect $ring_name
+expect  $ring_name
 
 #--- here parse the actual value and pass it to test_crypto for update
 puts "\r"
@@ -115,6 +119,9 @@ for {set idx 0} {$idx<100} {incr idx} {
     if {[string match "*$ring_name*" $pubpl]} {
 	break
     }
+    if {[string match "*$ring_mane*" $pubpl]} {
+	break
+    }
     append pld '\n $pubpl
     puts $outFileId "$pubpl"
 }
@@ -123,18 +130,45 @@ close $outFileId
 
 puts "\r"
 spawn ./test_crypto -ppf public_payload.log
-expect ":ppp"
+expect {
+    ":ppp" {
+	puts "Public Payload processed OK"
+    }
+    "Error" {
+	puts "Public Payload Error. Abort"
+	set spawn_id $blueID
+	send "disconnect"
+	expect "Connected: no"
+	send "quit\r"
+	exit -18
+    }
+}
+
+spawn ./test_crypto -enc 91324
+expect ":enc"
 #puts $expect_out(buffer)
 set buf [split $expect_out(buffer) ":"]
-set ppp [lindex $buf 1]
-puts "ppp = $ppp\r"
-
+set zip [lindex $buf 2]
+puts "zip = $zip"
 
 set spawn_id $blueID
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0012\r"
+send "write $zip\r"
 
+set timeout 3
+expect {
+    timeout {}
+}
+set timeout 20
 
+send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0006\r"
+send "read\r"
+expect "Value:"
+send "attribute-info\r"
+expect "Value:"
+expect  $ring_name
 
-puts "disconnecting.....\r"
+puts "disconnecting....."
 send "disconnect\r"
 expect "Connected: no"
 send "quit\r"

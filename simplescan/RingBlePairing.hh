@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "RingBleApi.hh"
+#include "crypto/RingCrypto.hh"
 
 namespace Ring { namespace Ble {
 
@@ -17,6 +18,7 @@ class BlePairing
 public:
     static BlePairing* getInstance(); // singleton
     static char mMacAddress[DEV_MAC_ADDR_LEN];
+    static Crypto::Server *mCrypto;
 
 private:
     BlePairing();

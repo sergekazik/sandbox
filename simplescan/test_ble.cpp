@@ -40,7 +40,6 @@
 
 #include "version.h"
 #include "RingBlePairing.hh"
-#include "RingCrypto.hh"
 
 using namespace Ring;
 using namespace Ring::Ble;
@@ -295,20 +294,6 @@ static void print_subhelp(void)
     printf("********************************************************\n");
 }
 
-static Ring::Ble::Crypto::Server *server = NULL;
-static const uint8_t sign_priv[] = {
-
-    0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
-    0x8a,0x00,0x21,0xdd,0x5a,0x9c,0x15,0xf0,0x0e,0xa7,0x46,0xc0,0xf8,0x21,0x22,0x38,
-    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
-    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
-};
-
-#define RING_PAIRING_TABLE_ATTR_ENUM
-enum GattAttributeIndexByName {
-    #include "gatt_svc_defs.h"
-};
-
 static int data_read_write_callback(int a, void* data, int len)
 {
     int ret_val = Error::NONE;
@@ -324,35 +309,12 @@ static int data_read_write_callback(int a, void* data, int len)
         if (data && len)
         {
             printf("data_rw_cb: Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
-
-            if (a == SET_PUBLIC_KEY)
-            {
-                if (server)
-                    delete server;
-
-                printf("data_rw_cb: initialized server with PUBLIC_KEY = %d bytes\n", len);
-                server = new Ring::Ble::Crypto::Server((char*) data, len, sign_priv);
-
-                if (server)
-                {
-                    char server_public[0xff];
-                    int server_public_lenght = sizeof(server_public);
-                    server->GetPublicPayload(server_public, server_public_lenght);
-                    printf("data_rw_cb: server->GetPublicPayload ret %d bytes of PP\n", server_public_lenght);
-
-                    Pairing->updateAttribute(GET_PUBLIC_PAYLOAD, server_public, server_public_lenght);
-                    printf("data_rw_cb: upated PUBLIC_PAYLOAD\n");
-                }
-                else
-                    printf("data_rw_cb: failed to create crypto server\n");
-
-                ret_val = (1); // to inform default handler to stop further processing of this notification
-            }
         }
         else
         {
             printf("data_rw_cb: Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
         }
+        ret_val = (1); // to inform default handler to stop further processing of this notification
     }
     return ret_val;
 }

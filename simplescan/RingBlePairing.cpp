@@ -81,6 +81,14 @@ std::function<int(int, void*, int)> ringDataCb = NULL;
 BlePairing* BlePairing::instance = NULL;
 char BlePairing::mMacAddress[DEV_MAC_ADDR_LEN] = "XX:XX:XX:XX:XX:XX";
 
+Crypto::Server *BlePairing::mCrypto = NULL;
+static const uint8_t sign_priv[] = {
+    0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
+    0x8a,0x00,0x21,0xdd,0x5a,0x9c,0x15,0xf0,0x0e,0xa7,0x46,0xc0,0xf8,0x21,0x22,0x38,
+    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
+    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
+};
+
 #define ATTRIBUTE_OFFSET(_idx) sServiceTable[RING_PAIRING_SVC_IDX].AttributeList[_idx].AttributeOffset
 
 // singleton instance
@@ -106,7 +114,7 @@ BlePairing::BlePairing() :
     mAdvIntervalMin_ms = 2000;
     mAdvIntervalMax_ms = 3000;
 
-    // set definitions from RingGattServices.hh
+    // set definitions from gatt_svc_defs.h
     mServiceTable = sServiceTable;
     mServiceCount = RING_GATT_SERVICES_COUNT;
 
@@ -385,17 +393,44 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
         case Ble::Property::Write:
             bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "Write");
 
-            // ringnm callback
-            if (ringDataCb)
             {
-                void * pData = (void *) ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->Value;
+                void *data = (void *) ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->Value;
                 int len = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->ValueLength;
-                ringDataCb(aAttributeIdx, pData, len);
+
+                // processed internally by Pairing
+                if (aAttributeIdx == SET_PUBLIC_KEY)
+                {
+                    BOT_NOTIFY_DEBUG("got %d bytes of SET_PUBLIC_KEY, preparing PUBLIC_PAYLOAD", len);
+
+                    if (BlePairing::mCrypto)
+                    {
+                        delete BlePairing::mCrypto;
+                        BlePairing::mCrypto = NULL;
+                    }
+
+                    if (NULL != (BlePairing::mCrypto = new Ring::Ble::Crypto::Server((char*) data, len, sign_priv)))
+                    {
+                        char server_public[0xff];
+                        int server_public_lenght = sizeof(server_public);
+                        BlePairing::mCrypto->GetPublicPayload(server_public, server_public_lenght);
+                        BOT_NOTIFY_DEBUG("Crypto->GetPublicPayload ret %d bytes of PUBLIC_PAYLOAD\n", server_public_lenght);
+
+                        BlePairing::getInstance()->updateAttribute(GET_PUBLIC_PAYLOAD, server_public, server_public_lenght);
+                    }
+                    else
+                        BOT_NOTIFY_ERROR("failed to create Crypto server!\n");
+                }
+
+                // ringnm callback
+                if (ringDataCb)
+                {
+                    ringDataCb(aAttributeIdx, data, len);
+                }
             }
             break;
 
         default:
-            bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "unknown access");
+            bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "unexpected access");
             break;
     }
 }
@@ -417,7 +452,7 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
         return Error::FAILED_INITIALIZE;
     }
 
-    unsigned int service_id = sServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
+    unsigned int service_id = mServiceTable[RING_PAIRING_SVC_IDX].ServiceID;
 
     // only when str_data is valid
     if (str_data)
