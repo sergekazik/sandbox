@@ -1,0 +1,20 @@
+set ring_name "RingTEST-BLE"
+set ring_mane "RingTEST-3f"
+
+spawn bluetoothctl
+set blueID $spawn_id
+expect "Agent registered"
+
+puts "\n"
+send "select 5C:F3:70:84:E8:8B\r"
+send "devices\r"
+send "list\r"
+expect "Controller"
+send "remove 43:34:1B:00:1F:AC\r"
+expect {
+    "Device has been removed" {}
+    "not available" {}
+}
+puts "\n"
+send "quit\r"
+puts "\n"

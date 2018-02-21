@@ -406,7 +406,7 @@ protected:
     bool            mInitialized;              // initialization state
     unsigned int    mServiceCount;             // the current number of services passed to register
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
-    char mDeviceClass[DEV_CLASS_LEN];          // class of the device, e.g. 0x280430
+    char mDeviceClass[DEV_CLASS_LEN];          // class of the device, e.g. 0x000430
     char mDeviceName[DEV_NAME_LEN];            // device name, e.g. RingSetup-BT
     onCharacteristicAccessCallback  mOnCharCb; // callback to client function on characteristic change - Note: single user only
 

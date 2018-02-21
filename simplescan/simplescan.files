@@ -203,3 +203,4 @@ make_bluez_548.mak
 ../../chime_pro-firmware/app/ble/make.inc
 ../../chime_pro-firmware/app/ble/crypto/libsodium/make.inc
 multitest.exp
+remove.exp

@@ -269,8 +269,8 @@ static void print_help(void)
 //    printf("--noscan                hciconfig hci0 noscan\n");
 //    printf("--leadv                 hciconfig hci0 leadv\n");
 //    printf("--noleadv               hciconfig hci0 noleadv\n");
-//    printf("--class                 hciconfig hci0 class 0x280430\n");
-//    printf("--hciinit               up, piscan, class 0x280430, leadv\n");
+//    printf("--class                 hciconfig hci0 class 0x000430\n");
+//    printf("--hciinit               up, piscan, class 0x000430, leadv\n");
 //    printf("--hcishutdown           noleadv, noscan, down\n");
 //    printf("------------------------------------------------\n");
 //#endif  // not "else if"!

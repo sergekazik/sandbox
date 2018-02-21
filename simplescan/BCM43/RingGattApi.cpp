@@ -65,6 +65,10 @@ extern "C" {
     #include "gatt_db.h"
 }
 
+#define UUID_GAP			0x1800
+#define UUID_GATT			0x1801
+#define UUID_RING			0xFACE
+
 using namespace Ring;
 using namespace Ring::Ble;
 
@@ -101,8 +105,14 @@ int GattSrv::Initialize()
         BOT_NOTIFY_DEBUG("GattSrv::Initialize");
         if (0 <= (ctl = open_socket(di)))
         {
-            HCIup(ctl, di.dev_id);
+            HCIreset(ctl, di.dev_id);
+            sleep(1);
             HCIscan(ctl, di.dev_id, (char*) "piscan");
+            sleep(1);
+//            HCIauth(ctl, di.dev_id, (char*) "no");
+//            sleep(1);
+            HCIssp_mode(di.dev_id, (char*) "1");
+            //HCIencrypt(ctl, di.dev_id, (char*) "no");
 
             close(ctl);
             mInitialized = true;
@@ -135,7 +145,6 @@ int GattSrv::Shutdown()
         else
             ret = Error::FAILED_INITIALIZE;
     }
-    CleanupServiceList();
     return ret;
 }
 
@@ -204,7 +213,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
 int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
-    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes)
+    if (mInitialized && mServiceTable && mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes)
     {
         BOT_NOTIFY_DEBUG("Starting LE adv");
         HCIle_adv(di.dev_id, NULL);
@@ -241,6 +250,9 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
         BOT_NOTIFY_DEBUG("Stopping LE adv");
         HCIno_le_adv(di.dev_id);
 
+        mainloop_quit();
+        CleanupServiceList();
+
         ret_val = Error::NONE;
         if (mServer.hci_socket >= 0)
         {
@@ -250,7 +262,6 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 
         if (mServer.hci_thread_id > 0)
         {
-            mainloop_quit();
             ret_val = pthread_cancel(mServer.hci_thread_id);
             mServer.hci_thread_id = 0;
             BOT_NOTIFY_ERROR("cancel GATT pthread ret_val %d, Errno: %s (%d)", ret_val, strerror(errno), errno);
@@ -275,13 +286,13 @@ int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload)
 {
     int ret_val = Error::INVALID_PARAMETERS;
-    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
+    if (mInitialized && mServiceTable && mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes && GattSrv::mServer.sref)
     {
         if (aServiceIdx == RING_PAIRING_SVC_IDX)
         {
-            if (aAttributeIdx < (int) mServiceTable->NumberAttributes)
+            if (aAttributeIdx < (int) mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes)
             {
-                BOT_NOTIFY_DEBUG("sending %s Notify \"%s\"", mServiceTable->AttributeList[aAttributeIdx].AttributeName, aStrPayload);
+                BOT_NOTIFY_DEBUG("sending %s Notify \"%s\"", mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[aAttributeIdx].AttributeName, aStrPayload);
                 bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.ring_attr_handle[aAttributeIdx], (const uint8_t*) aStrPayload, strlen(aStrPayload));
                 ret_val = Error::NONE;
             }
@@ -306,16 +317,16 @@ int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char
 int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen)
 {
     int ret_val = Error::NOT_INITIALIZED;
-    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
+    if (mInitialized && mServiceTable && mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes && GattSrv::mServer.sref)
     {
-        if ((aServiceID == mServiceTable->ServiceID) && aAttrData && aAttrLen)
+        if ((aServiceID == mServiceTable[RING_PAIRING_SVC_IDX].ServiceID) && aAttrData && aAttrLen)
         {
             ret_val = Error::NOT_FOUND;
             // find attribute idx by offset
-            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable->NumberAttributes; attributeIdx++)
+            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes; attributeIdx++)
             {
-                // BOT_NOTIFY_TRACE("mServiceTable->AttributeList[%d].AttributeOffset = %d == %d ?", attributeIdx, mServiceTable->AttributeList[attributeIdx].AttributeOffset, aAttrOffset);
-                if ((int) mServiceTable->AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
+                // BOT_NOTIFY_TRACE("mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[%d].AttributeOffset = %d == %d ?", attributeIdx, mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attributeIdx].AttributeOffset, aAttrOffset);
+                if ((int) mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
                 {
                     struct gatt_db_attribute * attr = gatt_db_get_attribute(GattSrv::mServer.sref->db, GattSrv::mServer.ring_attr_handle[attributeIdx]);
                     if (attr)
@@ -323,12 +334,12 @@ int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, 
                         gatt_db_attribute_write(attr, 0,
                                                 (const uint8_t *) aAttrData, aAttrLen,
                                                 BT_ATT_OP_WRITE_REQ, NULL,
-                                                confirm_write, (void*) mServiceTable->AttributeList[attributeIdx].AttributeName);
+                                                confirm_write, (void*) mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attributeIdx].AttributeName);
                         ret_val = Error::NONE;
                     }
                     else
                     {
-                        BOT_NOTIFY_ERROR("Failed to access aAttrOffset %d, %s", aAttrOffset, mServiceTable->AttributeList[attributeIdx].AttributeName);
+                        BOT_NOTIFY_ERROR("Failed to access aAttrOffset %d, %s", aAttrOffset, mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attributeIdx].AttributeName);
                     }
                     break;
                 }
@@ -397,13 +408,15 @@ void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttr
 ///
 void GattSrv::CleanupServiceList(void)
 {
-    for (unsigned int idx=0; idx<mServiceTable->NumberAttributes; idx++) {
-        CharacteristicInfo_t *CharacteristicInfo;
-        if ((CharacteristicInfo = (CharacteristicInfo_t *)mServiceTable->AttributeList[idx].Attribute) != NULL) {
-            if ((CharacteristicInfo->AllocatedValue) && (CharacteristicInfo->Value)) {
-                free(CharacteristicInfo->Value);
-                CharacteristicInfo->Value          = NULL;
-                CharacteristicInfo->AllocatedValue = 0;
+    for (unsigned int idx=0; idx < mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes; idx++) {
+        CharacteristicInfo_t *charin;
+        if (NULL != (charin = (CharacteristicInfo_t *)mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[idx].Attribute)) {
+            BOT_NOTIFY_DEBUG("Cleanup: attr idx %d, AllocatedValue = %d", idx, charin->AllocatedValue);
+            if ((charin->AllocatedValue == 1) && (charin->Value != NULL)) {
+                free(charin->Value);
+                charin->Value          = NULL;
+                charin->ValueLength    = 0;
+                charin->AllocatedValue = 0;
             }
         }
     }
@@ -857,9 +870,10 @@ void GattSrv::HCIreset(int ctl, int hdev) {
         BOT_NOTIFY_ERROR("Reset failed for device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-#endif
+#else
     GattSrv::HCIdown(ctl, hdev);
     GattSrv::HCIup(ctl, hdev);
+#endif
 }
 
 void GattSrv::HCIptype(int ctl, int hdev, char *opt) {
@@ -1935,7 +1949,14 @@ static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
 
             if (AttribueIdx < svc->NumberAttributes)
             {
-                // BOT_NOTIFY_TRACE("## Pairing->updateServiceTable %d bytes, offset %d", (int) len, offset);
+
+                int of = 0;
+                char debugstr[255];
+                memset(debugstr, 0, 255);
+                for (int i = 0; (i < 15) && (i < (int) len); i++)
+                    of += sprintf(&debugstr[of], "%02x ", value[i]);
+                BOT_NOTIFY_TRACE("## Pairing->updateServiceTable %d bytes, offset %d\n%s", (int) len, offset, debugstr);
+
                 int ret_val = Pairing->updateServiceTable(AttribueIdx, (const char*) value, len);
                 if (ret_val != Error::NONE)
                     BOT_NOTIFY_ERROR("Pairing->updateServiceTable failed with ret = %d", ret_val);
@@ -1961,8 +1982,65 @@ static void confirm_write(struct gatt_db_attribute *attr, int err, void *user_da
         BOT_NOTIFY_ERROR("Error caching/writing attribute %s - err: %d", (char*) user_data, err);
 }
 
+static void populate_gap_service()
+{
+    bt_uuid_t uuid;
+    struct gatt_db_attribute *service, *tmp;
+    uint16_t appearance;
+
+    /* Add the GAP service */
+    bt_uuid16_create(&uuid, UUID_GAP);
+    service = gatt_db_add_service(GattSrv::mServer.sref->db, &uuid, true, 6);
+
+    /*
+     * Device Name characteristic. Make the value dynamically read and
+     * written via callbacks.
+     */
+    bt_uuid16_create(&uuid, GATT_CHARAC_DEVICE_NAME);
+    gatt_db_service_add_characteristic(service, &uuid,
+                    BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+                    BT_GATT_CHRC_PROP_READ |
+                    BT_GATT_CHRC_PROP_EXT_PROP,
+                    NULL, // gap_device_name_read_cb,
+                    NULL, // gap_device_name_write_cb,
+                    NULL // server
+                                       );
+
+    bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
+    gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
+                    NULL, // gap_device_name_ext_prop_read_cb,
+                    NULL,
+                    NULL // server
+                                   );
+
+    /*
+     * Appearance characteristic. Reads and writes should obtain the value
+     * from the database.
+     */
+    bt_uuid16_create(&uuid, GATT_CHARAC_APPEARANCE);
+    tmp = gatt_db_service_add_characteristic(service, &uuid,
+                            BT_ATT_PERM_READ,
+                            BT_GATT_CHRC_PROP_READ,
+                            NULL, NULL, NULL // server
+                                             );
+
+    /*
+     * Write the appearance value to the database, since we're not using a
+     * callback.
+     */
+    put_le16(128, &appearance);
+    gatt_db_attribute_write(tmp, 0, (const uint8_t *) &appearance,
+                            sizeof(appearance),
+                            BT_ATT_OP_WRITE_REQ,
+                            NULL, confirm_write,
+                            (void*) "appearance");
+
+    gatt_db_service_set_active(service, true);
+}
+
 static int populate_gatt_service(void)
 {
+    populate_gap_service();
     const ServiceInfo_t* svc = BlePairing::getInstance()->GetServiceTable();
     if (!svc)
         return Error::NOT_INITIALIZED;
@@ -1975,10 +2053,11 @@ static int populate_gatt_service(void)
     uint128_t uuid128;
     memcpy(&uuid128.data, &svc->ServiceUUID, sizeof(uint128_t));
     bt_uuid128_create(&uuid, uuid128);
-    ringsvc = gatt_db_add_service_ext(GattSrv::mServer.sref->db, &uuid, primary, 32, gatt_attr_read_cb, gatt_attr_write_cb);
+    ringsvc = gatt_db_add_service_ext(GattSrv::mServer.sref->db, &uuid, primary, 42, gatt_attr_read_cb, gatt_attr_write_cb);
     GattSrv::mServer.ring_svc_handle = gatt_db_attribute_get_handle(ringsvc);
 
-    for (int idx = 0; idx < (int) svc->NumberAttributes && idx < RING_CHARACTERISTICS_MAX; idx++)
+    BOT_NOTIFY_DEBUG("svc->NumberAttributes = %d", svc->NumberAttributes);
+    for (int idx = 0; (idx < (int) svc->NumberAttributes) && (idx < RING_CHARACTERISTICS_MAX); idx++)
     {
         CharacteristicInfo_t *ch_info = NULL;
         struct gatt_db_attribute *attr_new = NULL;
@@ -1996,6 +2075,7 @@ static int populate_gatt_service(void)
 
             GattSrv::mServer.ring_attr_handle[idx] = gatt_db_attribute_get_handle(attr_new);
 
+            BOT_NOTIFY_DEBUG("attr %d added %s", idx, svc->AttributeList[idx].AttributeName);
             if (ch_info->Value && (ch_info->ValueLength > 0))
             {
                 gatt_db_attribute_write(attr_new, 0,
@@ -2145,8 +2225,7 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     GattSrv::mServer.hci_socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
     if (GattSrv::mServer.hci_socket < 0) {
         BOT_NOTIFY_ERROR("Failed to create L2CAP socket %s (%d)", strerror(errno), errno);
-        goto fail;
-    }
+        goto fail;    }
 
     /* Set up source address */
     memset(&srcaddr, 0, sizeof(srcaddr));

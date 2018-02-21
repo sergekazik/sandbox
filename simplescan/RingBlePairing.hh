@@ -31,7 +31,7 @@ public:
     int StopAdvertising();
     int Shutdown();
     bool isAdvertisingRequested() { return mAdvertisingRequested; }
-    const ServiceInfo_t *GetServiceTable() {return mServiceTable; }
+    const ServiceInfo_t *GetServiceTable() {return &mServiceTable[RING_PAIRING_SVC_IDX]; }
 
     // status debug
     int PrintStatus();

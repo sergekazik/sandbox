@@ -5,18 +5,31 @@ spawn bluetoothctl
 set blueID $spawn_id
 expect "Agent registered"
 
-puts "\r"
+puts "\n"
 send "select 5C:F3:70:84:E8:8B\r"
 send "devices\r"
 send "list\r"
 expect "Controller"
-send "connect 43:34:1B:00:1F:AC\r"
+#send "remove 43:34:1B:00:1F:AC\r"
+#expect {
+#    "Device has been removed" {}
+#    "not available" {}
+#}
 
-set timeout 20
+set timeout 5
+send "scan on\r"
+expect "43:34:1B:00:1F:AC"
+send "scan off\r"
+expect "Discovery stopped"
+
+set timeout 15
+
 set device_connected 0
+set timeout 20
+send "connect 43:34:1B:00:1F:AC\r"
 expect {
     "Failed to connect:"	{
-	puts "\n\nfailed to connect\n\n"
+	puts "\nfailed to connect\n\n"
     }
     "not available" 		{
 	puts "\n\ndevice went offline or removed from the list, abort.\n\n"
@@ -28,6 +41,7 @@ expect {
 	puts "\n\nconnect timeout...\n\n"
     }
 }
+
 if { $device_connected == 0 } {
     puts "failed to connect $ring_name, exiting 10\n"
     send "quit\n"
@@ -39,9 +53,8 @@ expect {
 	"Value:" {
 	}
 	"No attribute selected" {
-	    send "select-attribute /org/bluez/hci1/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
-	    send "read\r"
-	    expect "Value:"
+	    puts "\nsomething failed\n\n"
+	    exit 666
 	}
 }
 send "attribute-info\r"

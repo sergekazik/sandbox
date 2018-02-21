@@ -50,7 +50,7 @@
 #define UUID_GATT			0x1801
 #define UUID_RING			0xFACE
 
-#define UUID_HEART_RATE			0x180d
+#define UUID_HEART_RATE             0x180d
 #define UUID_HEART_RATE_MSRMT		0x2a37
 #define UUID_HEART_RATE_BODY		0x2a38
 #define UUID_HEART_RATE_CTRL		0x2a39

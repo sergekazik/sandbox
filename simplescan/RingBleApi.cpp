@@ -32,7 +32,7 @@ BleApi::BleApi() :
     mInitialized(false)
     ,mServiceCount(0)
     ,mServiceTable(NULL)
-    ,mDeviceClass("0x280430")
+    ,mDeviceClass("0x000430")
     ,mDeviceName("RingSetup-BT")
     ,mOnCharCb(NULL)
 {

@@ -109,7 +109,7 @@ BlePairing::BlePairing() :
     }
 
     // set other config parameters
-    mLocalClassOfDevice = 0x280430;
+    mLocalClassOfDevice = 0x000430;
     mAdvertisingTimeout_sec = 600;
     mAdvIntervalMin_ms = 2000;
     mAdvIntervalMax_ms = 3000;
@@ -489,33 +489,40 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
     return Error::NONE;
 }
 
-int BlePairing::updateServiceTable(int attr_idx, const char * str_data, int len)
+int BlePairing::updateServiceTable(int attr_idx, const char *str_data, int len)
 {
     int ret_val = Error::UNDEFINED;
     if (mServiceTable == NULL)
         ret_val = Error::NOT_INITIALIZED;
-    else if (attr_idx >= (int) mServiceTable->NumberAttributes)
+    else if (attr_idx >= (int) mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes)
         ret_val = Error::INVALID_PARAMETERS;
     else {
-        CharacteristicInfo_t *attr = (CharacteristicInfo_t*) mServiceTable->AttributeList[attr_idx].Attribute;
+        CharacteristicInfo_t *attr = (CharacteristicInfo_t*) mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attr_idx].Attribute;
         if (len > (int) attr->MaximumValueLength)
             ret_val = Error::INVALID_PARAMETERS;
         else {
-            if (attr->Value && attr->AllocatedValue) {
-                free(attr->Value);
-                attr->AllocatedValue = 0;
+            if (attr->Value && ((int) attr->ValueLength == len) && str_data && !memcmp(attr->Value, str_data, len))
+            {
+                // the same - skip
+                ret_val = Error::NONE;
             }
-            attr->Value = NULL;
-            attr->ValueLength = 0;
-
-            if (str_data && len) {
-                attr->Value = (unsigned char*) malloc(len);
-                if (attr->Value) {
-                    attr->AllocatedValue = 1;
-                    memcpy(attr->Value, str_data, attr->ValueLength = len);
+            else {
+                if (attr->Value && attr->AllocatedValue) {
+                    free(attr->Value);
+                    attr->AllocatedValue = 0;
                 }
+                attr->Value = NULL;
+                attr->ValueLength = 0;
+
+                if (str_data && len) {
+                    attr->Value = (unsigned char*) malloc(len);
+                    if (attr->Value) {
+                        attr->AllocatedValue = 1;
+                        memcpy(attr->Value, str_data, attr->ValueLength = len);
+                    }
+                }
+                ret_val = Error::NONE;
             }
-            ret_val = Error::NONE;
         }
     }
     return ret_val;
