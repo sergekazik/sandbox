@@ -361,6 +361,11 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
         }
         return;
     }
+    else if (aAccessType == Ble::Property::Connected)
+    {
+        BOT_NOTIFY_DEBUG("Ble::Property::Connected...");
+        return;
+    }
 
     BOT_NOTIFY_INFO("OnAttributeAccessCallback Ble::Property::%s for %s %s\n",
            aAccessType == Ble::Property::Read ? "Read": aAccessType == Ble::Property::Write ? "Write":"Confirmed",
@@ -430,7 +435,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
             break;
 
         default:
-            bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "unexpected access");
+            bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "not handled aAccessType");
             break;
     }
 }

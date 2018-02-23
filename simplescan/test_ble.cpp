@@ -94,16 +94,16 @@ int raw_test_listen(void)
     memset(buf, 0, sizeof(buf));
     // read data from the client
     bytes_read = read(client, buf, sizeof(buf));
-    printf("read %d bytes_read\n", bytes_read);
+    printf("TESTBLE:  read %d bytes_read\n", bytes_read);
     if( bytes_read > 0 ) {
-        printf("received [%s]\n", buf);
+        printf("TESTBLE:  received [%s]\n", buf);
 
         // ACK
         sprintf(&buf[strlen(buf)], " - acknowledged");
         int len = strlen(buf);
-        printf("sending ACK \"%s\"\n", buf);
+        printf("TESTBLE:  sending ACK \"%s\"\n", buf);
         int status = write(client, buf, len);
-        printf("sent %d byte, status %d\n", len, status);
+        printf("TESTBLE:  sent %d byte, status %d\n", len, status);
     }
 
     // close connection
@@ -129,7 +129,7 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
     const char *data_stored = data;
     int nLen_stored = nLen;
 
-    printf("connecting to %s\n", dest);
+    printf("TESTBLE:  connecting to %s\n", dest);
     // allocate a socket
     s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
 
@@ -148,9 +148,9 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
             int len = nLen ? nLen : (int) strlen(data);
             sprintf(buf, "%d.%s", nRepeat, data);
             data = buf;
-            printf("sending to %s:\n%s\n", dest, data);
+            printf("TESTBLE:  sending to %s:\n%s\n", dest, data);
             status = write(s, data, len);
-            printf("sent %d byte, status %d\n", len, status);
+            printf("TESTBLE:  sent %d byte, status %d\n", len, status);
         }
 
         if ( status < 0 )
@@ -161,11 +161,11 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
         else
         {
             int bytes_read = read(s, buf, sizeof(buf));
-            printf("// read ACK data from the server = %d bytes\n", bytes_read);
+            printf("TESTBLE:  // read ACK data from the server = %d bytes\n", bytes_read);
 
             if( bytes_read > 0 ) {
-                printf("received %d bytes from GATT(?):\n", bytes_read);
-                printf("ASCII: [%s]\n", buf);
+                printf("TESTBLE:  received %d bytes from GATT(?):\n", bytes_read);
+                printf("TESTBLE:  ASCII: [%s]\n", buf);
                 if ((int) strlen(buf) == bytes_read)
                 {
                     for (int i = 0; i < bytes_read; i++)
@@ -173,16 +173,16 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
                                 pub (32 bytes): ac2f61320fe772fdf7ed326b2de3db00cc56252d2798b67aea316c5ba5b28b3c
                                 prv (32 bytes): 3d6294cba942c082b942edbd5db8ca048c0c03d9a8ece30af7b5cdd560b1211e
 
-                        printf("%c", (buf[i] >= ' ') ? buf[i] : ' ');
+                        printf("TESTBLE:  %c", (buf[i] >= ' ') ? buf[i] : ' ');
                     }
                 }
-                printf("\n");
+                printf("TESTBLE:  \n");
 
                 for (int i = 0; i < bytes_read; i++)
                 {
-                    printf("%02X ", buf[i]);
+                    printf("TESTBLE:  %02X ", buf[i]);
                 }
-                printf("\n");
+                printf("TESTBLE:  \n");
 
 //                data = buf;
 //                nLen = bytes_read;
@@ -237,7 +237,7 @@ int raw_test_scan(void)
         if (hci_read_remote_name(sock, &(ii+i)->bdaddr, sizeof(name),
             name, 0) < 0)
         strcpy(name, "[unknown]");
-        printf("%s  %s\n", addr, name);
+        printf("TESTBLE:  %s  %s\n", addr, name);
     }
 
     free( ii );
@@ -252,46 +252,46 @@ int raw_test_scan(void)
 ///
 static void print_help(void)
 {
-    printf("********************************************************\n");
-    printf("* BT/LE test tool (date %s)\n", version_date);
-    printf("********************************************************\n");
+    printf("TESTBLE:  ********************************************************\n");
+    printf("TESTBLE:  * BT/LE test tool (date %s)\n", version_date);
+    printf("TESTBLE:  ********************************************************\n");
 #if defined(STANDARD_BT_NO_BLE) && (defined(BLUEZ_TOOLS_SUPPORT) && (defined(BCM43) || defined(Linux_x86_64)))
-    printf("--scan                  scan for bluetooth device\n");
-    printf("--listen                listen for incoming connection, read once\n");
-    printf("--conn <dev_addr>       connect to device MAC address, write once\n");
-    printf("--send <dev_addr> [\"txt] connect and send custom text once\n");
-    printf("------------------------------------------------\n");
+    printf("TESTBLE:  --scan                  scan for bluetooth device\n");
+    printf("TESTBLE:  --listen                listen for incoming connection, read once\n");
+    printf("TESTBLE:  --conn <dev_addr>       connect to device MAC address, write once\n");
+    printf("TESTBLE:  --send <dev_addr> [\"txt] connect and send custom text once\n");
+    printf("TESTBLE:  ------------------------------------------------\n");
 #endif
 //#if defined(BCM43) || defined(Linux_x86_64)
-//    printf("--up                    hciconfig hci0 up\n");
-//    printf("--down                  hciconfig hci0 down\n");
-//    printf("--piscan                hciconfig hci0 piscan\n");
-//    printf("--noscan                hciconfig hci0 noscan\n");
-//    printf("--leadv                 hciconfig hci0 leadv\n");
-//    printf("--noleadv               hciconfig hci0 noleadv\n");
-//    printf("--class                 hciconfig hci0 class 0x000430\n");
-//    printf("--hciinit               up, piscan, class 0x000430, leadv\n");
-//    printf("--hcishutdown           noleadv, noscan, down\n");
-//    printf("------------------------------------------------\n");
+//    printf("TESTBLE:  --up                    hciconfig hci0 up\n");
+//    printf("TESTBLE:  --down                  hciconfig hci0 down\n");
+//    printf("TESTBLE:  --piscan                hciconfig hci0 piscan\n");
+//    printf("TESTBLE:  --noscan                hciconfig hci0 noscan\n");
+//    printf("TESTBLE:  --leadv                 hciconfig hci0 leadv\n");
+//    printf("TESTBLE:  --noleadv               hciconfig hci0 noleadv\n");
+//    printf("TESTBLE:  --class                 hciconfig hci0 class 0x000430\n");
+//    printf("TESTBLE:  --hciinit               up, piscan, class 0x000430, leadv\n");
+//    printf("TESTBLE:  --hcishutdown           noleadv, noscan, down\n");
+//    printf("TESTBLE:  ------------------------------------------------\n");
 //#endif  // not "else if"!
 #if defined(WILINK18) || defined(Linux_x86_64) || (defined(BLUEZ_TOOLS_SUPPORT) && defined(BCM43))
-    printf("--gattauto              run Bluetopia GATT Server sample\n");
-    printf("--auto                  auto run Bluetopia GATT Server sample\n");
-    printf("--gatt                  load Bluetopia GATT Server sample\n");
-    printf("------------------------------------------------\n");
+    printf("TESTBLE:  --gattauto              run Bluetopia GATT Server sample\n");
+    printf("TESTBLE:  --auto                  auto run Bluetopia GATT Server sample\n");
+    printf("TESTBLE:  --gatt                  load Bluetopia GATT Server sample\n");
+    printf("TESTBLE:  ------------------------------------------------\n");
 #endif
 }
 
 static void print_subhelp(void)
 {
-    printf("********************************************************\n");
-    printf("interactive commands for Pairing API:\n");
-    printf("------------------------------------------------\n");
-    printf("init            Pairing->Initialize()\n");
-    printf("startad         Pairing->StartAdvertising()\n");
-    printf("stopad          Pairing->StopAdvertising()\n");
-    printf("quit            Pairing->Shutdown() and exit.\n");
-    printf("********************************************************\n");
+    printf("TESTBLE:  ********************************************************\n");
+    printf("TESTBLE:  interactive commands for Pairing API:\n");
+    printf("TESTBLE:  ------------------------------------------------\n");
+    printf("TESTBLE:  init            Pairing->Initialize()\n");
+    printf("TESTBLE:  startad         Pairing->StartAdvertising()\n");
+    printf("TESTBLE:  stopad          Pairing->StopAdvertising()\n");
+    printf("TESTBLE:  quit            Pairing->Shutdown() and exit.\n");
+    printf("TESTBLE:  ********************************************************\n");
 }
 
 static int data_read_write_callback(int a, void* data, int len)
@@ -301,18 +301,18 @@ static int data_read_write_callback(int a, void* data, int len)
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
-        printf("data_rw_cb: failed to obtain BlePairing instance. Abort.\n");
+        printf("TESTBLE:  data_rw_cb: failed to obtain BlePairing instance. Abort.\n");
     }
     else
     {
         const ServiceInfo_t *svc = Pairing->GetServiceTable();
         if (data && len)
         {
-            printf("data_rw_cb: Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
+            printf("TESTBLE:  data_rw_cb: Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
         }
         else
         {
-            printf("data_rw_cb: Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
+            printf("TESTBLE:  data_rw_cb: Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
         }
         ret_val = (1); // to inform default handler to stop further processing of this notification
     }
@@ -331,29 +331,29 @@ static int pairing_test_run(const char* arguments)
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
-        printf("failed to obtain BlePairing instance. Abort.\n");
+        printf("TESTBLE:  failed to obtain BlePairing instance. Abort.\n");
         return -777;
     }
 
     if (arguments != NULL && !strcmp(arguments, "--autoinit"))
     {
 #if defined(WILINK18)
-        printf("---starting in a sec...---\n");
+        printf("TESTBLE:  ---starting in a sec...---\n");
         sleep(2);
 #endif
 
         if (Ble::Error::NONE != (ret_val = Pairing->Initialize((char*) "RingTEST-BLE")))
         {
-            printf("Pairing->Initialize() failed, ret = %d. Abort\n", ret_val);
+            printf("TESTBLE:  Pairing->Initialize() failed, ret = %d. Abort\n", ret_val);
             goto autodone;
         }
         if (Ble::Error::NONE != (ret_val = Pairing->registerRingDataCallback(data_read_write_callback)))
         {
-            printf("WARNING: Pairing->registerRingDataCallback() failed, ret = %d\n", ret_val);
+            printf("TESTBLE:  WARNING: Pairing->registerRingDataCallback() failed, ret = %d\n", ret_val);
         }
         if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
         {
-            printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+            printf("TESTBLE:  Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
             goto autodone;
         }
     }
@@ -366,7 +366,7 @@ static int pairing_test_run(const char* arguments)
         static const int command_lineSize = 0xff;
         char command_line[command_lineSize];
 
-        printf("TEST> ");
+        printf("TESTBLE:  TEST> ");
         fflush(stdout);
 
         /* Read a line from standard input.                               */
@@ -383,42 +383,42 @@ static int pairing_test_run(const char* arguments)
         }
         else
         {
-            printf("read error. abort\n");
+            printf("TESTBLE:  read error. abort\n");
             goto autodone;
         }
 
         if (!strcmp(command_line, "quit"))
         {
             ret_val = Pairing->Shutdown();
-            printf("Pairing->Shutdown() ret = %d, Exit.\n", ret_val);
+            printf("TESTBLE:  Pairing->Shutdown() ret = %d, Exit.\n", ret_val);
             bDone = true;
         }
         else if (!strcmp(command_line, "init"))
         {
             if (Ble::Error::NONE != (ret_val = Pairing->Initialize()))
             {
-                printf("Pairing->Initialize() failed, ret = %d", ret_val);
+                printf("TESTBLE:  Pairing->Initialize() failed, ret = %d", ret_val);
             }
             else
             {
-                printf("Pairing->Initialize() ret = %d", ret_val);
+                printf("TESTBLE:  Pairing->Initialize() ret = %d", ret_val);
             }
         }
         else if (strstr(command_line, "sta"))
         {
             if (Ble::Error::NONE != (ret_val = Pairing->StartAdvertising()))
             {
-                printf("Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
+                printf("TESTBLE:  Pairing->StartAdvertising failed, ret = %d, Abort.\n", ret_val);
             }
             else
             {
-                printf("Pairing->StartAdvertising ret = %d\n", ret_val);
+                printf("TESTBLE:  Pairing->StartAdvertising ret = %d\n", ret_val);
             }
         }
         else if (strstr(command_line, "sto"))
         {
             ret_val = Pairing->StopAdvertising();
-            printf("Pairing->StopAdvertising ret = %d\n", ret_val);
+            printf("TESTBLE:  Pairing->StopAdvertising ret = %d\n", ret_val);
         }
         else if (!strcmp(command_line, "11"))
         {
@@ -479,7 +479,7 @@ int main(int argc, char **argv)
             }
             else
             {
-                printf("--conn missing <dev_addr>...\n");
+                printf("TESTBLE:  --conn missing <dev_addr>...\n");
                 ret = -100;
             }
             break;
@@ -528,7 +528,7 @@ int main(int argc, char **argv)
             }
             else
             {
-                printf("--conn missing <dev_addr>...\n");
+                printf("TESTBLE:  --conn missing <dev_addr>...\n");
                 ret = -100;
             }
             break;
@@ -554,7 +554,7 @@ int main(int argc, char **argv)
         print_help();
     }
 
-    printf("%s ----- done; ret val=%d\n", argv[0], ret);
+    printf("TESTBLE:  %s ----- done; ret val=%d\n", argv[0], ret);
     return ret;
 }
 
