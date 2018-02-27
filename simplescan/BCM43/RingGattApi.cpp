@@ -77,7 +77,6 @@ GattServerInfo_t GattSrv::mServer =
 {
     .fd = -1,
     .hci_socket = -1,
-    .ring_svc_handle = 0,
     .hci_thread_id = 0,
     .sref = NULL,
 };
@@ -137,7 +136,6 @@ int GattSrv::Shutdown()
 
         if (0 <= (ctl = open_socket(di)))
         {
-            HCIscan(ctl, di.dev_id, (char*) "noscan");
             HCIdown(ctl, di.dev_id);
 
             close(ctl);
@@ -409,7 +407,7 @@ void GattSrv::DisplayAttributeValue(unsigned int aServiceIdx, unsigned int aAttr
 ///
 void GattSrv::CleanupServiceList(void)
 {
-    for (unsigned int idx=0; idx < mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes; idx++) {
+    for (unsigned int idx=0; (mServiceTable != NULL) && (idx < mServiceTable[RING_PAIRING_SVC_IDX].NumberAttributes); idx++) {
         CharacteristicInfo_t *charin;
         if (NULL != (charin = (CharacteristicInfo_t *)mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[idx].Attribute)) {
             // BOT_NOTIFY_DEBUG("Cleanup: attr idx %d, AllocatedValue = %d", idx, charin->AllocatedValue);
@@ -421,6 +419,8 @@ void GattSrv::CleanupServiceList(void)
             }
         }
     }
+    memset(mServer.ring_attr_handle, 0, sizeof(mServer.ring_attr_handle));
+    memset(mServer.ring_svc_handle, 0, sizeof(mServer.ring_svc_handle));
 }
 
 int GattSrv::SetDiscoverable(ParameterList_t *aParams __attribute__ ((unused)))
@@ -1932,7 +1932,14 @@ static void gatt_attr_read_cb(struct gatt_db_attribute *attrib,
         gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Read, RING_PAIRING_SVC_IDX, AttribueIdx);
     }
     else
+    {
+        for (int idx = 0; idx < RING_SERVICES_MAX; idx++)
+        {
+            if (id == GattSrv::mServer.ring_svc_handle[idx])
+                return; // called read for service handle
+        }
         BOT_NOTIFY_WARNING("gatt_attr_read_cb UNKNOWN for hndl %d, id %d", gatt_db_attribute_get_handle(attrib), id);
+    }
 }
 static void gatt_attr_write_cb(struct gatt_db_attribute *attrib,
                     unsigned int id, uint16_t offset,
@@ -1988,7 +1995,7 @@ static void confirm_write(struct gatt_db_attribute *attr, int err, void *user_da
         BOT_NOTIFY_ERROR("Error caching/writing attribute %s - err: %d", (char*) user_data, err);
 }
 
-static void gatt_characterostic_read_cb(struct gatt_db_attribute *attrib,
+static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
                     unsigned int id, uint16_t offset,
                     uint8_t opcode, struct bt_att *att,
                     void *user_data)
@@ -2001,7 +2008,7 @@ static void gatt_characterostic_read_cb(struct gatt_db_attribute *attrib,
     gatt_db_attribute_read_result(attrib, id, 0, ch_info->Value, ch_info->ValueLength);
 }
 
-static void gatt_characterostic_write_cb(struct gatt_db_attribute *attrib,
+static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
                     unsigned int id, uint16_t offset,
                     const uint8_t *value, size_t len,
                     uint8_t opcode, struct bt_att *att,
@@ -2012,8 +2019,7 @@ static void gatt_characterostic_write_cb(struct gatt_db_attribute *attrib,
     int attr_index = (unsigned long) user_data;
     BOT_NOTIFY_DEBUG("write_cb: %d called for %s\n", id, BlePairing::getInstance()->GetServiceTable()->AttributeList[attr_index].AttributeName);
 
-    // TODO: implement if this works
-
+    // TODO: implement storage if this helps to solve the "9 max characteristics problem" ... but it doesn't
     gatt_db_attribute_write_result(attrib, id, ecode);
 }
 
@@ -2032,8 +2038,10 @@ static int populate_gatt_service()
     int attr_index = 0;
     int service_attr_max = 3;
     int number_of_handlers = 8;
+    int service_idx = 0;
+    int max_attr = 9; // (int) svc->NumberAttributes; //
 
-    for (int offset = 0; attr_index < 12 /*(int) svc->NumberAttributes*/; offset += 10)
+    for (int offset = 0; (attr_index < max_attr) && (service_idx < RING_SERVICES_MAX); offset += 10, service_idx++)
     {
         uint16_t svc_id = UUID_RING + offset;
 
@@ -2049,9 +2057,9 @@ static int populate_gatt_service()
             BOT_NOTIFY_ERROR("gatt_db_add_service_ext failed, Abort");
             return Error::FAILED_INITIALIZE;
         }
-        GattSrv::mServer.ring_svc_handle = gatt_db_attribute_get_handle(ringsvc);
+        GattSrv::mServer.ring_svc_handle[service_idx] = gatt_db_attribute_get_handle(ringsvc);
 
-        for (int idx = 0; (attr_index < (int) svc->NumberAttributes) && (idx < service_attr_max); idx++, attr_index++)
+        for (int idx = 0; (attr_index < max_attr) && (idx < service_attr_max); idx++, attr_index++)
         {
             CharacteristicInfo_t *ch_info = NULL;
             struct gatt_db_attribute *attr_new = NULL;
@@ -2069,7 +2077,7 @@ static int populate_gatt_service()
                 attr_new =  gatt_db_service_add_characteristic(ringsvc, &uuid,
                               BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
                               BT_GATT_CHRC_PROP_READ | BT_GATT_CHRC_PROP_WRITE | BT_GATT_CHRC_PROP_NOTIFY,
-                              gatt_characterostic_read_cb, gatt_characterostic_write_cb,
+                              gatt_characteristic_read_cb, gatt_characteristic_write_cb,
                               // NULL, NULL,   // don't overwrite callbacks for read/write each attr
                               (void*) (unsigned long) attr_index);        // optional user_data to be passed to every callback
 

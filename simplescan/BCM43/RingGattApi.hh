@@ -29,9 +29,9 @@ namespace Ring { namespace Ble {
 typedef struct _GattServerInfo {
     int fd;
     int hci_socket;
-    uint16_t ring_svc_handle;
     pthread_t hci_thread_id;
     server_ref *sref;
+    uint16_t ring_svc_handle[RING_SERVICES_MAX];
     uint16_t ring_attr_handle[RING_CHARACTERISTICS_MAX];
 } GattServerInfo_t;
 
