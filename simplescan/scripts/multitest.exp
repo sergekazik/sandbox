@@ -1,5 +1,5 @@
 set ring_name "RingTEST-BLE"
-set ring_mane "RingTEST-3f"
+set dev_mac "5A:C3:0A:B9:4B:FC"
 
 spawn bluetoothctl
 set blueID $spawn_id
@@ -10,15 +10,15 @@ send "select 5C:F3:70:84:E8:8B\r"
 send "devices\r"
 send "list\r"
 expect "Controller"
-#send "remove 43:34:1B:00:1F:AC\r"
+#send "remove $dev_mac\r"
 #expect {
 #    "Device has been removed" {}
 #    "not available" {}
 #}
 
-set timeout 5
+set timeout 15
 send "scan on\r"
-expect "43:34:1B:00:1F:AC"
+expect "$dev_mac"
 send "scan off\r"
 expect "Discovery stopped"
 
@@ -26,7 +26,7 @@ set timeout 15
 
 set device_connected 0
 set timeout 20
-send "connect 43:34:1B:00:1F:AC\r"
+send "connect $dev_mac\r"
 expect {
     "Failed to connect:"	{
 	puts "\nfailed to connect\n\n"
@@ -47,7 +47,7 @@ if { $device_connected == 0 } {
     send "quit\n"
     exit 10
 }
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "select-attribute /org/bluez/hci0/dev_5A_C3_0A_B9_4B_FC/service0001/char0004\r"
 send "read\r"
 expect {
 	"Value:" {
@@ -98,7 +98,7 @@ set gpk [lindex $buf 1]
 #puts "gpk = $gpk\r"
 
 set spawn_id $blueID
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0002\r"
+send "select-attribute /org/bluez/hci0/dev_5A_C3_0A_B9_4B_FC/service0001/char0002\r"
 
 send "write $gpk\r"
 set timeout 3
@@ -108,7 +108,7 @@ expect {
 set timeout 20
 
 #-now let's re-read PAYLOAD - should be proper one
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0004\r"
+send "select-attribute /org/bluez/hci0/dev_5A_C3_0A_B9_4B_FC/service0001/char0004\r"
 send "read\r"
 expect "Value:"
 send "attribute-info\r"
@@ -165,7 +165,7 @@ set zip [lindex $buf 2]
 puts "zip = $zip"
 
 set spawn_id $blueID
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0012\r"
+send "select-attribute /org/bluez/hci0/dev_5A_C3_0A_B9_4B_FC/service0001/char0012\r"
 send "write $zip\r"
 
 set timeout 3
@@ -174,7 +174,7 @@ expect {
 }
 set timeout 20
 
-send "select-attribute /org/bluez/hci0/dev_43_34_1B_00_1F_AC/service0001/char0006\r"
+send "select-attribute /org/bluez/hci0/dev_5A_C3_0A_B9_4B_FC/service0001/char0006\r"
 send "read\r"
 expect "Value:"
 send "attribute-info\r"
