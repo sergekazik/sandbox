@@ -7,6 +7,7 @@ set deviceExcludeFilename "device.exclude.lst"
 set ring_uuid_set "0000face"
 set discover_attempts 3
 set connect_attempts 3
+set ringcrypto "../test_crypto"
 
 set ring_name [lindex $argv 0]
 if { $ring_name == "" || $ring_name == "\n" || $ring_name == "\r"} {
@@ -310,7 +311,7 @@ foreach line $data {
 	} elseif  { $payload == "public_key" } {
 	    #------------------------------------------ request from crypto public_key and send it to device
 	    puts "\r"
-	    spawn ./test_crypto -gpk
+	    spawn $ringcrypto -gpk
 	    expect ":gpk"
 	    set buf [split $expect_out(buffer) ":"]
 	    set public_key [lindex $buf 1]
