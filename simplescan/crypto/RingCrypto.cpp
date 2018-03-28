@@ -350,10 +350,11 @@ void Debug::DumpArray(const char* name, const ByteArr& arr)
 {
     if (!bSuppress)
     {
-        printf("%s (%zu bytes): ", name, arr.size());
+        printf("%s (%zu bytes):\n", name, arr.size());
+        int i = 0;
         for (auto c: arr)
         {
-            printf("%02x", uint8_t(c));
+            printf("%02x%c", uint8_t(c), (++i % 16)?' ':'\n');
         }
         printf("\n");
     }

@@ -89,6 +89,8 @@ static bool print_gen(char *arg)
     return false;
 }
 
+#define IO_MSG_BUFFER_SIZE 2000
+
 int main(int argc, char* argv[])
 {
 #if TEST_SODIUM_DIRECT
@@ -178,7 +180,7 @@ int main(int argc, char* argv[])
         client.encrypt(msg);
 #else
 #define FILE_PARSE_DEBUG 0
-    char outstr[0xff];
+    char outstr[IO_MSG_BUFFER_SIZE];
     if (argc > 1)
     {
         if (print_help(argv[1]))
@@ -190,8 +192,8 @@ int main(int argc, char* argv[])
         Ring::Ble::Crypto::Debug::Suppress(true);
     }
 
-    char client_public[0xff];
-    memset(client_public, 0, 0xff);
+    char client_public[IO_MSG_BUFFER_SIZE];
+    memset(client_public, 0, IO_MSG_BUFFER_SIZE);
 
     Ring::Ble::Crypto::Client client((char*) sign_pub, sizeof(sign_pub));
     int client_public_lenght = sizeof(client_public);
@@ -200,17 +202,25 @@ int main(int argc, char* argv[])
     // single command mode client get public key
     if (argc > 1 && !strcmp(argv[1], "-gpk"))
     {
-        memset(outstr, 0, 0xff);
-        int offset = sprintf(outstr, "gpk:");
+        memset(outstr, 0, IO_MSG_BUFFER_SIZE);
+
+        int offset = sprintf(outstr, "HEX|");
+        for (int i = 0; i < client_public_lenght; i++)
+            offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) client_public[i]);
+        sprintf(&outstr[offset], "|HEX");
+        printf("%s\n", outstr);
+
+        offset = sprintf(outstr, "gpk:");
         for (int i = 0; i < client_public_lenght; i++)
             offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) client_public[i]);
         sprintf(&outstr[offset], ":gpk");
         printf("%s\n", outstr);
+
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
 
     // the prepared client_public key is supposed to be sent to server and used to init server
-    char server_public[0xff];
+    char server_public[IO_MSG_BUFFER_SIZE];
     int server_public_lenght = sizeof(server_public);
     Ring::Ble::Crypto::Server server(client_public, client_public_lenght, sign_priv);
     server.GetPublicPayload(server_public, server_public_lenght);
@@ -310,7 +320,63 @@ int main(int argc, char* argv[])
 #endif
     }
 
-    if (argc > 2 && (!strcmp(argv[1], "-ppp") || strlen(out)))
+    if (argc > 2 && !strcmp(argv[1], "-def")) // decode from file
+    {
+        char *filename = argv[2];
+        FILE *fin = fopen(filename, "rt");
+        if (!fin)
+        {
+            printf("can't open payload file \"%s\". Abort.\n", filename);
+            return -666;
+        }
+
+        char *ch, strline[255];
+        int out_offset = 0;
+
+        while (fgets(strline, 255, fin))
+        {
+            if (strstr(strline, "Flags") || strstr(strline, "Notifying"))
+            {
+                break;
+            }
+
+            printf("%s", strline);
+            if (NULL != (ch = strchr(strline, ' ')) )
+            {
+                char *esc = NULL;
+                esc = strrchr(strline, 27);
+                ch = (esc?esc:ch)+1;
+                if (*ch == ' ') ch++;
+
+                int b[16];
+                if (16 == sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
+                                 &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
+                                 &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]))
+                {
+                    out_offset += sprintf(&out[out_offset],"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+                                        b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],
+                                        b[10],b[11],b[12],b[13],b[14],b[15]);
+                }
+                else
+                {
+                    char * ending = strstr(ch, "   ");
+                    if (ending) *ending = '\0';
+
+                    int num = sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
+                                     &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
+                                     &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]);
+
+                    for (int i = 0; i < num; i++)
+                    {
+                        out_offset += sprintf(&out[out_offset], "%02x", b[i]);
+                    }
+                }
+            }
+        }
+        fclose(fin);
+    }
+
+    if (argc > 2 && (!strcmp(argv[1], "-ppp") || !strcmp(argv[1], "-ppf")))
     {
         int val;
         char *in = strlen(out) ? out : argv[2];
@@ -335,9 +401,9 @@ int main(int argc, char* argv[])
         return ret;
     }
 
-    if (argc > 2 && (!strcmp(argv[1], "-ppp") || strlen(out)))
+    if (argc > 2 && (!strcmp(argv[1], "-ppp") || !strcmp(argv[1], "-ppf")))
     {
-        memset(outstr, 0, 0xff);
+        memset(outstr, 0, IO_MSG_BUFFER_SIZE);
         int offset = sprintf(outstr, "ppp:");
         for (int i = 0; i < server_public_lenght; i++)
             offset += sprintf(&outstr[offset], "%02x", (unsigned char) server_public[i]);
@@ -349,8 +415,8 @@ int main(int argc, char* argv[])
     }
 
     //-------------------------- step 3 -------------------------------------------------
-    char msg[0xff] = "HelloServerMessage-fromClient";
-    char crypted[0xff];
+    char msg[IO_MSG_BUFFER_SIZE] = "HelloServerMessage-fromClient";
+    char crypted[IO_MSG_BUFFER_SIZE];
     int crypted_len = sizeof(crypted);
 
     // single command to encrypt the given message
@@ -371,8 +437,15 @@ int main(int argc, char* argv[])
     if (argc > 2 && !strcmp(argv[1], "-enc"))
     {
         printf("msg:%s\n", msg);
-        memset(outstr, 0, 0xff);
-        int offset = sprintf(outstr, "enc:");
+        memset(outstr, 0, IO_MSG_BUFFER_SIZE);
+
+        int offset = sprintf(outstr, "HEX|");
+        for (int i = 0; i < crypted_len; i++)
+            offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) crypted[i]);
+        sprintf(&outstr[offset], "|HEX");
+        printf("%s\n", outstr);
+
+        offset = sprintf(outstr, "enc:");
         for (int i = 0; i < crypted_len; i++)
             offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) crypted[i]);
         sprintf(&outstr[offset], ":enc");
@@ -381,17 +454,18 @@ int main(int argc, char* argv[])
     }
 
     //-------------------------- step 4 -------------------------------------------------
-    char decrypted[0xff];
+    char decrypted[IO_MSG_BUFFER_SIZE];
     int decrypted_len = sizeof(decrypted);
 
     // single command to decrypt the given message
-    if (argc > 2 && !strcmp(argv[1], "-dec"))
+    if (argc > 2 && (!strcmp(argv[1], "-dec") || !strcmp(argv[1], "-def")))
     {
-        crypted_len = strlen(argv[2]) / 2;
+        char *in = strlen(out) ? out : argv[2];
+        crypted_len = strlen(in) / 2;
         for (int idx = 0; idx < crypted_len; idx++)
         {
             int val;
-            sscanf(&argv[2][idx*2], "%02x", &val);
+            sscanf(&in[idx*2], "%02x", &val);
             crypted[idx] = (unsigned char) val;
         }
         client.RestoreSecrets();
@@ -412,7 +486,7 @@ int main(int argc, char* argv[])
 
     decrypted[decrypted_len]='\0';
 
-    if (argc > 2 && !strcmp(argv[1], "-dec"))
+    if (argc > 2 && (!strcmp(argv[1], "-dec") || !strcmp(argv[1], "-def")))
     {
         printf("enc:%s:enc\n", argv[2]);
         printf("dec:%s:dec\n", decrypted);

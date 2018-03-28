@@ -10,3 +10,4 @@ test_gatt
 test_crypto
 cryptoclient.cfg
 scripts/expect.uuid.lst
+public_payload.log

@@ -1,0 +1,8 @@
+set timeout 5
+spawn bluetoothctl
+send "disconnect\r"
+expect "Connected: no"
+send "quit\r"
+puts "\n"
+
+
