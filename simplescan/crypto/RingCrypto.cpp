@@ -283,7 +283,6 @@ int Server::Encrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen)
     ++mNonceCount;
     ByteArr nonce = mNonce;
     nonce.insert(end(nonce), (uint8_t*)(&mNonceCount), (uint8_t*)((&mNonceCount)+1));
-    Crypto::Debug::DumpArray("[C] nonce", nonce);
 
     ByteArr tmp_data(aSrc, aSrc + aSrcLen);
     tmp_data.insert(begin(tmp_data), Crypto::Size::DataHeader, uint8_t{0});

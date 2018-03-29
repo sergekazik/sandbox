@@ -47,7 +47,7 @@ if { $secretkey == "" || $secretkey == "\n" || $secretkey == "\r"} {
 #puts "$secret_key\n"
 
 #set provision_xml "<network><mode>client</mode><client><wireless><password>$pass</password><ssid>$ssid</ssid><channel>1</channel><security>wpa-personal</security></wireless><object_id>223192</object_id><secret_key>$secret_key</secret_key><ip><subnectmask></subnetmask><ip_type>dhcp</ip_type><ip_addr></ip_addr><gateway></gateway><dns_addr></dns_addr></ip></client><app_mode>usr</app_mode><ethernet>0</ethernet></network>"
-set provision_xml "<network><mode>client</mode></network>"
+set provision_xml "hello"
 
 # Set timeout
 set timeout 20
@@ -286,8 +286,7 @@ foreach line $data {
     puts "name        = $name   "
     puts "payload     = $payload\n"
 
-    # find url by uuis using lookup file
-    # for some reasong select uuid doesn't make affect with bluetoothctl
+    # find url by uuid using lookup file (select-attribute by uuid doesn't work in bluetoothctl 5.47)
     set url ""
     set inFileId [open $uuidListFilename "r"]
     foreach sline [read $inFileId] {
@@ -301,7 +300,7 @@ foreach line $data {
     close $inFileId
 
     if { $url == "" } {
-       puts "not found matching url, skip...\n"
+       puts "not found matching url for $uuid, skip...\n"
        continue
     } elseif { $command == "W"}    {
 						    #    __        ______  ___ _____ _____
@@ -345,15 +344,15 @@ foreach line $data {
 	    spawn $ringcrypto -enc $payload
 	    expect ":enc"
 	    set buf [split $expect_out(buffer) ":"]
-	    puts "actual payload = $payload"
+	    #puts "actual payload = $payload"
 	    set payload [lindex $buf 2]
-	    puts "encrypted payload = $payload"
+	    #puts "encrypted payload = $payload"
 
 	    # always restore spawn id after using $ringcrypto
 	    set spawn_id $blueID
 	}
 
-	# convert payload to ASCII bytes - USE ONLY WITH TEXTUAL NOT ENCRYPTED PAYLOADS except public keys
+	# convert payload to ASCII bytes - USE ONLY WITH TEXTUAL NOT ENCRYPTED PAYLOADS except public_key
 	# 	set converted ""
 	# 	foreach char [split $payload ""] {
 	# 	    lappend converted [scan $char %c]

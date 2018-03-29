@@ -62,9 +62,7 @@ enum GattAttributeIndexByName {
     RING_PAIRING_TABLE_ATTR_MAX
 };
 // compiler time check for characteristics max
-#if !(RING_CHARACTERISTICS_MAX > RING_PAIRING_TABLE_ATTR_MAX)
-#error "RING_CHARACTERISTICS_MAX < RING_PAIRING_TABLE_ATTR_MAX"
-#endif
+static_assert(RING_PAIRING_TABLE_ATTR_MAX < RING_CHARACTERISTICS_MAX, "RING_CHARACTERISTICS_MAX < RING_PAIRING_TABLE_ATTR_MAX");
 
 #define RING_PAIRING_SERVICE_INFO_DEFINE
 #include "gatt_svc_defs.h"
@@ -81,6 +79,7 @@ std::function<int(int, void*, int)> ringDataCb = NULL;
 BlePairing* BlePairing::instance = NULL;
 char BlePairing::mMacAddress[DEV_MAC_ADDR_LEN] = "XX:XX:XX:XX:XX:XX";
 
+#define DECRYPTED_MSG_BUFFER_SIZE           2000
 Crypto::Server *BlePairing::mCrypto = NULL;
 static const uint8_t sign_priv[] = {
     0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
@@ -397,8 +396,10 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
 
         case Ble::Property::Write:
             bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "Write");
-
             {
+                char decrypted[DECRYPTED_MSG_BUFFER_SIZE];
+                int decrypted_len = sizeof(decrypted);
+
                 void *data = (void *) ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->Value;
                 int len = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->ValueLength;
 
@@ -425,6 +426,19 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
                     else
                         BOT_NOTIFY_ERROR("failed to create Crypto server!\n");
                 }
+                else if (BlePairing::mCrypto)
+                {
+                    // decode all other written values
+                    if (Crypto::Error::NO_ERROR == BlePairing::mCrypto->Decrypt((char*) data, len, decrypted, decrypted_len))
+                    {
+                        data = (void*) decrypted;
+                        len = decrypted_len;
+                    }
+                    else
+                        BOT_NOTIFY_ERROR("failed to decrypt payload value!\n");
+                }
+                else
+                    BOT_NOTIFY_ERROR("BlePairing::mCrypto not initialized - failed to decrypt payload value!\n");
 
                 // ringnm callback
                 if (ringDataCb)

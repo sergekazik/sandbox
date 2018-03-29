@@ -39,7 +39,14 @@
 #endif
 
 #include "version.h"
+#include "RingGattApi.hh"
 #include "RingBlePairing.hh"
+
+#define RING_PAIRING_TABLE_ATTR_ENUM
+enum GattAttributeIndexByName {
+    #include "gatt_svc_defs.h"
+    RING_PAIRING_TABLE_ATTR_MAX
+};
 
 using namespace Ring;
 using namespace Ring::Ble;
@@ -169,10 +176,12 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
                 if ((int) strlen(buf) == bytes_read)
                 {
                     for (int i = 0; i < bytes_read; i++)
-                    {./rtctest_crypto_run.sh -gen
+                    {
+/*
+            ./rtctest_crypto_run.sh -gen
                                 pub (32 bytes): ac2f61320fe772fdf7ed326b2de3db00cc56252d2798b67aea316c5ba5b28b3c
                                 prv (32 bytes): 3d6294cba942c082b942edbd5db8ca048c0c03d9a8ece30af7b5cdd560b1211e
-
+*/
                         printf("TESTBLE:  %c", (buf[i] >= ' ') ? buf[i] : ' ');
                     }
                 }
@@ -294,11 +303,20 @@ static void print_subhelp(void)
     printf("TESTBLE:  ********************************************************\n");
 }
 
+void debug_print(const char* name, char* data, int len)
+{
+    printf("%s (%d bytes):\n", name, len);
+    for (int i = 0; i < len; i++)
+        printf("%c%s", (0x20 <= data[i] && data[i] < 127) ? data[i]:'.', ((i+1) % 64)?"":"\n");
+    printf("\n");
+}
+
 static int data_read_write_callback(int a, void* data, int len)
 {
     int ret_val = Error::NONE;
 
     BlePairing *Pairing = BlePairing::getInstance();
+    BleApi* bleApi = GattSrv::getInstance();
     if (Pairing == NULL)
     {
         printf("TESTBLE:  data_rw_cb: failed to obtain BlePairing instance. Abort.\n");
@@ -309,13 +327,41 @@ static int data_read_write_callback(int a, void* data, int len)
         if (data && len)
         {
             printf("TESTBLE:  data_rw_cb: Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
+            debug_print("data_rw_cb", (char*) data, len);
         }
         else
         {
             printf("TESTBLE:  data_rw_cb: Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
         }
         ret_val = (1); // to inform default handler to stop further processing of this notification
+
+        if (svc && bleApi) switch (a)
+        {
+            case GET_NET_INFO:
+            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "NETWORK_INFO_UPDATED");
+                break;
+
+            case GET_AP_LIST:
+            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "AP_LIST_UPDATED");
+                break;
+
+            case SET_PROVISION:
+            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PROVISIONED");
+                break;
+
+            case GET_WIFI_STATUS:
+            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "WIFI_STATUS_UPDATED");
+                break;
+
+            case SET_PUBLIC_KEY:
+                bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PAYLOAD_READY");
+                break;
+
+            default:
+                break;
     }
+    }
+
     return ret_val;
 }
 
