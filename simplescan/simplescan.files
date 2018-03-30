@@ -163,8 +163,6 @@ deprecated/pairing_client_x86.cfg
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/test/main.cpp
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/include/EncHandshake.hpp
 crypto/test_crypto.cpp
-crypto/test_handshake.cpp
-crypto/test_handshake.h
 crypto/RingCrypto.cpp
 crypto/RingCrypto.hh
 BCM43/RingGattApi.cpp
@@ -218,3 +216,5 @@ scripts/pairing.client.exp
 scripts/pairing.cmd.lst
 scripts/run_crypto.sh
 scripts/run_me.sh
+crypto/sodium_glue.cpp
+crypto/sodium_glue.h

@@ -12,25 +12,14 @@
 #include "stdlib.h"
 #include "string.h"
 
-#define TEST_SODIUM_DIRECT  1
+#define TEST_SODIUM_DIRECT  0
 #define KEY_SIZE            32
 
 #include "version.h"
-#include "test_handshake.h"
+#include "sodium_glue.h"
 #include "RingCrypto.hh"
 
 #define IO_MSG_BUFFER_SIZE 2000
-static const uint8_t sign_priv[] = {
-    0x2b,0x3a,0x3d,0x35,0x75,0xe5,0x94,0xec,0x77,0xf5,0xeb,0x96,0xf3,0xb9,0xda,0xc6,
-    0x8a,0x00,0x21,0xdd,0x5a,0x9c,0x15,0xf0,0x0e,0xa7,0x46,0xc0,0xf8,0x21,0x22,0x38,
-    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
-    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
-};
-static const uint8_t sign_pub[] = {
-    0x9f,0x9c,0x2c,0x9a,0xc1,0xbd,0x07,0x7d,0xd9,0x2f,0xeb,0xa3,0x89,0x34,0x5e,0x0a,
-    0x11,0xa3,0x85,0x72,0x84,0x66,0x7a,0xc4,0x85,0x56,0xf9,0x2d,0x36,0x0f,0xdf,0x97,
-};
-
 using namespace std;
 
 void debug_print(const char* name, const Ring::ByteArr& arr)
@@ -43,6 +32,7 @@ void debug_print(const char* name, const Ring::ByteArr& arr)
     printf("\n");
 }
 
+#if !TEST_SODIUM_DIRECT
 static bool print_help(char* arg)
 {
     if (!strcmp(arg, "--help") || !strcmp(arg, "-h") || !strcmp(arg, "?"))
@@ -53,17 +43,10 @@ static bool print_help(char* arg)
         printf("-ppp <payload>  process public payload\n");
         printf("-enc <input>    encrypt input\n");
         printf("-dec <input>    decrypt input\n");
-        printf("--------------------------------------\nExamples:\n");
-        printf("$ test_crypto -gpk\n");
-        printf("gpk:220 195 210 183 120 127 217 131 175 141 4 23 235 56 157 134 114 146 242 122 65 220 213 246 208 58 221 169 142 230 91 97:gpk\n");
-        printf("$ test_crypto -ppp 0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
-        printf("ppp:0c59aa12a31f3eff0ac5948dab17cd39efb07dd8abcfe8d2409f62edfa634661f2e519e02086b04f0e615b3aa628d7a1c651e51ff8796528c54b36b8c304e62a256537e6b3f0d8ea8d1ae54cc462fa620c0bec8d657a36b7202368b884ee6007c8063e3b8eb5ac85c75030d86229656700675b12\n");
-        printf("$ test_crypto -enc HelloWorld\n");
-        printf("msg:HelloWorld\n");
-        printf("enc:0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
-        printf("$ test_crypto -dec 0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
-        printf("enc:0100000074da7d314bef2fb44aacea563a75c8eab3ee1bd13911b7141d0d\n");
-        printf("dec:HelloWorld\n");
+        printf("--------------------------------------\nExtra:\n");
+        printf("-gpw            -gpk, -ppp, -enc\n");
+        printf("-ppf            -ppp from file\n");
+        printf("-def            -dec from file\n");
 
         return true;
     }
@@ -90,7 +73,6 @@ static bool print_gen(char *arg)
     return false;
 }
 
-#if !TEST_SODIUM_DIRECT
 int main(int argc, char* argv[])
 {
     bool bServerCmdline = false;
@@ -107,19 +89,75 @@ int main(int argc, char* argv[])
     }
 
     char client_public[IO_MSG_BUFFER_SIZE];
+    int client_public_lenght = sizeof(client_public);
+
     char server_public[IO_MSG_BUFFER_SIZE];
     int server_public_lenght = sizeof(server_public);
+
     char crypted[IO_MSG_BUFFER_SIZE];
     int crypted_len = sizeof(crypted);
+
     char decrypted[IO_MSG_BUFFER_SIZE];
     int decrypted_len = sizeof(decrypted);
+
     char msg[IO_MSG_BUFFER_SIZE] = "HelloServerMessage-fromClient";
 
     memset(client_public, 0, IO_MSG_BUFFER_SIZE);
     memset(server_public, 0, IO_MSG_BUFFER_SIZE);
 
-    Ring::Ble::Crypto::Client client((char*) sign_pub, sizeof(sign_pub));
-    int client_public_lenght = sizeof(client_public);
+    if (argc >= 2 && !strcmp(argv[1], "-server"))
+    {
+        // argv[1], "-server"
+        // argv[2], "gpk" key from client no spaces
+        // argv[3], "payload to decode" no spaces
+        bServerCmdline = true;
+
+        cout << "enter client PUBLIC_KEY>";
+        cin >> outstr;
+        client_public_lenght = strlen(outstr) / 2;
+        for (int idx = 0; idx < client_public_lenght; idx++)
+        {
+            int val;
+            sscanf(&outstr[idx*2], "%02x", &val);
+            client_public[idx] = (unsigned char) val;
+        }
+
+        Ring::Ble::Crypto::Server server(client_public, client_public_lenght);
+        server.GetPublicPayload(server_public, server_public_lenght);
+
+        if (argc == 2) // asking for PublicPayload only
+        {
+            int offset = sprintf(outstr, "gpp:");
+            for (int i = 0; i < server_public_lenght; i++)
+                offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) server_public[i]);
+            sprintf(&outstr[offset], ":gpp");
+            printf("%s\n", outstr);
+
+            printf("DEC>");
+            cin >> outstr;
+
+            crypted_len = strlen(outstr) / 2;
+            for (int idx = 0; idx < crypted_len; idx++)
+            {
+                int val;
+                sscanf(&outstr[idx*2], "%02x", &val);
+                crypted[idx] = (unsigned char) val;
+                printf("%02X", val);
+            }
+            printf("\n");
+
+            decrypted_len = sizeof(decrypted);
+            memset(decrypted, 0, decrypted_len);
+            server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+            decrypted[decrypted_len]='\n';
+            printf("TEST \"%s\" = %s (%d)\n", outstr, decrypted, decrypted_len);
+
+            return Ring::Ble::Crypto::Error::NO_ERROR;
+        }
+
+    }
+
+    Ring::Ble::Crypto::Client client;
 
     if (argc < 2 || (argc > 1 && (!strcmp(argv[1], "-gpk")||!strcmp(argv[1], "-gpw"))))
         client.GetPublicKey(client_public, client_public_lenght);
@@ -135,10 +173,10 @@ int main(int argc, char* argv[])
         sprintf(&outstr[offset], "|HEX");
         printf("%s\n", outstr);
 
-        offset = sprintf(outstr, "SER|");
+        offset = sprintf(outstr, "KEY|");
         for (int i = 0; i < client_public_lenght; i++)
             offset += sprintf(&outstr[offset], "%02X", (unsigned char) client_public[i]);
-        sprintf(&outstr[offset], "|SER");
+        sprintf(&outstr[offset], "|KEY");
         printf("%s\n", outstr);
 
         offset = sprintf(outstr, "gpk:");
@@ -149,8 +187,9 @@ int main(int argc, char* argv[])
 
         if (!strcmp(argv[1], "-gpw"))
         {
-            printf("DEC>");
+            printf("PPP>");
             cin >> outstr;
+
             server_public_lenght = strlen(outstr) / 2;
             for (int idx = 0; idx < server_public_lenght; idx++)
             {
@@ -159,7 +198,7 @@ int main(int argc, char* argv[])
                 server_public[idx] = (unsigned char) val;
             }
             client.ProcessPublicPayload(server_public, server_public_lenght);
-            client.Encrypt("hello", 5, crypted, crypted_len);
+            client.Encrypt("helloz", 6, crypted, crypted_len);
 
             memset(outstr, 0, IO_MSG_BUFFER_SIZE);
 
@@ -178,75 +217,26 @@ int main(int argc, char* argv[])
             for (int i = 0; i < crypted_len; i++)
                 offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) crypted[i]);
             sprintf(&outstr[offset], ":enc");
-            printf("%s\n", outstr);
+            printf("%s\n--------------------------------\nselftest\n", outstr);
+
+            // self test
+            decrypted_len = sizeof(decrypted);
+            client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+            decrypted[decrypted_len]='\n';
+            printf("%s\n", decrypted);
         }
-        client.SaveSecrets();
+        // client.SaveSecrets();
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
 
-    if (argc > 2 && !strcmp(argv[1], "-server"))
-    {
-        // argv[1], "-server"
-        // argv[2], "gpk" key from client no spaces
-        // argv[3], "payload to decode" no spaces
-        bServerCmdline = true;
-        strcpy(client_public, argv[2]);
-        client_public_lenght = strlen(client_public);
-    }
-
     // the prepared client_public key is supposed to be sent to server and used to init server
-    Ring::Ble::Crypto::Server server(client_public, client_public_lenght, sign_priv);
+    Ring::Ble::Crypto::Server server(client_public, client_public_lenght);
     server.GetPublicPayload(server_public, server_public_lenght);
     // the prepared server_public payload to be sent back to client and processed
 
     if (bServerCmdline)
     {
-        memset(outstr, 0, IO_MSG_BUFFER_SIZE);
-
-        if (argc == 3) // asking for PublicPayload only
-        {
-            int offset = sprintf(outstr, "PPP|");
-            for (int i = 0; i < server_public_lenght; i++)
-                offset += sprintf(&outstr[offset], "%02X", (unsigned char) server_public[i]);
-            sprintf(&outstr[offset], "|PPP");
-            printf("%s\n", outstr);
-
-            offset = sprintf(outstr, "gpp:");
-            for (int i = 0; i < server_public_lenght; i++)
-                offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) server_public[i]);
-            sprintf(&outstr[offset], ":gpp");
-            printf("%s\n", outstr);
-
-            printf("DEC>");
-            cin >> outstr;
-
-//            while (outstr[strlen(outstr)-1] == '\n' || outstr[strlen(outstr)-1] == '\r')
-//                outstr[strlen(outstr)-1] = '\0';
-
-            crypted_len = strlen(outstr) / 2;
-            for (int idx = 0; idx < crypted_len; idx++)
-            {
-                int val;
-                sscanf(&outstr[idx*2], "%02x", &val);
-                crypted[idx] = (unsigned char) val;
-                printf("%02X", val);
-            }
-            printf("\n");
-
-            server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
-            printf("TEST \"%s\" = %s (%d)\n", outstr, decrypted, decrypted_len);
-
-            decrypted_len = sizeof(decrypted);
-            server.Encrypt("server", 6, decrypted, decrypted_len);
-            offset = sprintf(outstr, "server-DEC|");
-            for (int i = 0; i < decrypted_len; i++)
-                offset += sprintf(&outstr[offset], "%02X", (unsigned char) decrypted[i]);
-            sprintf(&outstr[offset], "|DEC");
-            printf("%s\n", outstr);
-
-            return Ring::Ble::Crypto::Error::NO_ERROR;
-        }
-        else if (argc == 4) // asking to decode
+        if (argc == 4) // asking to decode
         {
             char *in = argv[3];
             crypted_len = strlen(in) / 2;
@@ -357,7 +347,7 @@ int main(int argc, char* argv[])
         sprintf(&outstr[offset], ":ppp");
         printf("%s\n", outstr);
 
-        client.SaveSecrets();
+        // client.SaveSecrets();
         return Ring::Ble::Crypto::Error::NO_ERROR;
     }
 
@@ -366,7 +356,7 @@ int main(int argc, char* argv[])
     if (argc > 2 && !strcmp(argv[1], "-enc"))
     {
         sprintf(msg, "%s", argv[2]);
-        client.RestoreSecrets();
+        // client.RestoreSecrets();
     }
 
     ret = client.Encrypt(msg, strlen(msg), crypted, crypted_len);
@@ -413,7 +403,7 @@ int main(int argc, char* argv[])
             sscanf(&in[idx*2], "%02x", &val);
             crypted[idx] = (unsigned char) val;
         }
-        client.RestoreSecrets();
+        // client.RestoreSecrets();
         ret = client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
     }
     else
@@ -471,6 +461,8 @@ int main(int argc, char* argv[])
 }
 
 #else
+
+using Ring::ByteArr;
 int main(int argc, char* argv[])
 {
 
@@ -483,139 +475,134 @@ int main(int argc, char* argv[])
     //  use this to generate signing key pair that shoud be embedded into software
     //auto pp = Ring::GenSignPK();
 
-    using Ring::ByteArr;
+    char cmdline[0xff];
+    if (argc == 1) // auto test in single app
+    {
 
-    //  we use *_rx and *_tx as dummy transport layer for handshake
-    //  same applies to lambdas that are passed in constructors
-    ByteArr client_rx;
-    ByteArr client_tx;
-    mutex rx_mutex;
-    mutex tx_mutex;
+        //  we use *_rx and *_tx as dummy transport layer for handshake
+        //  same applies to lambdas that are passed in constructors
+        ByteArr client_rx;
+        ByteArr client_tx;
+        mutex rx_mutex;
+        mutex tx_mutex;
 
-    Ring::EncHandshake client(
-        //  this is dummy client->server transport
-        [&](const ByteArr& data)
-        {
-            lock_guard<mutex> lock(tx_mutex);
-            client_tx = data;
-        },
-        //  this is dummy server->client transport
-        [&]()
-        {
-            auto tmp = ByteArr{};
-            while(tmp.size() == 0) {
-                lock_guard<mutex> lock(rx_mutex);
-                tmp = client_rx;
-                this_thread::sleep_for(chrono::milliseconds(1));
-            }
-            return tmp;
-        }
-    );
-
-    Ring::EncHandshake server(
-        //  this is dummy server->client transport
-        [&](const ByteArr& data)
-        {
-            lock_guard<mutex> lock(rx_mutex);
-            client_rx = data;
-        }
-    );
-
-    //  server operates in different thread (pretend this is different device)
-    auto server_thread = thread(
-        [&]()
-        {
-            //  waiting until client sends its public key
-            auto tmp = ByteArr{};
-            while(tmp.size() == 0) {
+        Ring::SodiumGlue client(
+            //  this is dummy client->server transport
+            [&](const ByteArr& data)
+            {
                 lock_guard<mutex> lock(tx_mutex);
-                tmp = client_tx;
-                this_thread::sleep_for(chrono::milliseconds(1));
+                client_tx = data;
+            },
+            //  this is dummy server->client transport
+            [&]()
+            {
+                auto tmp = ByteArr{};
+                while(tmp.size() == 0) {
+                    lock_guard<mutex> lock(rx_mutex);
+                    tmp = client_rx;
+                    this_thread::sleep_for(chrono::milliseconds(1));
+                }
+                return tmp;
             }
+        );
 
-            //  start handshake
-            server.doHandshake(tmp);
-        }
-    );
+        Ring::SodiumGlue server(
+            //  this is dummy server->client transport
+            [&](const ByteArr& data)
+            {
+                lock_guard<mutex> lock(rx_mutex);
+                client_rx = data;
+            }
+        );
 
-    //  pretend we start handshake from smartphone
-    client.doHandshake();
+        //  server operates in different thread (pretend this is different device)
+        auto server_thread = thread(
+            [&]()
+            {
+                //  waiting until client sends its public key
+                auto tmp = ByteArr{};
+                while(tmp.size() == 0) {
+                    lock_guard<mutex> lock(tx_mutex);
+                    tmp = client_tx;
+                    this_thread::sleep_for(chrono::milliseconds(1));
+                }
 
-    //  wait until client and server do their shady job
-    if (server_thread.joinable())
-        server_thread.join();
+                //  start handshake
+                server.doHandshake(tmp);
+            }
+        );
 
-    //  lets test secret shared key
-    auto msg = ByteArr{0x01, 0x02, 0x03, 0x04, 0x5, 0x06, 0xa, 0xb, 0xc, 0xd, 0xf, 0x11, 0x22};
-    debug_print("[main] msg", msg);
+        //  pretend we start handshake from smartphone
+        client.doHandshake();
 
-    auto encr = client.encrypt(msg);
-    debug_print("[main] encrypted", encr);
+        //  wait until client and server do their shady job
+        if (server_thread.joinable())
+            server_thread.join();
 
-    auto decr = server.decrypt(encr);
-    debug_print("[main] decrypted", decr);
+        //  lets test secret shared key
+        auto msg = ByteArr{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
+        debug_print("[main] msg", msg);
 
-    //  this is to show how nonce is incremented internally
-    for (int i = 0; i < 10; ++i) {
         auto encr = client.encrypt(msg);
         debug_print("[main] encrypted", encr);
+
         auto decr = server.decrypt(encr);
         debug_print("[main] decrypted", decr);
+
+        //  this is to show how nonce is incremented internally
+    //    for (int i = 0; i < 10; ++i) {
+    //        auto encr = client.encrypt(msg);
+    }
+    else if (argc > 1 && !strcmp(argv[1], "-test"))
+    {
+        Ring::SodiumGlue client;
+        Ring::SodiumGlue server(client.m_local_public_key);
+        client.processPayload(server.m_local_public_key);
+
+        char *msg = "@33DD";
+        auto text = ByteArr(msg, msg+strlen(msg));
+        debug_print("msg", text);
+
+        auto enc = client.encrypt(text);
+        debug_print("enc", enc);
+
+        auto dec = server.decrypt(enc);
+        debug_print("dec", dec);
+    }
+    else if (argc > 1 && !strcmp(argv[1], "-server"))
+    {
+        cout << "enter client PUBLIC_KEY>";
+        cin >> cmdline;
+        ByteArr in = Ring::SodiumGlue::convert_to_array(cmdline, true);
+
+        Ring::SodiumGlue server(in);
+
+        cout << "DECRYPT>";
+        cin >> cmdline;
+        in = Ring::SodiumGlue::convert_to_array(cmdline, true);
+
+        auto decr = server.decrypt(in);
+        char *p = Ring::SodiumGlue::deconvert_from_array(decr);
+        cout << "decrypted: " << p << endl;
+        delete p;
+
+
+    }
+    else if (argc > 1 && !strcmp(argv[1], "-client"))
+    {
+        Ring::SodiumGlue client;
+
+        cout << "enter PUBLIC_PAYLOAD>";
+        cin >> cmdline;
+        ByteArr in = Ring::SodiumGlue::convert_to_array(cmdline, true);
+        client.processPayload(in);
+
+        cout << "ENCRYPT>";
+        cin >> cmdline;
+
+        ByteArr encin = Ring::SodiumGlue::convert_to_array(cmdline, false);
+        client.encrypt(encin);
+
     }
 }
 #endif
-    //    if (argc > 2 && !strcmp(argv[1], "-def")) // decode from file
-    //    {
-    //        char *filename = argv[2];
-    //        FILE *fin = fopen(filename, "rt");
-    //        if (!fin)
-    //        {
-    //            printf("can't open payload file \"%s\". Abort.\n", filename);
-    //            return -666;
-    //        }
-
-    //        char *ch, strline[255];
-    //        int out_offset = 0;
-
-    //        while (fgets(strline, 255, fin))
-    //        {
-    //            if (strstr(strline, "Flags") || strstr(strline, "Notifying"))
-    //            {
-    //                break;
-    //            }
-
-    //            printf("%s", strline);
-    //            if (NULL != (ch = strchr(strline, ' ')) )
-    //            {
-    //                char *esc = NULL;
-    //                esc = strrchr(strline, 27);
-    //                ch = (esc?esc:ch)+1;
-    //                if (*ch == ' ') ch++;
-
-    //                int b[16];
-    //                if (16 == sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
-    //                                 &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
-    //                                 &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]))
-    //                {
-    //                    out_offset += sprintf(&out[out_offset],"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-    //                                        b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],
-    //                                        b[10],b[11],b[12],b[13],b[14],b[15]);
-    //                }
-    //                else
-    //                {
-    //                    char * ending = strstr(ch, "   ");
-    //                    if (ending) *ending = '\0';
-
-    //                    int num = sscanf(ch, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ",
-    //                                     &b[0],&b[1],&b[2],&b[3],&b[4],&b[5],&b[6],&b[7],&b[8],&b[9],
-    //                                     &b[10],&b[11],&b[12],&b[13],&b[14],&b[15]);
-
-    //                    for (int i = 0; i < num; i++)
-    //                    {
-    //                        out_offset += sprintf(&out[out_offset], "%02x", b[i]);
-    //                    }
-    //                }
-    //            }
-    //        }
-    //        fclose(fin);
-    //    }

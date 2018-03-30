@@ -96,10 +96,10 @@ CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread -L/usr/lib/x86_64-linux-gnu/ -l
 RM = rm -f
 CC = g++
 
-CRYPTO_SRCS_LIB = test_handshake.cpp RingCrypto.cpp
+CRYPTO_SRCS_LIB = crypto/sodium_glue.cpp crypto/RingCrypto.cpp
 CRYPTO_SRCS_APP = crypto/test_crypto.cpp
 
-CRYPTO_OBJS_LIB = crypto/test_handshake.o crypto/RingCrypto.o
+CRYPTO_OBJS_LIB = crypto/sodium_glue.o crypto/RingCrypto.o
 CRYPTO_OBJS_APP = crypto/test_crypto.o
 
 .PHONY: all

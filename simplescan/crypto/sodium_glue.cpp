@@ -1,7 +1,9 @@
-#include "test_handshake.h"
+#include "sodium_glue.h"
 #include <sodium.h>
 #include <iostream>
 #include <array>
+
+#include "memory.h"
 
 using namespace std;
 using Ring::ByteArr;
@@ -27,36 +29,39 @@ void debug_print(const char* name, const Array& arr)
     printf("%s (%zu bytes): ", name, arr.size());
     for (auto c: arr)
     {
-        printf("%02x", uint8_t(c));
+        printf("%02X", uint8_t(c));
     }
     printf("\n");
 }
 
-bool Ring::EncHandshake::doHandshake()
+#define IO_MSG_BUFFER_SIZE 2000
+void dump_hex_pl(const char* pref, ByteArr &pl)
 {
-    (void)sodium_init();
+    char outstr[IO_MSG_BUFFER_SIZE];
+    memset(outstr, 0, IO_MSG_BUFFER_SIZE);
 
-    //  genearate private/public key pair and send public part
-    ByteArr local_pub_key(crypto_box_PUBLICKEYBYTES);
-    ByteArr local_priv_key(crypto_box_SECRETKEYBYTES);
-    crypto_box_keypair(local_pub_key.data(), local_priv_key.data());
-    debug_print("[C] local priv", local_priv_key);
-    debug_print("[C] local pub", local_pub_key);
-    m_sendHandler(local_pub_key);
+    int offset = sprintf(outstr, "%s|", pref);
+    for (unsigned int i = 0; i < pl.size(); i++)
+        offset += sprintf(&outstr[offset], "%02X", (unsigned char) pl.data()[i]);
+    sprintf(&outstr[offset], "|%s", pref);
+    printf("%s\n", outstr);
 
-    //  wait and parse public payload
-    auto payload = m_receiveHandler();
+}
+
+bool Ring::SodiumGlue::processPayload(ByteArr &payload)
+{
     if (payload.size() != PUBK_SZ + SIGN_SZ + NONCE_SZ)
     {
         cout << "Error. Wrong payload: " << payload.size() << "bytes" << endl;
         return false;
     }
+    debug_print("[C] ppp", payload);
     auto remote_pub_key = ByteArr(payload.data(), payload.data() + PUBK_SZ);
     auto sign = ByteArr(payload.data() + PUBK_SZ, payload.data() + PUBK_SZ + SIGN_SZ);
     auto nonce = ByteArr(payload.data() + PUBK_SZ + SIGN_SZ, payload.data() + PUBK_SZ + SIGN_SZ + NONCE_SZ);
     m_nonceStart = nonce;
-    debug_print("[C] received pub", remote_pub_key);
-    debug_print("[C] received sign", sign);
+    debug_print("[C] received publc", remote_pub_key);
+    debug_print("[C] received sign ", sign);
     debug_print("[C] received nonce", nonce);
 
     //  check signature
@@ -73,16 +78,45 @@ bool Ring::EncHandshake::doHandshake()
 
     //  generate true shared key
     m_sharedSecret.resize(crypto_box_BEFORENMBYTES);
-    (void)crypto_box_beforenm(m_sharedSecret.data(), remote_pub_key.data(), local_priv_key.data());
+    (void)crypto_box_beforenm(m_sharedSecret.data(), remote_pub_key.data(), m_local_priv_key.data());
     debug_print("[C] shared key", m_sharedSecret);
 
-    sodium_memzero(local_priv_key.data(), local_priv_key.size());
+    sodium_memzero(m_local_priv_key.data(), m_local_priv_key.size());
     return true;
 }
 
-bool Ring::EncHandshake::doHandshake(const Ring::ByteArr &pub_key)
+bool Ring::SodiumGlue::doHandshake()
 {
     (void)sodium_init();
+
+    //  genearate private/public key pair and send public part
+    ByteArr local_pub_key(crypto_box_PUBLICKEYBYTES);
+    ByteArr local_priv_key(crypto_box_SECRETKEYBYTES);
+    crypto_box_keypair(local_pub_key.data(), local_priv_key.data());
+    debug_print("[C] local privt", local_priv_key);
+    debug_print("[C] local publc", local_pub_key);
+
+    m_local_priv_key = local_priv_key;
+    m_local_public_key = local_pub_key;
+
+    if (m_sendHandler)
+        m_sendHandler(local_pub_key);
+//    else
+//        dump_hex_pl("KEY", local_pub_key);
+
+    if (m_receiveHandler)
+    {   //  wait and parse public payload
+        auto payload = m_receiveHandler();
+        return Ring::SodiumGlue::processPayload(payload);
+    }
+    return true;
+}
+
+bool Ring::SodiumGlue::doHandshake(const Ring::ByteArr &pub_key)
+{
+    (void)sodium_init();
+
+    debug_print("[S] pub_key", pub_key);
 
     //  genearate private/public key pair
     ByteArr local_pub_key(crypto_box_PUBLICKEYBYTES);
@@ -102,8 +136,12 @@ bool Ring::EncHandshake::doHandshake(const Ring::ByteArr &pub_key)
     payload.insert(std::end(payload), std::begin(sig), std::begin(sig)+crypto_sign_BYTES);
     payload.insert(std::end(payload), std::begin(nonce_start), std::end(nonce_start));
     m_nonceStart = nonce_start;
+
     debug_print("[S] payload", payload);
-    m_sendHandler(payload);
+    m_local_public_key = payload;
+
+    if (m_sendHandler)
+        m_sendHandler(payload);
 
     //  generate true shared key
     m_sharedSecret.resize(crypto_box_BEFORENMBYTES);
@@ -114,18 +152,13 @@ bool Ring::EncHandshake::doHandshake(const Ring::ByteArr &pub_key)
     return true;
 }
 
-bool Ring::EncHandshake::valid()
-{
-    return false;
-}
-
-ByteArr Ring::EncHandshake::encrypt(const ByteArr &data)
+ByteArr Ring::SodiumGlue::encrypt(const ByteArr &data)
 {
     //sodium_increment((uint8_t*)(&m_nonceCounter), sizeof(m_nonceCounter));
     ++m_nonceCounter;
     auto nonce = m_nonceStart;
     nonce.insert(end(nonce), (uint8_t*)(&m_nonceCounter), (uint8_t*)((&m_nonceCounter)+1));
-    debug_print("[e] nonce", nonce);
+    // debug_print("[e] nonce", nonce);
 
     auto tmp_data = data;
     tmp_data.insert(begin(tmp_data), 32, uint8_t{0});
@@ -138,10 +171,12 @@ ByteArr Ring::EncHandshake::encrypt(const ByteArr &data)
     res = restored_res;
     res.insert(begin(res), (uint8_t*)(&m_nonceCounter), (uint8_t*)((&m_nonceCounter)+1));
 
+    debug_print("ENC:", res);
+
     return res;
 }
 
-ByteArr Ring::EncHandshake::decrypt(const ByteArr &data)
+ByteArr Ring::SodiumGlue::decrypt(const ByteArr &data)
 {
     auto nonce = m_nonceStart;
     nonce.insert(end(nonce), begin(data), begin(data) + 4);
@@ -157,6 +192,37 @@ ByteArr Ring::EncHandshake::decrypt(const ByteArr &data)
     restored_res.insert(end(restored_res), begin(res)+crypto_box_ZEROBYTES, end(res) - crypto_box_BOXZEROBYTES);
     res = restored_res;
 
+    return res;
+}
+
+char* Ring::SodiumGlue::deconvert_from_array(ByteArr &in)
+{
+    int i = 0;
+    char *str = new char[in.size()];
+    for (auto c: in)
+        str[i++] = c;
+    return str;
+}
+
+ByteArr Ring::SodiumGlue::convert_to_array(const char *in, bool hex)
+{
+    int length = hex ? strlen(in)/2 : strlen(in);
+    ByteArr res = ByteArr(in, in + length);
+
+    for (unsigned int idx = 0; idx < res.size(); idx++)
+    {
+        int val;
+        char ch;
+
+        if (hex)
+        {
+            sscanf(&in[idx*2], "%02X", &val);
+            res.data()[idx] = hex?val:ch;
+        }
+        else
+            res.data()[idx] = in[idx];
+
+    }
     return res;
 }
 

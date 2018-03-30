@@ -1,5 +1,5 @@
-#ifndef PROJECT_ENCRYPTEDHANDSHAKE_HPP
-#define PROJECT_ENCRYPTEDHANDSHAKE_HPP
+#ifndef _SODIUM_GLUE_DEFINE_H_
+#define _SODIUM_GLUE_DEFINE_H_
 
 #include <utility>
 #include <vector>
@@ -12,7 +12,7 @@ namespace Ring {
 using ByteArr = std::vector<uint8_t>;
 std::pair<ByteArr, ByteArr> GenSignPK();
 
-class EncHandshake
+class SodiumGlue
 {
 public:
     /// "Send data to peer" callback
@@ -24,10 +24,12 @@ public:
     ///  - Used by initiator to get public payload
     using ReceiveHandler = std::function<ByteArr()>;
 
-    explicit EncHandshake(SendHandler sh, ReceiveHandler rh = nullptr)
+    explicit SodiumGlue(SendHandler sh, ReceiveHandler rh = nullptr)
         : m_sendHandler(std::move(sh)), m_receiveHandler(std::move(rh))
     {
     }
+    SodiumGlue() {doHandshake();}
+    SodiumGlue(const ByteArr &pub_key) {doHandshake(pub_key);}
 
     /// Perform encryption handshake
     ///
@@ -36,20 +38,24 @@ public:
     /// \return
     bool doHandshake();
     bool doHandshake(const ByteArr &pub_key);
-
-    bool valid();
+    bool processPayload(ByteArr &payload);
 
     ByteArr encrypt(const ByteArr& data);
     ByteArr decrypt(const ByteArr &data);
 
+    static ByteArr convert_to_array(const char* in, bool hex);
+    static char* deconvert_from_array(ByteArr &in);
+
+    ByteArr m_local_public_key;
+
 private:
-    SendHandler m_sendHandler;
-    ReceiveHandler m_receiveHandler;
+    SendHandler m_sendHandler = NULL;
+    ReceiveHandler m_receiveHandler = NULL;
     ByteArr m_sharedSecret;
     ByteArr m_nonceStart;
+    ByteArr m_local_priv_key;
     int m_nonceCounter = 0;
-};
 
-}
+};}
 
-#endif //PROJECT_ENCRYPTEDHANDSHAKE_HPP
+#endif //_SODIUM_GLUE_DEFINE_H_

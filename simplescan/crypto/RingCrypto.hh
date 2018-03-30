@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <functional>
 
+#include "sodium_glue.h"
+
 namespace Ring { namespace Ble { namespace Crypto {
 using ByteArr = std::vector<uint8_t>;
 
@@ -27,7 +29,7 @@ class Client
 {
 public:
 
-    Client(char *aShared, int aLenght);
+    Client();
 
     ///
     /// \brief GetPublicKey
@@ -65,22 +67,15 @@ public:
     ///
     int Decrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen);
 
-    void SaveSecrets();
-    void RestoreSecrets();
 private:
-    ByteArr mLocalPublicKey;
-    ByteArr mLocalPrivateKey;
-    ByteArr mSignaturePublic;
-    ByteArr mSharedSecret;
-    ByteArr mNonce;
-    int     mNonceCount;
+    Ring::SodiumGlue *sgl = NULL;
 };
 
 class Server
 {
 public:
 
-    Server(char *aClientPublicKey, int aLength, const unsigned char *aPirvateSignature);
+    Server(char *aClientPublicKey, int aLength);
 
     ///
     /// \brief GetPublicPayload
@@ -111,10 +106,7 @@ public:
     int Decrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen);
 
 private:
-    ByteArr mPublicPayload;
-    ByteArr mSharedSecret;
-    ByteArr mNonce;
-    int     mNonceCount;
+    Ring::SodiumGlue *sgl = NULL;
 };
 
 class Debug
