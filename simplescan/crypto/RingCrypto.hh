@@ -69,6 +69,13 @@ public:
 
 private:
     Ring::SodiumGlue *sgl = NULL;
+
+#ifdef __x86_64__
+public:
+    void SaveSecrets();
+    void RestoreSecrets();
+#endif
+
 };
 
 class Server

@@ -199,3 +199,43 @@ static int _decrypt(Ring::SodiumGlue *sgl, char *aSrc, int aSrcLen, char *aDest,
     return Crypto::Error::NO_ERROR;
 }
 
+#ifdef __x86_64__
+void Client::SaveSecrets()
+{
+    FILE* fout = fopen("cryptoclient.cfg", "wb");
+    if (fout && sgl)
+    {
+        int sssize = sgl->m_sharedSecret.size();
+        fwrite(&sssize, sizeof(int), 1, fout);
+        fwrite(sgl->m_sharedSecret.data(), sizeof(char), sgl->m_sharedSecret.size(), fout);
+
+        sssize = sgl->m_nonceStart.size();
+        fwrite(&sssize, sizeof(int), 1, fout);
+        fwrite(sgl->m_nonceStart.data(), sizeof(char), sgl->m_nonceStart.size(), fout);
+        fwrite(&sgl->m_nonceCounter, sizeof(int), 1, fout);
+
+        fclose(fout);
+    }
+}
+
+void Client::RestoreSecrets()
+{
+    FILE* fin = fopen("cryptoclient.cfg", "rb");
+    if (fin && sgl)
+    {
+        int sssize;
+        char intmp[0xff];
+        fread(&sssize, sizeof(int), 1, fin);
+        fread(intmp, sizeof(char), sssize, fin);
+        sgl->m_sharedSecret = ByteArr(intmp, intmp + sssize);
+
+        fread(&sssize, sizeof(int), 1, fin);
+        fread(intmp, sizeof(char), sssize, fin);
+        sgl->m_nonceStart = ByteArr(intmp, intmp + sssize);
+
+        fread(&sgl->m_nonceCounter, sizeof(int), 1, fin);
+
+        fclose(fin);
+    }
+}
+#endif

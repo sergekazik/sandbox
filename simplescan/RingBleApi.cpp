@@ -22,6 +22,7 @@
  *       | TI WiLink18xx BlueTP |       | libbluetooth |              *
  *       ------------------------       ----------------              *
  *--------------------------------------------------------------------*/
+#include <string.h>
 #include "Bot_Notifier.h"
 #include "RingBleApi.hh"
 
@@ -32,10 +33,10 @@ BleApi::BleApi() :
     mInitialized(false)
     ,mServiceCount(0)
     ,mServiceTable(NULL)
-    ,mDeviceClass("0x000430")
-    ,mDeviceName("RingSetup-BT")
     ,mOnCharCb(NULL)
 {
+    strcpy(mDeviceClass, "0x000430");
+    strcpy(mDeviceName, "RingSetup-BT");
 }
 
 /********************************************************************************

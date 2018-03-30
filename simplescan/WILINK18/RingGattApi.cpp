@@ -4908,6 +4908,7 @@ int GattSrv::GATTIndicateCharacteristic(ParameterList_t *aParams __attribute__ (
 
 int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aStrPayload)
 {
+    int ret = Error::NOT_INITIALIZED;
     if (mInitialized && mServiceTable)
     {
         ParameterList_t params = {4, {{NULL, (unsigned int) aServiceIdx},
@@ -4915,9 +4916,14 @@ int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char
                                       {(char*) "last", 0},
                                       {(char*) aStrPayload, 0}}};
 
-        return GATTNotifyCharacteristic(&params);
+        int ret = GATTNotifyCharacteristic(&params);
+        BOT_NOTIFY_DEBUG("GATTNotifyCharacteristic ret = %d", ret);
     }
-    return Error::NOT_INITIALIZED;
+    else
+    {
+        BOT_NOTIFY_ERROR("GATTNotifyCharacteristic !mInitialized !! !mServiceTableret");
+    }
+    return ret;
 }
 
 /* The following function is responsible for notifying a specified   */

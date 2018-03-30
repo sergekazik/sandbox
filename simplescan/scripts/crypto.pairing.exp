@@ -46,8 +46,7 @@ if { $secretkey == "" || $secretkey == "\n" || $secretkey == "\r"} {
 }
 #puts "$secret_key\n"
 
-#set provision_xml "<network><mode>client</mode><client><wireless><password>$pass</password><ssid>$ssid</ssid><channel>1</channel><security>wpa-personal</security></wireless><object_id>223192</object_id><secret_key>$secret_key</secret_key><ip><subnectmask></subnetmask><ip_type>dhcp</ip_type><ip_addr></ip_addr><gateway></gateway><dns_addr></dns_addr></ip></client><app_mode>usr</app_mode><ethernet>0</ethernet></network>"
-set provision_xml "hello"
+set provision_xml "<network><mode>client</mode><client><wireless><password>$pass</password><ssid>$ssid</ssid><channel>1</channel><security>wpa-personal</security></wireless><object_id>223192</object_id><secret_key>$secret_key</secret_key><ip><subnectmask></subnetmask><ip_type>dhcp</ip_type><ip_addr></ip_addr><gateway></gateway><dns_addr></dns_addr></ip></client><app_mode>usr</app_mode><ethernet>0</ethernet></network>"
 
 # Set timeout
 set timeout 20
@@ -58,6 +57,10 @@ puts "debug: $debug\n"
 if { $debug != "debug" } {
     log_user 0
 }
+
+# first spawn ringcrypto in interactive mode and save its id
+spawn $ringcrypto -client
+set cryptoID $spawn_id
 
 # run bluetoothctl
 spawn bluetoothctl
@@ -316,7 +319,9 @@ foreach line $data {
 	} elseif  { $payload == "public_key" } {
 	    #------------------------------------------ request from crypto public_key and send it to device
 	    puts "\r"
-	    spawn $ringcrypto -gpk
+	    set spawn_id $cryptoID
+	    send "gpk\r"
+
 	    expect ":gpk"
 	    set buf [split $expect_out(buffer) ":"]
 	    set public_key [lindex $buf 1]
@@ -341,11 +346,13 @@ foreach line $data {
 	    puts "sending public_key"
 	} else {
 	    # encrypt payload
-	    spawn $ringcrypto -enc $payload
+	    set spawn_id $cryptoID
+	    send "enc $payload\r"
+
 	    expect ":enc"
 	    set buf [split $expect_out(buffer) ":"]
 	    #puts "actual payload = $payload"
-	    set payload [lindex $buf 2]
+	    set payload [lindex $buf 1]
 	    #puts "encrypted payload = $payload"
 
 	    # always restore spawn id after using $ringcrypto
@@ -398,7 +405,9 @@ foreach line $data {
 	    }
 	    close $outFileId
 
-	    spawn $ringcrypto -ppf public_payload.log
+	    set spawn_id $cryptoID
+	    send "ppf public_payload.log\r"
+
 	    expect {
 		":ppp" {
 		    puts "Public Payload processed OK"
@@ -437,7 +446,9 @@ foreach line $data {
 	    }
 	    close $outFileId
 
-	    spawn $ringcrypto -def public_payload.log
+	    set spawn_id $cryptoID
+	    send "def public_payload.log\r"
+
 	    expect {
 		":dec" {
 		    puts "Payload value decoded OK"
@@ -472,6 +483,10 @@ if { $debug != "debug" } {
 send "disconnect $mac\r"
 expect "Connected: no"
 send "quit\r"
+
+set spawn_id $cryptoID
+send "quit\r"
+
 close
 
 

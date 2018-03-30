@@ -80,7 +80,10 @@ BlePairing* BlePairing::instance = NULL;
 char BlePairing::mMacAddress[DEV_MAC_ADDR_LEN] = "XX:XX:XX:XX:XX:XX";
 
 #define DECRYPTED_MSG_BUFFER_SIZE           2000
+#ifdef PAIRING_ENABLE_CRYPTO
 Crypto::Server *BlePairing::mCrypto = NULL;
+#endif
+
 #define ATTRIBUTE_OFFSET(_idx) sServiceTable[RING_PAIRING_SVC_IDX].AttributeList[_idx].AttributeOffset
 
 // singleton instance
@@ -335,6 +338,7 @@ int BlePairing::PrintStatus()
 ///
 static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::Property::Access aAccessType)
 {
+    static char decrypted[DECRYPTED_MSG_BUFFER_SIZE];
     static const AttributeInfo_t *attribute_list = sServiceTable[RING_PAIRING_SVC_IDX].AttributeList;
 
     if (aAccessType == Ble::Property::Disconnected)
@@ -390,12 +394,10 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
         case Ble::Property::Write:
             bleApi->DisplayAttributeValue(aServiceIdx, aAttributeIdx, "Write");
             {
-                char decrypted[DECRYPTED_MSG_BUFFER_SIZE];
-                int decrypted_len = sizeof(decrypted);
-
                 void *data = (void *) ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->Value;
                 int len = ((CharacteristicInfo_t*) (attribute_list[aAttributeIdx].Attribute))->ValueLength;
 
+#ifdef PAIRING_ENABLE_CRYPTO
                 // processed internally by Pairing
                 if (aAttributeIdx == SET_PUBLIC_KEY)
                 {
@@ -421,18 +423,21 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
                 }
                 else if (BlePairing::mCrypto)
                 {
+                int ret, decrypted_len = DECRYPTED_MSG_BUFFER_SIZE;
                     // decode all other written values
-                    if (Crypto::Error::NO_ERROR == BlePairing::mCrypto->Decrypt((char*) data, len, decrypted, decrypted_len))
+                if (Crypto::Error::NO_ERROR == (ret = BlePairing::mCrypto->Decrypt((char*) data, len, decrypted, decrypted_len)))
                     {
+                    BOT_NOTIFY_DEBUG("BlePairing::mCrypto->Decrypt payload value OK");
                         data = (void*) decrypted;
                         len = decrypted_len;
                     }
                     else
-                        BOT_NOTIFY_ERROR("failed to decrypt payload value!\n");
+                    BOT_NOTIFY_ERROR("failed to decrypt payload value with err %d\n", ret);
                 }
                 else
                     BOT_NOTIFY_ERROR("BlePairing::mCrypto not initialized - failed to decrypt payload value!\n");
 
+#endif
                 // ringnm callback
                 if (ringDataCb)
                 {

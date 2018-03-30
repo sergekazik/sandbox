@@ -23,10 +23,14 @@ static const auto PUBK_SZ = 32u;
 static const auto SIGN_SZ = 64u;
 static const auto NONCE_SZ = 20u;
 
+// global for debug only
+bool gbSodiumGlueDebugOn = true;
+
 template <typename Array>
 void debug_print(const char* name, const Array& arr)
 {
-    printf("%s (%zu bytes): ", name, arr.size());
+    if (!gbSodiumGlueDebugOn) return;
+    printf("%s (%zu bytes)= ", name, arr.size());
     for (auto c: arr)
     {
         printf("%02X", uint8_t(c));
@@ -37,6 +41,7 @@ void debug_print(const char* name, const Array& arr)
 #define IO_MSG_BUFFER_SIZE 2000
 void dump_hex_pl(const char* pref, ByteArr &pl)
 {
+    if (!gbSodiumGlueDebugOn) return;
     char outstr[IO_MSG_BUFFER_SIZE];
     memset(outstr, 0, IO_MSG_BUFFER_SIZE);
 
@@ -171,7 +176,7 @@ ByteArr Ring::SodiumGlue::encrypt(const ByteArr &data)
     res = restored_res;
     res.insert(begin(res), (uint8_t*)(&m_nonceCounter), (uint8_t*)((&m_nonceCounter)+1));
 
-    debug_print("ENC:", res);
+    debug_print("ENC=", res);
 
     return res;
 }
@@ -211,13 +216,11 @@ ByteArr Ring::SodiumGlue::convert_to_array(const char *in, bool hex)
 
     for (unsigned int idx = 0; idx < res.size(); idx++)
     {
-        int val;
-        char ch;
-
         if (hex)
         {
+            int val;
             sscanf(&in[idx*2], "%02X", &val);
-            res.data()[idx] = hex?val:ch;
+            res.data()[idx] = val;
         }
         else
             res.data()[idx] = in[idx];

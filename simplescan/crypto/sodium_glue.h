@@ -51,9 +51,13 @@ public:
 private:
     SendHandler m_sendHandler = NULL;
     ReceiveHandler m_receiveHandler = NULL;
+    ByteArr m_local_priv_key;
+
+#ifdef __x86_64__
+public:
+#endif
     ByteArr m_sharedSecret;
     ByteArr m_nonceStart;
-    ByteArr m_local_priv_key;
     int m_nonceCounter = 0;
 
 };}

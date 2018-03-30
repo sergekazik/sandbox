@@ -42,7 +42,7 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    $(BTPIA_SDK_INC)
 
 ifeq ($(BLE_CS), BCM43)
-CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -I./crypto
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -I./crypto -DPAIRING_ENABLE_CRYPTO=1
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -86,7 +86,7 @@ $(TARGET_TEST_CRYPTO): $(OBJS_TEST_CRYPTO)
 	$(CC) $(OBJS_TEST_CRYPTO) $(LDFLAGS_APP) -o $@
 
 CRYPTO_CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14 \
-		    -I./include -Wno-unused-result
+		    -I./include -Wno-unused-result -DPAIRING_ENABLE_CRYPTO=1
 
 #CXXFLAGS = $(CRYPTO_CFLAGS)
 

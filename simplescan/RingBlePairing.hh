@@ -7,7 +7,9 @@
 #include <functional>
 
 #include "RingBleApi.hh"
+#ifdef PAIRING_ENABLE_CRYPTO
 #include "crypto/RingCrypto.hh"
+#endif
 
 namespace Ring { namespace Ble {
 
@@ -19,7 +21,9 @@ class BlePairing
 public:
     static BlePairing* getInstance(); // singleton
     static char mMacAddress[DEV_MAC_ADDR_LEN];
+#ifdef PAIRING_ENABLE_CRYPTO
     static Crypto::Server *mCrypto;
+#endif
 
 private:
     BlePairing();
@@ -27,7 +31,7 @@ private:
     BleApi *mBleApi;
 
 public:
-    int Initialize(char *aDeviceName = NULL, uint8_t * mac = NULL);
+    int Initialize(char *aDeviceName = NULL, unsigned char * mac = NULL);
     int StartAdvertising(int aTimeout = 0);
     int StopAdvertising();
     int Shutdown();

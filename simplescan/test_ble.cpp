@@ -177,11 +177,6 @@ int raw_test_connect(char *dest, const char *data, int nLen, int nRepeat)
                 {
                     for (int i = 0; i < bytes_read; i++)
                     {
-/*
-            ./rtctest_crypto_run.sh -gen
-                                pub (32 bytes): ac2f61320fe772fdf7ed326b2de3db00cc56252d2798b67aea316c5ba5b28b3c
-                                prv (32 bytes): 3d6294cba942c082b942edbd5db8ca048c0c03d9a8ece30af7b5cdd560b1211e
-*/
                         printf("TESTBLE:  %c", (buf[i] >= ' ') ? buf[i] : ' ');
                     }
                 }
@@ -307,7 +302,10 @@ void debug_print(const char* name, char* data, int len)
 {
     printf("%s (%d bytes):\n", name, len);
     for (int i = 0; i < len; i++)
-        printf("%c%s", (0x20 <= data[i] && data[i] < 127) ? data[i]:'.', ((i+1) % 64)?"":"\n");
+        printf("%02X%s", data[i], ((i+1) % 32)?" ":"\n");
+    printf("\n");
+    for (int i = 0; i < len; i++)
+        printf("%c%s", ((0x20 <= data[i]) && (data[i] < 127)) ? data[i]:'.', ((i+1) % 64)?"":"\n");
     printf("\n");
 }
 
