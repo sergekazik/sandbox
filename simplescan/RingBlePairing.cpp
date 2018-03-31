@@ -474,7 +474,19 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
     // only when str_data is valid
     if (str_data)
     {
-        bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(attr_idx), (Byte_t*) str_data, (len > 0) ? len : strlen(str_data));
+        #define IO_MSG_BUFFER_SIZE 1024
+        char crypted[IO_MSG_BUFFER_SIZE];
+        int crypted_len = 0;
+
+        if (BlePairing::mCrypto)
+        {
+            crypted_len = sizeof(crypted);
+            if (Ring::Ble::Crypto::Error::NO_ERROR != BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len))
+                crypted_len = 0;
+        }
+        bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(attr_idx),
+                                         (Byte_t*) (crypted_len ? crypted : str_data),
+                                         crypted_len ? crypted_len : ((len > 0) ? len : strlen(str_data)));
     }
 
     switch (attr_idx)

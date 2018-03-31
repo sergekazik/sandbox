@@ -21,7 +21,7 @@
 
 #define IO_MSG_BUFFER_SIZE 2000
 using namespace std;
-
+bool gbVerbose = false;
 void debug_print(const char* name, const Ring::ByteArr& arr)
 {
     printf("%s (%zu bytes): ", name, arr.size());
@@ -95,7 +95,7 @@ char *read_from_file(char * filename) // public_payload.log
             break;
         }
 
-        printf("%s", strline);
+        if (gbVerbose) printf("%s", strline);
         if (NULL != (ch = strchr(strline, ' ')) )
         {
             char *esc = NULL;
@@ -129,7 +129,7 @@ char *read_from_file(char * filename) // public_payload.log
         }
     }
     fclose(fin);
-    printf("%s read=\n%s\n", filename, out);
+    if (gbVerbose) printf("%s read=\n%s\n", filename, out);
     return out;
 }
 
@@ -145,6 +145,15 @@ int main(int argc, char* argv[])
             return Ring::Ble::Crypto::Error::NO_ERROR;
         if (print_gen(argv[1]))
             return Ring::Ble::Crypto::Error::NO_ERROR;
+
+        for (int i = 0; i < argc; i++)
+        {
+            if (!strcmp(argv[i], "-v"))
+            {
+                gbVerbose = true;
+                break;
+            }
+        }
 
         // suppress all debug if in the command mode
         Ring::Ble::Crypto::Debug::Suppress(true);
@@ -176,7 +185,7 @@ int main(int argc, char* argv[])
         {
             if (!bRecursiveOnce)
             {
-                cout << "client>";
+                cout << "crypto>";
                 cin >> cmd;
             }
 
@@ -189,11 +198,16 @@ int main(int argc, char* argv[])
             {
                 client.GetPublicKey(client_public, client_public_lenght);
 
-                int offset = sprintf(outstr, "HEX|");
-                for (int i = 0; i < client_public_lenght; i++)
-                    offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) client_public[i]);
-                sprintf(&outstr[offset], "|HEX");
-                printf("%s\n", outstr);
+                int offset = 0;
+
+                if (gbVerbose)
+                {
+                    offset = sprintf(outstr, "HEX|");
+                    for (int i = 0; i < client_public_lenght; i++)
+                        offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) client_public[i]);
+                    sprintf(&outstr[offset], "|HEX");
+                    printf("%s\n", outstr);
+                }
 
                 offset = sprintf(outstr, "KEY|");
                 for (int i = 0; i < client_public_lenght; i++)
@@ -238,16 +252,21 @@ int main(int argc, char* argv[])
 
                 client.Encrypt(outstr, strlen(outstr), crypted, crypted_len);
 
-                int offset = sprintf(outstr, "HEX|");
-                for (int i = 0; i < crypted_len; i++)
-                    offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) crypted[i]);
-                sprintf(&outstr[offset], "|HEX");
-                printf("%s\n", outstr);
-                offset = sprintf(outstr, "ENC|");
-                for (int i = 0; i < crypted_len; i++)
-                    offset += sprintf(&outstr[offset], "%02X", (unsigned char) crypted[i]);
-                sprintf(&outstr[offset], "|ENC");
-                printf("%s\n", outstr);
+                int offset = 0;
+                if (gbVerbose)
+                {
+                    offset = sprintf(outstr, "HEX|");
+                    for (int i = 0; i < crypted_len; i++)
+                        offset += sprintf(&outstr[offset], "%s%02X", i?" ":"", (unsigned char) crypted[i]);
+                    sprintf(&outstr[offset], "|HEX");
+                    printf("%s\n", outstr);
+
+                    offset = sprintf(outstr, "ENC|");
+                    for (int i = 0; i < crypted_len; i++)
+                        offset += sprintf(&outstr[offset], "%02X", (unsigned char) crypted[i]);
+                    sprintf(&outstr[offset], "|ENC");
+                    printf("%s\n", outstr);
+                }
 
                 offset = sprintf(outstr, "enc:");
                 for (int i = 0; i < crypted_len; i++)
@@ -288,7 +307,7 @@ int main(int argc, char* argv[])
                     else if (!memcmp(cmd, "ppf", 3))
                         sprintf(cmd, "ppp %s", pld);
 
-                    printf("processing %s\n", cmd);
+                    if (gbVerbose) printf("processing %s\n", cmd);
                     bRecursiveOnce = true;
                     continue;
                 }
@@ -386,7 +405,7 @@ int main(int argc, char* argv[])
                 server_public[idx] = (unsigned char) val;
             }
             client.ProcessPublicPayload(server_public, server_public_lenght);
-            client.Encrypt("helloz", 6, crypted, crypted_len);
+            client.Encrypt((char*) "hello!", 6, crypted, crypted_len);
 
             memset(outstr, 0, IO_MSG_BUFFER_SIZE);
 

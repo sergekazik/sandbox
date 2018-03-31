@@ -301,11 +301,40 @@ static void print_subhelp(void)
 void debug_print(const char* name, char* data, int len)
 {
     printf("%s (%d bytes):\n", name, len);
-    for (int i = 0; i < len; i++)
-        printf("%02X%s", data[i], ((i+1) % 32)?" ":"\n");
-    printf("\n");
-    for (int i = 0; i < len; i++)
-        printf("%c%s", ((0x20 <= data[i]) && (data[i] < 127)) ? data[i]:'.', ((i+1) % 64)?"":"\n");
+
+    const int num_bytes = 32;
+    const int ascii_sta = num_bytes*3;
+
+    int i, offset = 0;
+    char out[ascii_sta + num_bytes + 4];
+    for (i = 0; i < len; i++)
+    {
+        offset += sprintf(&out[offset], "%02X ", data[i]);
+        if (!((i+1) % num_bytes))
+        {
+            offset += sprintf(&out[offset], " ");
+            for (int j = (i+1)-num_bytes; j < (i+1); j++)
+                offset += sprintf(&out[offset], "%c", ((0x20 <= data[j]) && (data[j] < 127)) ? data[j]:'.');
+            printf("%s\n", out);
+            offset = 0;
+        }
+    }
+    if (i % num_bytes)
+    {
+        int leftover = i;
+        for (; ((leftover+1) % num_bytes); leftover++)
+            offset += sprintf(&out[offset], "   ");
+        offset += sprintf(&out[offset], "  ");
+        for (int j = leftover-num_bytes; j < len; j++)
+            offset += sprintf(&out[offset], "%c", ((0x20 <= data[j]) && (data[j] < 127)) ? data[j]:'.');
+        printf("%s\n", out);
+    }
+
+//    for (int i = 0; i < len; i++)
+//        printf("%02X%s", data[i], ((i+1) % 32)?" ":"\n");
+//    printf("\n");
+//    for (int i = 0; i < len; i++)
+//        printf("%c%s", ((0x20 <= data[i]) && (data[i] < 127)) ? data[i]:'.', ((i+1) % 64)?"":"\n");
     printf("\n");
 }
 

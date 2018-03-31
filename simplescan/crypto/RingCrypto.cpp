@@ -77,7 +77,6 @@ int Client::Decrypt(char *aSrc, int aSrcLen, char *aDest, int &aDestLen)
 // ---------------------------------------------------------------------------------
 // SERVER Class
 //----------------------------------------------------------------------------------
-
 Server::Server(char *aClientPublicKey, int aLength)
 {
     if (aClientPublicKey && aLength)

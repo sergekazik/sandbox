@@ -24,7 +24,7 @@ static const auto SIGN_SZ = 64u;
 static const auto NONCE_SZ = 20u;
 
 // global for debug only
-bool gbSodiumGlueDebugOn = true;
+bool gbSodiumGlueDebugOn = false;
 
 template <typename Array>
 void debug_print(const char* name, const Array& arr)
