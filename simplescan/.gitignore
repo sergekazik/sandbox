@@ -11,3 +11,5 @@ test_crypto
 cryptoclient.cfg
 scripts/expect.uuid.lst
 public_payload.log
+device.exclude.lst
+test_crypto_direct
