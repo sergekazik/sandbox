@@ -5974,6 +5974,8 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
     GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
     AttributeInfo_t      *AttributeInfo;
 
+    BOT_NOTIFY_DEBUG("GATM_Event_Callback called with EventData = %s", EventData ? "valid":"ZERO");
+
     if (EventData)
     {
         switch(EventData->EventType)

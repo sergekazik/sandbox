@@ -77,7 +77,7 @@ std::function<int(int, void*, int)> ringDataCb = NULL;
  * BlePairing class implementation
  * -------------------------------------------------------------*/
 BlePairing* BlePairing::instance = NULL;
-char BlePairing::mMacAddress[DEV_MAC_ADDR_LEN] = "XX:XX:XX:XX:XX:XX";
+char BlePairing::mMacAddress[DEV_MAC_ADDR_LEN] = "DE:AD:AB:BA:BE:EE";
 
 #define DECRYPTED_MSG_BUFFER_SIZE           2000
 #ifdef PAIRING_ENABLE_CRYPTO
@@ -218,6 +218,12 @@ int BlePairing::StartAdvertising(int aTimeout)
             mAdvertisingTimeout_sec = aTimeout;
         }
 
+        if (BlePairing::mCrypto != NULL)
+        {
+            delete BlePairing::mCrypto;
+            BlePairing::mCrypto = NULL;
+        }
+
         // start advertising
         unsigned int adv_flags = Advertising::Discoverable  | Advertising::Connectable      |
                                  Advertising::AdvertiseName | Advertising::AdvertiseTxPower | Advertising::AdvertiseAppearance;
@@ -352,6 +358,9 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
             BOT_NOTIFY_DEBUG("Ble::Property::Disconnected, ads = %d, %s", pairing_inst->isAdvertisingRequested()?1:0, pairing_inst->isAdvertisingRequested()?"restarting":"");
             if (pairing_inst->isAdvertisingRequested())
             {
+                // restart all
+                pairing_inst->Shutdown();
+                pairing_inst->Initialize();
                 pairing_inst->StartAdvertising();
             }
         }
@@ -416,23 +425,28 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
                         BlePairing::mCrypto->GetPublicPayload(server_public, server_public_lenght);
                         BOT_NOTIFY_DEBUG("Crypto->GetPublicPayload ret %d bytes of PUBLIC_PAYLOAD\n", server_public_lenght);
 
-                        BlePairing::getInstance()->updateAttribute(GET_PUBLIC_PAYLOAD, server_public, server_public_lenght);
+                        BlePairing *Pairing = BlePairing::getInstance();
+                        if (Pairing)
+                        {
+                            Pairing->updateAttribute(GET_PUBLIC_PAYLOAD, server_public, server_public_lenght);
+                            Pairing->updateAttribute(GET_MAC_ADDRESS, Pairing->mMacAddress);
+                        }
                     }
                     else
                         BOT_NOTIFY_ERROR("failed to create Crypto server!\n");
                 }
                 else if (BlePairing::mCrypto)
                 {
-                int ret, decrypted_len = DECRYPTED_MSG_BUFFER_SIZE;
-                    // decode all other written values
-                if (Crypto::Error::NO_ERROR == (ret = BlePairing::mCrypto->Decrypt((char*) data, len, decrypted, decrypted_len)))
+                    int ret, decrypted_len = DECRYPTED_MSG_BUFFER_SIZE;
+                        // decode all other written values
+                    if (Crypto::Error::NO_ERROR == (ret = BlePairing::mCrypto->Decrypt((char*) data, len, decrypted, decrypted_len)))
                     {
-                    BOT_NOTIFY_DEBUG("BlePairing::mCrypto->Decrypt payload value OK");
+                        BOT_NOTIFY_DEBUG("BlePairing::mCrypto->Decrypt payload value OK");
                         data = (void*) decrypted;
                         len = decrypted_len;
                     }
                     else
-                    BOT_NOTIFY_ERROR("failed to decrypt payload value with err %d\n", ret);
+                        BOT_NOTIFY_ERROR("failed to decrypt payload value with err %d\n", ret);
                 }
                 else
                     BOT_NOTIFY_ERROR("BlePairing::mCrypto not initialized - failed to decrypt payload value!\n");
@@ -478,12 +492,13 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
         char crypted[IO_MSG_BUFFER_SIZE];
         int crypted_len = 0;
 
-        if (BlePairing::mCrypto)
+        if ((attr_idx != GET_PUBLIC_PAYLOAD) && (BlePairing::mCrypto))
         {
             crypted_len = sizeof(crypted);
             if (Ring::Ble::Crypto::Error::NO_ERROR != BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len))
                 crypted_len = 0;
         }
+
         bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(attr_idx),
                                          (Byte_t*) (crypted_len ? crypted : str_data),
                                          crypted_len ? crypted_len : ((len > 0) ? len : strlen(str_data)));
@@ -507,6 +522,7 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
             bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "WIFI_STATUS_UPDATED");
             break;
 
+        case GET_PUBLIC_PAYLOAD:
         case SET_PUBLIC_KEY:
             bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PAYLOAD_READY");
             break;

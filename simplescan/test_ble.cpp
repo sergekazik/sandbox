@@ -343,7 +343,6 @@ static int data_read_write_callback(int a, void* data, int len)
     int ret_val = Error::NONE;
 
     BlePairing *Pairing = BlePairing::getInstance();
-    BleApi* bleApi = GattSrv::getInstance();
     if (Pairing == NULL)
     {
         printf("TESTBLE:  data_rw_cb: failed to obtain BlePairing instance. Abort.\n");
@@ -362,31 +361,18 @@ static int data_read_write_callback(int a, void* data, int len)
         }
         ret_val = (1); // to inform default handler to stop further processing of this notification
 
-        if (svc && bleApi) switch (a)
+        if (svc && Pairing) switch (a)
         {
-            case GET_NET_INFO:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "NETWORK_INFO_UPDATED");
-                break;
-
-            case GET_AP_LIST:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "AP_LIST_UPDATED");
-                break;
-
-            case SET_PROVISION:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PROVISIONED");
-                break;
-
-            case GET_WIFI_STATUS:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "WIFI_STATUS_UPDATED");
-                break;
-
             case SET_PUBLIC_KEY:
-                bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PAYLOAD_READY");
+            case GET_PUBLIC_PAYLOAD:
                 break;
 
             default:
+                sleep(1);
+                Pairing->updateAttribute(a, (const char*) ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->Value,
+                                            ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->ValueLength);
                 break;
-    }
+        }
     }
 
     return ret_val;

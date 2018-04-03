@@ -96,6 +96,8 @@ char *read_from_file(char * filename) // public_payload.log
         }
 
         if (gbVerbose) printf("%s", strline);
+
+        strline[52]='\0';
         if (NULL != (ch = strchr(strline, ' ')) )
         {
             char *esc = NULL;
@@ -250,6 +252,9 @@ int main(int argc, char* argv[])
             {
                 cin >> outstr;
 
+                printf("crypto-encoding input %d bytes [%s]\"\n", (int) strlen(outstr),  outstr);
+
+                crypted_len = sizeof(crypted);
                 client.Encrypt(outstr, strlen(outstr), crypted, crypted_len);
 
                 int offset = 0;
@@ -284,7 +289,9 @@ int main(int argc, char* argv[])
                 else
                     cin >> outstr;
 
+
                 char *in = outstr;
+                printf("crypto-decoding input %d bytes [%s]\n", (int) strlen(in), outstr);
                 crypted_len = strlen(in) / 2;
                 for (int idx = 0; idx < crypted_len; idx++)
                 {
@@ -292,8 +299,16 @@ int main(int argc, char* argv[])
                     sscanf(&in[idx*2], "%02x", &val);
                     crypted[idx] = (unsigned char) val;
                 }
-                ret = client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
-                printf("dec:%s:dec\n", decrypted);
+                if ((crypted[1] != 0) || (crypted[2] != 0))
+                {
+                    crypted[crypted_len]='\0';
+                    printf("not encrypted-dec:%s:dec\n", crypted);
+                }
+                else {
+                    decrypted_len = sizeof(decrypted);
+                    ret = client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+                    printf("dec:%s:dec\n", decrypted);
+                }
             }
             else if (!memcmp(cmd, "def", 3) || !memcmp(cmd, "ppf", 3))
             {
@@ -307,6 +322,7 @@ int main(int argc, char* argv[])
                     else if (!memcmp(cmd, "ppf", 3))
                         sprintf(cmd, "ppp %s", pld);
 
+                    // printf("crypto processing payload [%s] %d bytes\n", cmd, (int) strlen(cmd));
                     if (gbVerbose) printf("processing %s\n", cmd);
                     bRecursiveOnce = true;
                     continue;

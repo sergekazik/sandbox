@@ -381,7 +381,8 @@ foreach line $data {
 	expect "Value:"
 	send "attribute-info\r"
 	expect "Value:"
-	expect  $ring_name
+	#expect  "$ring_name"
+	expect "Flags"
 	puts "\r"
 
 	if { $name == "GET_PUBLIC_PAYLOAD" } { #----------------- PUBLIC PAYLOAD ------------------------------
@@ -427,7 +428,7 @@ foreach line $data {
 	} else {
 	    # all other attributes are encrypted
 
-	    #decode value
+	    #----decode value
 	    puts "==============================\n"
 	    set buf [split $expect_out(buffer) "\n"]
 	    set pld ""
@@ -435,13 +436,14 @@ foreach line $data {
 	    set outFileId [open $public_payload "w"]
 	    for {set idx 0} {$idx<100} {incr idx} {
 		set pubpl [lindex $buf $idx]
-		if {[string match "*list*" $pubpl]} {
+		if {[string match "*Flags*" $pubpl]} {
 		    break
 		}
 		if {[string match "*$ring_name*" $pubpl]} {
 		    break
 		}
 		append pld '\n $pubpl
+		puts "expect value parsing: $pubpl"
 		puts $outFileId "$pubpl"
 	    }
 	    close $outFileId
@@ -482,6 +484,8 @@ if { $debug != "debug" } {
 }
 send "disconnect $mac\r"
 expect "Connected: no"
+
+send "remove $mac"
 send "quit\r"
 
 set spawn_id $cryptoID
