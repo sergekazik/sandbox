@@ -16,7 +16,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "Bot_Notifier.h"
+#include "bot_notifier.h"
 #ifdef Linux_x86_64
 extern "C" {
 #include "SS1BTPM.h"          /* BTPM Application Programming Interface.      */

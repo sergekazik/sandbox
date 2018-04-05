@@ -45,7 +45,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "Bot_Notifier.h"
+#include "bot_notifier.h"
 #include "RingGattApi.hh"
 
 extern "C" {

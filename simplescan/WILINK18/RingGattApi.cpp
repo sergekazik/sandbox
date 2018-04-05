@@ -34,7 +34,7 @@
 #include <unistd.h>
 
 #include "RingGattApi.hh"
-#include "Bot_Notifier.h"
+#include "bot_notifier.h"
 
 using namespace Ring;
 using namespace Ring::Ble;
@@ -5974,7 +5974,7 @@ static void BTPSAPI GATM_Event_Callback(GATM_Event_Data_t *EventData, void *Call
     GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
     AttributeInfo_t      *AttributeInfo;
 
-    BOT_NOTIFY_DEBUG("GATM_Event_Callback called with EventData = %s", EventData ? "valid":"ZERO");
+    // BOT_NOTIFY_DEBUG("GATM_Event_Callback called with EventData = %s", EventData ? "valid":"ZERO");
 
     if (EventData)
     {

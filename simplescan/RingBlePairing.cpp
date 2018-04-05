@@ -33,10 +33,13 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "Bot_Notifier.h"
+#include "bot_notifier.h"
 #include "RingBleApi.hh"
 #include "RingGattApi.hh"
 #include "RingBlePairing.hh"
+#ifndef __x86_64__
+#include "sysconf/sysconf.h"
+#endif
 
 #include "gatt_svc_defs.h"
 
@@ -488,47 +491,40 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
     // only when str_data is valid
     if (str_data)
     {
-        #define IO_MSG_BUFFER_SIZE 1024
+        #define IO_MSG_BUFFER_SIZE 0x800
         char crypted[IO_MSG_BUFFER_SIZE];
         int crypted_len = 0;
 
         if ((attr_idx != GET_PUBLIC_PAYLOAD) && (BlePairing::mCrypto))
         {
             crypted_len = sizeof(crypted);
-            if (Ring::Ble::Crypto::Error::NO_ERROR != BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len))
+            int ret = BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len);
+            BOT_NOTIFY_DEBUG("updateAttribute encrypt ret %d, len = %d", ret, crypted_len);
+           if (Ring::Ble::Crypto::Error::NO_ERROR != ret)
                 crypted_len = 0;
         }
 
+        BOT_NOTIFY_DEBUG("updateAttribute %s encryption", crypted_len ? "with":"NO");
         bleApi->GATTUpdateCharacteristic(service_id, ATTRIBUTE_OFFSET(attr_idx),
                                          (Byte_t*) (crypted_len ? crypted : str_data),
                                          crypted_len ? crypted_len : ((len > 0) ? len : strlen(str_data)));
     }
 
+    char *notify = NULL;
     switch (attr_idx)
     {
-        case GET_NET_INFO:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "NETWORK_INFO_UPDATED");
-            break;
-
-        case GET_AP_LIST:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "AP_LIST_UPDATED");
-            break;
-
-        case SET_PROVISION:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PROVISIONED");
-            break;
-
-        case GET_WIFI_STATUS:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "WIFI_STATUS_UPDATED");
-            break;
-
+        case GET_NET_INFO:      notify = "NETWORK_INFO_UPDATED"; break;
+        case GET_AP_LIST:       notify = "AP_LIST_UPDATED"; break;
+        case SET_PROVISION:     notify = "PROVISIONED"; break;
+        case GET_WIFI_STATUS:   notify = "WIFI_STATUS_UPDATED"; break;
         case GET_PUBLIC_PAYLOAD:
-        case SET_PUBLIC_KEY:
-            bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, "PAYLOAD_READY");
-            break;
+        case SET_PUBLIC_KEY:    notify = "PAYLOAD_READY"; break;
+    }
 
-        default:
-            break;
+    if (notify)
+    {
+        sleep(1); // to let client to switch on listening notifications
+        bleApi->NotifyCharacteristic(RING_PAIRING_SVC_IDX, GET_PAIRING_STATE, notify);
     }
 
     return Error::NONE;

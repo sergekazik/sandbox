@@ -23,7 +23,7 @@
  *       ------------------------       ----------------              *
  *--------------------------------------------------------------------*/
 #include <string.h>
-#include "Bot_Notifier.h"
+#include "bot_notifier.h"
 #include "RingBleApi.hh"
 
 using namespace Ring;
