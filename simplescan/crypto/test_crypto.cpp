@@ -19,7 +19,7 @@
 #include "sodium_glue.h"
 #include "RingCrypto.hh"
 
-#define IO_MSG_BUFFER_SIZE 2000
+#define IO_MSG_BUFFER_SIZE 0x1000
 using namespace std;
 bool gbVerbose = false;
 void debug_print(const char* name, const Ring::ByteArr& arr)
@@ -73,7 +73,7 @@ static bool print_gen(char *arg)
     return false;
 }
 
-char *read_from_file(char * filename) // public_payload.log
+char *read_from_file(char * filename, bool bClearLine = false) // public_payload.log
 {
     static char out[IO_MSG_BUFFER_SIZE];
     memset(out, 0, sizeof(out));
@@ -85,10 +85,10 @@ char *read_from_file(char * filename) // public_payload.log
         return NULL;
     }
 
-    char *ch, strline[255];
+    char *ch, strline[IO_MSG_BUFFER_SIZE];
     int out_offset = 0;
 
-    while (fgets(strline, 255, fin))
+    while (fgets(strline, IO_MSG_BUFFER_SIZE, fin))
     {
         if (strstr(strline, "Flags") || strstr(strline, "Notifying"))
         {
@@ -97,7 +97,15 @@ char *read_from_file(char * filename) // public_payload.log
 
         if (gbVerbose) printf("%s", strline);
 
-        strline[52]='\0';
+        if (bClearLine)
+        {
+            sprintf(out, "%s", strline);
+            break;
+        }
+        else
+        {
+            strline[52]='\0';
+        }
         if (NULL != (ch = strchr(strline, ' ')) )
         {
             char *esc = NULL;
@@ -250,7 +258,13 @@ int main(int argc, char* argv[])
             }
             else if (!memcmp(cmd, "enc", 3))
             {
-                cin >> outstr;
+                if (bRecursiveOnce)
+                {
+                    bRecursiveOnce = false;
+                    strcpy(outstr, &cmd[4]);
+                }
+                else
+                    cin >> outstr;
 
                 printf("crypto-encoding input %d bytes [%s]\"\n", (int) strlen(outstr),  outstr);
 
@@ -289,10 +303,11 @@ int main(int argc, char* argv[])
                 else
                     cin >> outstr;
 
-
                 char *in = outstr;
-                printf("crypto-decoding input %d bytes [%s]\n", (int) strlen(in), outstr);
                 crypted_len = strlen(in) / 2;
+
+                printf("crypto-decoding input %d bytes [%s]\n", (int) crypted_len, in);
+
                 for (int idx = 0; idx < crypted_len; idx++)
                 {
                     int val;
@@ -306,27 +321,41 @@ int main(int argc, char* argv[])
                 }
                 else {
                     decrypted_len = sizeof(decrypted);
+                    memset(decrypted, 0, sizeof(decrypted));
                     ret = client.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
-                    printf("dec:%s:dec\n", decrypted);
+                    printf("ret[%d]dec:%s:dec\n", ret, decrypted);
+                    FILE *fou = fopen("data.xml", "wt");
+                    if (fou) { fprintf(fou, "%s", decrypted); fflush(fou); fclose(fou); }
                 }
             }
-            else if (!memcmp(cmd, "def", 3) || !memcmp(cmd, "ppf", 3))
+            else if (!memcmp(cmd, "def", 3) || !memcmp(cmd, "ppf", 3) || !memcmp(cmd, "enf", 3))
             {
                 cin >> outstr;
-                // read input from file
-                char *pld = read_from_file(outstr);
+                // printf("...reading from file...%s\n", outstr);
+                char *pld = read_from_file(outstr, 0==memcmp(cmd, "enf", 3));
                 if (pld && strlen(pld))
                 {
+                    // printf("read payload = %s\n", pld);
                     if (!memcmp(cmd, "def", 3))
                         sprintf(cmd, "dec %s", pld);
                     else if (!memcmp(cmd, "ppf", 3))
                         sprintf(cmd, "ppp %s", pld);
+                    else if (!memcmp(cmd, "enf", 3))
+                        sprintf(cmd, "enc %s", pld);
 
                     // printf("crypto processing payload [%s] %d bytes\n", cmd, (int) strlen(cmd));
                     if (gbVerbose) printf("processing %s\n", cmd);
                     bRecursiveOnce = true;
                     continue;
                 }
+                else
+                {
+                    printf("read payload failed from file %s\n", outstr);
+                }
+            }
+            else
+            {
+                printf("crypto: wrong argument\n");
             }
         }
     }
@@ -350,35 +379,67 @@ int main(int argc, char* argv[])
         Ring::Ble::Crypto::Server server(client_public, client_public_lenght);
         server.GetPublicPayload(server_public, server_public_lenght);
 
-        if (argc == 2) // asking for PublicPayload only
-        {
-            int offset = sprintf(outstr, "gpp:");
-            for (int i = 0; i < server_public_lenght; i++)
-                offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) server_public[i]);
-            sprintf(&outstr[offset], ":gpp");
-            printf("%s\n", outstr);
+        int offset = sprintf(outstr, "gpp:");
+        for (int i = 0; i < server_public_lenght; i++)
+            offset += sprintf(&outstr[offset], "%s%d", i?" ":"", (unsigned char) server_public[i]);
+        sprintf(&outstr[offset], ":gpp");
+        printf("%s\n", outstr);
 
-            printf("DEC>");
+        offset = sprintf(outstr, "gpp|");
+        for (int i = 0; i < server_public_lenght; i++)
+            offset += sprintf(&outstr[offset], "%02X", (unsigned char) server_public[i]);
+        sprintf(&outstr[offset], "|gpp");
+        printf("%s\n", outstr);
+
+        while (strcmp(outstr, "quit"))
+        {
+            printf("?>");
             cin >> outstr;
 
-            crypted_len = strlen(outstr) / 2;
-            for (int idx = 0; idx < crypted_len; idx++)
+            if (!strcmp(outstr, "dec"))
             {
-                int val;
-                sscanf(&outstr[idx*2], "%02x", &val);
-                crypted[idx] = (unsigned char) val;
-                printf("%02X", val);
+                printf("DEC>");
+                cin >> outstr;
+
+                crypted_len = strlen(outstr) / 2;
+                for (int idx = 0; idx < crypted_len; idx++)
+                {
+                    int val;
+                    sscanf(&outstr[idx*2], "%02x", &val);
+                    crypted[idx] = (unsigned char) val;
+                    printf("%02X", val);
+                }
+                printf("\n");
+
+                decrypted_len = sizeof(decrypted);
+                memset(decrypted, 0, decrypted_len);
+                server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
+                decrypted[decrypted_len]='\n';
+                printf("TEST \"%s\" = %s (%d)\n", outstr, decrypted, decrypted_len);
             }
-            printf("\n");
+            else if (!strcmp(outstr, "enc"))
+            {
+                printf("ENC>");
+                cin >> outstr;
 
-            decrypted_len = sizeof(decrypted);
-            memset(decrypted, 0, decrypted_len);
-            server.Decrypt(crypted, crypted_len, decrypted, decrypted_len);
-            decrypted[decrypted_len]='\n';
-            printf("TEST \"%s\" = %s (%d)\n", outstr, decrypted, decrypted_len);
+                crypted_len = sizeof(crypted);
+                server.Encrypt(outstr, strlen(outstr), crypted, crypted_len);
+                crypted[crypted_len]='\0';
+                printf("TEST \"%s\" = \n", outstr);
 
-            return Ring::Ble::Crypto::Error::NO_ERROR;
+                offset = sprintf(outstr, "enc|");
+                for (int i = 0; i < crypted_len; i++)
+                    offset += sprintf(&outstr[offset], "%02X", (unsigned char) crypted[i]);
+                sprintf(&outstr[offset], "|enc");
+                printf("%s\n", outstr);
+            }
+            else
+            {
+                printf("enc dec quit\n");
+            }
         }
+
+        return Ring::Ble::Crypto::Error::NO_ERROR;
 
     }
 

@@ -144,8 +144,6 @@ WILINK18/RingGattApi.hh
 ../../low-powered-doorbell-fw/ambarella/ring/common/Bot_Notifier.h
 ../../ring-nm/ble/characteristics.lst
 ../../ring-nm/ble/charas.read.lst
-../../ring-nm/ble/expect.uuid.lst
-../../ring-nm/ble/gatt.client.exp
 ../../ring-nm/ble/pairing.client.exp
 ../../ring-nm/ble/pairing.cmd.lst
 ../../low-powered-doorbell-fw/ambarella/ring/ble/make.inc
@@ -157,7 +155,6 @@ WILINK18/RingGattApi.hh
 deprecated/pairing_client_x86.cfg
 deprecated/gatt_client_x86.cpp
 deprecated/pairing_client_x86.cfg
-../../ring-nm/ble/device.exclude.lst
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/Makefile
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/src/EncHandshake.cpp
 ../../low-powered-doorbell-fw/ambarella/ring/ble/crypto/test/main.cpp
@@ -218,3 +215,11 @@ scripts/run_crypto.sh
 scripts/run_me.sh
 crypto/sodium_glue.cpp
 crypto/sodium_glue.h
+../../ring-nm/ble/ble_provision.py
+../../ring-nm/ble/characteristics.lst
+../../ring-nm/ble/cring_ble_setup.py
+../../ring-nm/ble/crypto.pairing.cmd.lst
+../../ring-nm/ble/crypto.pairing.exp
+../../ring-nm/ble/pairing.client.exp
+../../ring-nm/ble/pairing.cmd.lst
+../../ring-nm/ble/ring_ble_setup.py

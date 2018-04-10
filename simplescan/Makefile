@@ -119,6 +119,7 @@ cpringble:
 	@cp -u WILINK18/*.* -v $(RING_BLE)/WILINK18
 	@cp -u -v crypto/*.cpp crypto/*.h crypto/*.hh -v $(RING_BLE)/crypto
 	@cp -u -v crypto/*.cpp crypto/*.h crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
+	@cp -u -v test_crypto ~/workspace/ring-nm/ble/.
 	@echo "-----------------------------------------------------"
 
 prepro:

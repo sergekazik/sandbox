@@ -272,10 +272,10 @@ if { $charas_count == 0 } {
 #-----------------------------------------------------------
 #------ actual pairing scenario ----------------------------
 #-----------------------------------------------------------
-set timeout 20
 set fhp [open "crypto.pairing.cmd.lst" r]
 set data [read $fhp]
 foreach line $data {
+    set timeout 20
     #puts "$line"
 
     set buf [split $line ":"]
@@ -346,8 +346,14 @@ foreach line $data {
 	    puts "sending public_key"
 	} else {
 	    # encrypt payload
+
+	    set public_payload "public_payload.log"
+	    set outFileId [open $public_payload "w"]
+	    puts $outFileId "$payload"
+	    close $outFileId
+
 	    set spawn_id $cryptoID
-	    send "enc $payload\r"
+	    send "enf public_payload.log\r"
 
 	    expect ":enc"
 	    set buf [split $expect_out(buffer) ":"]
@@ -376,13 +382,21 @@ foreach line $data {
 						    #   |  _ <| |___ / ___ \| |_| |
 						    #   |_| \_\_____/_/   \_\____/
 	send "select-attribute $url\r"
+	set timeout 5
 	send "read\r"
+	expect {
+	   "Value:" {
+	   }
+	   timeout  {
+		send "select-attribute $url\r"
+		send "read\r"
+		expect "Value:"
+	   }
+	}
 
-	expect "Value:"
 	send "attribute-info\r"
 	expect "Value:"
-	#expect  "$ring_name"
-	expect "Flags"
+	expect "Flags:"
 	puts "\r"
 
 	if { $name == "GET_PUBLIC_PAYLOAD" } { #----------------- PUBLIC PAYLOAD ------------------------------
@@ -395,7 +409,7 @@ foreach line $data {
 	    set outFileId [open $public_payload "w"]
 	    for {set idx 0} {$idx<100} {incr idx} {
 		set pubpl [lindex $buf $idx]
-		if {[string match "*list*" $pubpl]} {
+		if {[string match "*Flags*" $pubpl]} {
 		    break
 		}
 		if {[string match "*$ring_name*" $pubpl]} {
