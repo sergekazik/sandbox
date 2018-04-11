@@ -39,14 +39,24 @@ static bool print_help(char* arg)
     {
         printf("test_crypto v. %s\nusage:\n--------------------------------------\n",version_date);
         printf("-gen            generate pub/sec keys pair\n");
-        printf("-gpk            get public key\n");
-        printf("-ppp <payload>  process public payload\n");
-        printf("-enc <input>    encrypt input\n");
-        printf("-dec <input>    decrypt input\n");
-        printf("--------------------------------------\nExtra:\n");
-        printf("-gpw            -gpk, -ppp, -enc\n");
-        printf("-ppf            -ppp from file\n");
-        printf("-def            -dec from file\n");
+        printf("-h --help       this help\n");
+        printf("-v              verbose (client)\n");
+        printf("--------------------------------------\n");
+        printf("-client         start client in interactive mode\n");
+        printf("    gpk             get public key\n");
+        printf("    ppp <payload>   process public payload\n");
+        printf("    ppf <filename>  process public payload from file\n");
+        printf("    enc <input>     encrypt input\n");
+        printf("    enf <filename>  encrypt input from file\n");
+        printf("    dec <input>     decrypt input\n");
+        printf("    def <filename>  decrypt input from file\n");
+        printf("    quit            exit interactive mode\n");
+        printf("--------------------------------------\n");
+        printf("-server         start server in interactive mode\n");
+        printf("    dec <input>     decrypt input\n");
+        printf("    enc <input>     encrypt input\n");
+        printf("    quit            exit interactive mode\n");
+        printf("--------------------------------------\n");
 
         return true;
     }
@@ -165,8 +175,9 @@ int main(int argc, char* argv[])
             }
         }
 
-        // suppress all debug if in the command mode
-        Ring::Ble::Crypto::Debug::Suppress(true);
+        // suppress all debug if in the command mode except verbose
+        if (!gbVerbose)
+            Ring::Ble::Crypto::Debug::Suppress(true);
     }
 
     char client_public[IO_MSG_BUFFER_SIZE];
@@ -445,7 +456,7 @@ int main(int argc, char* argv[])
 
     Ring::Ble::Crypto::Client client;
 
-    if (argc < 2 || (argc > 1 && (!strcmp(argv[1], "-gpk")||!strcmp(argv[1], "-gpw"))))
+    if (((argc == 1) || ((argc == 2) && gbVerbose)) || (argc > 1 && (!strcmp(argv[1], "-gpk")||!strcmp(argv[1], "-gpw"))))
         client.GetPublicKey(client_public, client_public_lenght);
 
     // single command mode client get public key
@@ -516,7 +527,7 @@ int main(int argc, char* argv[])
     }
 
     Ring::Ble::Crypto::Server *pServer = NULL;
-    if (argc == 1)
+    if ((argc == 1) || ((argc == 2) && gbVerbose))
     {
         // the prepared client_public key is supposed to be sent to server and used to init server
         pServer = new Ring::Ble::Crypto::Server(client_public, client_public_lenght);
@@ -570,7 +581,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (argc == 1 || (argc > 2 && (!strcmp(argv[1], "-ppp") || !strcmp(argv[1], "-ppf"))))
+    if (((argc == 1) || ((argc == 2) && gbVerbose)) || (argc > 2 && (!strcmp(argv[1], "-ppp") || !strcmp(argv[1], "-ppf"))))
     {
         ret = client.ProcessPublicPayload(server_public, server_public_lenght);
         if (ret != Ring::Ble::Crypto::Error::NO_ERROR)
