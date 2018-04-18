@@ -25,9 +25,8 @@
 #ifndef BCM43
 #error WRONG RingGattSrv platform-related file included into build
 #endif
-#if !defined(BLUEZ_TOOLS_SUPPORT)
-#error REQUIRED CONFIG_AMBARELLA_BLUEZ_TOOLS_SUPPORT and CONFIG_AMBARELLA_BLUETOOTH5_TOOL_SUPPORT
-#endif
+// CONFIG_AMBARELLA_BLUEZ_TOOLS_SUPPORT
+// CONFIG_AMBARELLA_BLUETOOTH5_TOOL_SUPPORT
 
 #include <stdio.h>
 #include <string.h>

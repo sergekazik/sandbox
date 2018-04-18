@@ -3886,9 +3886,75 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
     return ret_val;
 }
 
+#define MAKESVCUUID128(_q, _w, _e, _r, _t, _y, _u, _i, _o, _p, _a, _s, _d, _f, _g, _h) \
+                        {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+
+// 0000face-0000-1000-8000-00805f9b34fb
+static Byte_t iBeacon_UUID[] = MAKESVCUUID128(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB);
+#define IBEACON_UUID_LEN   (sizeof(iBeacon_UUID)/sizeof(char))
+
+#ifdef USE_FULL_IBEACOUN
+static Byte_t iBeacon_Prefix[] = {0x02,0x01,0x06,0x1a,0xff,0x00,0x4c,0x02,0x15};
+// static Byte_t iBeacon_Prefix[] = {0x02,0x01,0x1a,0x1a,0xff,0x4c,0x00,0x02,0x15};
+#define IBEACON_PREFIX_LEN   (sizeof(iBeacon_Prefix)/sizeof(char))
+
+static unsigned short iBeacon_Major = 1;
+#define IBEACON_MAJOR_LEN   (sizeof(iBeacon_Major)/sizeof(char))
+
+static unsigned short iBeacon_Minor = 1;
+#define IBEACON_MINOR_LEN   (sizeof(iBeacon_Minor)/sizeof(char))
+
+static signed char iBeacon_Tx_Power = 0xc5;
+
+#define IBEACON_ADRETISE_DATA_SIZE_LEN          31 // (0x1e)
+
+/* The following function is a utility function that is used to      */
+/* format the advertising data for this application in the           */
+/* advertising data.                                                 */
+static void FormatAdvertisingData(DEVM_Advertising_Information_t *AdvertisingInformation, Byte_t *AdvertisingBuffer)
+{
+    int writeIndex = 0, i;
+
+    /* Verify that the input parameters are semi-valid.                  */
+    if((AdvertisingInformation) && (AdvertisingBuffer))
+    {
+        AdvertisingBuffer[writeIndex++] = IBEACON_ADRETISE_DATA_SIZE_LEN;
+        AdvertisingBuffer[writeIndex++] = HCI_LE_ADVERTISING_REPORT_DATA_TYPE_RAW_IBEACON;
+
+        /*Set the IBEACON prefix to the Advertising Data */
+        for(i=0; i < (int) IBEACON_PREFIX_LEN; i++)
+        {
+            AdvertisingBuffer[writeIndex++] = iBeacon_Prefix[i] ;
+        }
+
+        /* Set the IBEACON UUID to the Advertising Data */
+        for(i = 0; i < (int) IBEACON_UUID_LEN; i++)
+        {
+            AdvertisingBuffer[writeIndex++] = iBeacon_UUID[i] ;
+        }
+
+        /*Set the iBEACON Major (Big Endian) */
+        AdvertisingBuffer[writeIndex++] = (iBeacon_Major >> 8)&0xff ;
+        AdvertisingBuffer[writeIndex++] = (iBeacon_Major     )&0xff ;
+
+        /*Set the iBEACON Minor (Big Endian) */
+        AdvertisingBuffer[writeIndex++] = (iBeacon_Minor >> 8)&0xff ;
+        AdvertisingBuffer[writeIndex++] = (iBeacon_Minor     )&0xff ;
+
+        /*Set the iBEACON TX Power */
+        AdvertisingBuffer[writeIndex++] = iBeacon_Tx_Power;
+
+        /* Format the structure.                                          */
+        AdvertisingInformation->AdvertisingDataLength = writeIndex;
+        AdvertisingInformation->AdvertisingData       = AdvertisingBuffer;
+
+    }
+}
+#endif
 /* The following function is responsible for starting an advertising */
 /* process.  This function returns zero if successful and a negative */
 /* value if an error occurred.                                       */
+static Byte_t                           AdvertisingBuffer[32];
 int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 {
     int                              ret_val = Error::NONE;
@@ -3902,13 +3968,25 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
         if ((aParams) && (aParams->NumberofParameters >= 2) && (aParams->Params[1].intParam))
         {
             BOT_NOTIFY_TRACE("StartAdvertising: aParams->NumberofParameters = %d", aParams->NumberofParameters);
-            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingFlags    = %d", aParams->Params[0].intParam);
-            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingDuration = %d", aParams->Params[1].intParam);
             /* Format the Advertising Information.                         */
             BTPS_MemInitialize(&AdvertisingInfo, 0, sizeof(DEVM_Advertising_Information_t));
 
             AdvertisingInfo.AdvertisingFlags    = aParams->Params[0].intParam;
             AdvertisingInfo.AdvertisingDuration = aParams->Params[1].intParam;
+
+#ifdef USE_FULL_IBEACOUN
+            FormatAdvertisingData(&AdvertisingInfo, AdvertisingBuffer);
+#else
+            AdvertisingBuffer[0] = 17;
+            AdvertisingBuffer[1] = 0x07;
+            memcpy(&AdvertisingBuffer[2], iBeacon_UUID, IBEACON_UUID_LEN);
+            AdvertisingInfo.AdvertisingData = AdvertisingBuffer;
+            AdvertisingInfo.AdvertisingDataLength = 18;
+#endif
+            // BOT_NOTIFY_TRACE("StartAdvertising: aParams->NumberofParameters             = %d", aParams->NumberofParameters);
+            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingFlags        = %d", (int) AdvertisingInfo.AdvertisingFlags);
+            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingDuration     = %d", (int) AdvertisingInfo.AdvertisingDuration);
+            BOT_NOTIFY_TRACE("StartAdvertising: AdvertisingInfo.AdvertisingDataLength   = %d", (int) AdvertisingInfo.AdvertisingDataLength);
 
             /* Make sure that BD_ADDR input exists when Directed Connection*/
             /* is being used.                                              */
@@ -3937,8 +4015,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
             {
                 /* When using High Duty cycle mode, the advertise will work */
                 /* Only for 1.28 Seconds.									*/
-                if ((aParams->Params[0].intParam & DIRECT_CONNECTABLE_MODE) &&
-                        (!(aParams->Params[0].intParam & LOW_DUTY_CYCLE_DIRECT_CONNECTABLE)))
+                if ((aParams->Params[0].intParam & DIRECT_CONNECTABLE_MODE) && (!(aParams->Params[0].intParam & LOW_DUTY_CYCLE_DIRECT_CONNECTABLE)))
                 {
                     BOT_NOTIFY_INFO("DEVM_StartAdvertising() Success: Duration 1.28 seconds.");
                 }
