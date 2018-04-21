@@ -228,7 +228,7 @@ int BlePairing::StartAdvertising(int aTimeout)
         }
 
         // start advertising
-        unsigned int adv_flags = Advertising::Discoverable  | Advertising::Connectable      | Advertising::AdvertiseName; //  | Advertising::AdvertiseTxPower | Advertising::AdvertiseAppearance;
+        unsigned int adv_flags = Advertising::Discoverable  | Advertising::Connectable      | Advertising::AdvertiseName | Advertising::AdvertiseTxPower | Advertising::AdvertiseAppearance;
         ParameterList_t params = {2, {{NULL, adv_flags}, {NULL, mAdvertisingTimeout_sec}}};
 
         if (Ble::Error::NONE != (ret_val = mBleApi->StartAdvertising(&params)))

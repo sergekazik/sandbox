@@ -255,3 +255,5 @@ crypto/sodium_glue.h
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/ring-nm/rnm_rsp.h
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/ring-nm/rnm_util.cpp
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/ring-nm/rnm_util.h
+../../chime_pro-firmware/app/ringnm/ring-nm/rnm_ble.cpp
+../../chime_pro-firmware/app/ringnm/ring-nm/rnm_common.cpp

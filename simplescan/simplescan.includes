@@ -29,3 +29,4 @@ crypto
 scripts
 ../../ring-nm
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/ring-nm
+../../chime_pro-firmware/app/ringnm/ring-nm

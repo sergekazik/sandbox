@@ -67,6 +67,7 @@ extern "C" {
 #define UUID_GAP			0x1800
 #define UUID_GATT			0x1801
 #define UUID_RING			0xFACE
+#define USE_128_BIT_ID      1
 
 using namespace Ring;
 using namespace Ring::Ble;
@@ -107,11 +108,9 @@ int GattSrv::Initialize()
             sleep(1);
             HCIscan(ctl, di.dev_id, (char*) "piscan");
             sleep(1);
-//            HCIauth(ctl, di.dev_id, (char*) "no");
-//            sleep(1);
+
+            // set simple secure pairing mode
             HCIssp_mode(di.dev_id, (char*) "1");
-            // HCIle_addr(di.dev_id, "05:07:AB:BA:07:05");
-            // HCIencrypt(ctl, di.dev_id, (char*) "no");
 
             close(ctl);
             mInitialized = true;
@@ -525,7 +524,7 @@ int GattSrv::open_socket(struct hci_dev_info &di) {
     return ctl;
 }
 
-
+#ifdef UNUSED_HCI_COMMANDS
 /**************************** HCI ******************************/
 /**************************** HCI ******************************/
 /**************************** HCI ******************************/
@@ -612,22 +611,6 @@ void GattSrv::HCIrstat(int ctl, int hdev) {
     }
 }
 
-void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
-    struct hci_dev_req dr;
-    dr.dev_id  = hdev;
-    dr.dev_opt = SCAN_DISABLED;
-    if (!strcmp(opt, "iscan"))
-        dr.dev_opt = SCAN_INQUIRY;
-    else if (!strcmp(opt, "pscan"))
-        dr.dev_opt = SCAN_PAGE;
-    else if (!strcmp(opt, "piscan"))
-        dr.dev_opt = SCAN_PAGE | SCAN_INQUIRY;
-    if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0) {
-        BOT_NOTIFY_ERROR("Can't set scan mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-}
-
 void GattSrv::HCIle_addr(int hdev, char *opt) {
     struct hci_request rq;
     le_set_random_address_cp cp;
@@ -661,89 +644,6 @@ void GattSrv::HCIle_addr(int hdev, char *opt) {
         BOT_NOTIFY_ERROR("done random address for hci%d ok", hdev);
 
     hci_close_dev(dd);
-}
-
-void GattSrv::HCIle_adv(int hdev, char *opt) {
-    struct hci_request rq;
-    le_set_advertise_enable_cp advertise_cp;
-    le_set_advertising_parameters_cp adv_params_cp;
-    uint8_t status;
-    int dd, ret;
-    if (hdev < 0)
-        hdev = hci_get_route(NULL);
-    dd = hci_open_dev(hdev);
-    if (dd < 0) {
-        BOT_NOTIFY_ERROR("Could not open device");
-        return;
-    }
-    memset(&adv_params_cp, 0, sizeof(adv_params_cp));
-    adv_params_cp.min_interval = htobs(0x0800);
-    adv_params_cp.max_interval = htobs(0x0800);
-    if (opt)
-        adv_params_cp.advtype = atoi(opt);
-    adv_params_cp.chan_map = 7;
-    memset(&rq, 0, sizeof(rq));
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISING_PARAMETERS;
-    rq.cparam = &adv_params_cp;
-    rq.clen = LE_SET_ADVERTISING_PARAMETERS_CP_SIZE;
-    rq.rparam = &status;
-    rq.rlen = 1;
-    ret = hci_send_req(dd, &rq, 1000);
-    if (ret < 0)
-        goto done;
-    memset(&advertise_cp, 0, sizeof(advertise_cp));
-    advertise_cp.enable = 0x01;
-    memset(&rq, 0, sizeof(rq));
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
-    rq.cparam = &advertise_cp;
-    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
-    rq.rparam = &status;
-    rq.rlen = 1;
-    ret = hci_send_req(dd, &rq, 1000);
-done:
-    hci_close_dev(dd);
-    if (ret < 0) {
-        BOT_NOTIFY_ERROR("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-    if (status) {
-        BOT_NOTIFY_ERROR("LE set advertise enable on hci%d returned status %d", hdev, status);
-        return;
-    }
-}
-
-void GattSrv::HCIno_le_adv(int hdev) {
-    struct hci_request rq;
-    le_set_advertise_enable_cp advertise_cp;
-    uint8_t status;
-    int dd, ret;
-    if (hdev < 0)
-        hdev = hci_get_route(NULL);
-    dd = hci_open_dev(hdev);
-    if (dd < 0) {
-        BOT_NOTIFY_ERROR("Could not open device");
-        return;
-    }
-    memset(&advertise_cp, 0, sizeof(advertise_cp));
-    memset(&rq, 0, sizeof(rq));
-    rq.ogf = OGF_LE_CTL;
-    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
-    rq.cparam = &advertise_cp;
-    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
-    rq.rparam = &status;
-    rq.rlen = 1;
-    ret = hci_send_req(dd, &rq, 1000);
-    hci_close_dev(dd);
-    if (ret < 0) {
-        BOT_NOTIFY_ERROR("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-    if (status) {
-        BOT_NOTIFY_ERROR("LE set advertise enable on hci%d returned status %d", hdev, status);
-        return;
-    }
 }
 
 void GattSrv::HCIle_states(int hdev) {
@@ -848,37 +748,6 @@ void GattSrv::HCIencrypt(int ctl, int hdev, char *opt) {
     }
 }
 
-void GattSrv::HCIup(int ctl, int hdev) {
-    /* Start HCI device */
-    if (ioctl(ctl, HCIDEVUP, hdev) < 0) {
-        if (errno == EALREADY)
-            return;
-        BOT_NOTIFY_ERROR("Can't init device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-}
-
-void GattSrv::HCIdown(int ctl, int hdev) {
-    /* Stop HCI device */
-    if (ioctl(ctl, HCIDEVDOWN, hdev) < 0) {
-        BOT_NOTIFY_ERROR("Can't down device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-}
-
-void GattSrv::HCIreset(int ctl, int hdev) {
-    /* Reset HCI device */
-#if 0
-    if (ioctl(ctl, HCIDEVRESET, hdev) < 0 ) {
-        BOT_NOTIFY_ERROR("Reset failed for device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-#else
-    GattSrv::HCIdown(ctl, hdev);
-    GattSrv::HCIup(ctl, hdev);
-#endif
-}
-
 void GattSrv::HCIptype(int ctl, int hdev, char *opt) {
     struct hci_dev_req dr;
     dr.dev_id = hdev;
@@ -890,7 +759,7 @@ void GattSrv::HCIptype(int ctl, int hdev, char *opt) {
     } else {
         print_dev_hdr(&di);
         print_pkt_type(&di);
-    }
+    }#
 }
 
 void GattSrv::HCIlp(int ctl, int hdev, char *opt) {
@@ -986,286 +855,6 @@ void GattSrv::HCIfeatures(int hdev) {
                 features[4], features[5], features[6], features[7]);
     }
     hci_close_dev(dd);
-}
-
-void GattSrv::HCIname(int hdev, char *opt) {
-    int dd;
-    dd = hci_open_dev(hdev);
-    if (dd < 0) {
-        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-    if (opt) {
-        if (hci_write_local_name(dd, opt, 2000) < 0) {
-            BOT_NOTIFY_ERROR("Can't change local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-    } else {
-        char name[249];
-        int i;
-        if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0) {
-            BOT_NOTIFY_ERROR("Can't read local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-        for (i = 0; i < 248 && name[i]; i++) {
-            if ((unsigned char) name[i] < 32 || name[i] == 127)
-                name[i] = '.';
-        }
-        name[248] = '\0';
-        print_dev_hdr(&di);
-        BOT_NOTIFY_DEBUG("\tName: '%s'", name);
-    }
-    hci_close_dev(dd);
-}
-
-const char *GattSrv::get_minor_device_name(int major, int minor) {
-    switch (major) {
-    case 0:	/* misc */
-        return "";
-    case 1:	/* computer */
-        switch (minor) {
-        case 0:
-            return "Uncategorized";
-        case 1:
-            return "Desktop workstation";
-        case 2:
-            return "Server";
-        case 3:
-            return "Laptop";
-        case 4:
-            return "Handheld";
-        case 5:
-            return "Palm";
-        case 6:
-            return "Wearable";
-        }
-        break;
-    case 2:	/* phone */
-        switch (minor) {
-        case 0:
-            return "Uncategorized";
-        case 1:
-            return "Cellular";
-        case 2:
-            return "Cordless";
-        case 3:
-            return "Smart phone";
-        case 4:
-            return "Wired modem or voice gateway";
-        case 5:
-            return "Common ISDN Access";
-        case 6:
-            return "Sim Card Reader";
-        }
-        break;
-    case 3:	/* lan access */
-        if (minor == 0)
-            return "Uncategorized";
-        switch (minor / 8) {
-        case 0:
-            return "Fully available";
-        case 1:
-            return "1-17% utilized";
-        case 2:
-            return "17-33% utilized";
-        case 3:
-            return "33-50% utilized";
-        case 4:
-            return "50-67% utilized";
-        case 5:
-            return "67-83% utilized";
-        case 6:
-            return "83-99% utilized";
-        case 7:
-            return "No service available";
-        }
-        break;
-    case 4:	/* audio/video */
-        switch (minor) {
-        case 0:
-            return "Uncategorized";
-        case 1:
-            return "Device conforms to the Headset profile";
-        case 2:
-            return "Hands-free";
-            /* 3 is reserved */
-        case 4:
-            return "Microphone";
-        case 5:
-            return "Loudspeaker";
-        case 6:
-            return "Headphones";
-        case 7:
-            return "Portable Audio";
-        case 8:
-            return "Car Audio";
-        case 9:
-            return "Set-top box";
-        case 10:
-            return "HiFi Audio Device";
-        case 11:
-            return "VCR";
-        case 12:
-            return "Video Camera";
-        case 13:
-            return "Camcorder";
-        case 14:
-            return "Video Monitor";
-        case 15:
-            return "Video Display and Loudspeaker";
-        case 16:
-            return "Video Conferencing";
-            /* 17 is reserved */
-        case 18:
-            return "Gaming/Toy";
-        }
-        break;
-    case 5: {	/* peripheral */
-        static char cls_str[48];
-        cls_str[0] = '\0';
-        switch (minor & 48) {
-        case 16:
-            strncpy(cls_str, "Keyboard", sizeof(cls_str));
-            break;
-        case 32:
-            strncpy(cls_str, "Pointing device", sizeof(cls_str));
-            break;
-        case 48:
-            strncpy(cls_str, "Combo keyboard/pointing device", sizeof(cls_str));
-            break;
-        }
-        if ((minor & 15) && (strlen(cls_str) > 0))
-            strcat(cls_str, "/");
-        switch (minor & 15) {
-        case 0:
-            break;
-        case 1:
-            strncat(cls_str, "Joystick", sizeof(cls_str) - strlen(cls_str));
-            break;
-        case 2:
-            strncat(cls_str, "Gamepad", sizeof(cls_str) - strlen(cls_str));
-            break;
-        case 3:
-            strncat(cls_str, "Remote control", sizeof(cls_str) - strlen(cls_str));
-            break;
-        case 4:
-            strncat(cls_str, "Sensing device", sizeof(cls_str) - strlen(cls_str));
-            break;
-        case 5:
-            strncat(cls_str, "Digitizer tablet", sizeof(cls_str) - strlen(cls_str));
-            break;
-        case 6:
-            strncat(cls_str, "Card reader", sizeof(cls_str) - strlen(cls_str));
-            break;
-        default:
-            strncat(cls_str, "(reserved)", sizeof(cls_str) - strlen(cls_str));
-            break;
-        }
-        if (strlen(cls_str) > 0)
-            return cls_str;
-    }
-    case 6:	/* imaging */
-        if (minor & 4)
-            return "Display";
-        if (minor & 8)
-            return "Camera";
-        if (minor & 16)
-            return "Scanner";
-        if (minor & 32)
-            return "Printer";
-        break;
-    case 7: /* wearable */
-        switch (minor) {
-        case 1:
-            return "Wrist Watch";
-        case 2:
-            return "Pager";
-        case 3:
-            return "Jacket";
-        case 4:
-            return "Helmet";
-        case 5:
-            return "Glasses";
-        }
-        break;
-    case 8: /* toy */
-        switch (minor) {
-        case 1:
-            return "Robot";
-        case 2:
-            return "Vehicle";
-        case 3:
-            return "Doll / Action Figure";
-        case 4:
-            return "Controller";
-        case 5:
-            return "Game";
-        }
-        break;
-    case 63:	/* uncategorised */
-        return "";
-    }
-    return "Unknown (reserved) minor device class";
-}
-
-void GattSrv::HCIclass(int hdev, char *opt) {
-    static const char *services[] = { "Positioning",
-                                      "Networking",
-                                      "Rendering",
-                                      "Capturing",
-                                      "Object Transfer",
-                                      "Audio",
-                                      "Telephony",
-                                      "Information"
-                                    };
-    static const char *major_devices[] = { "Miscellaneous",
-                                           "Computer",
-                                           "Phone",
-                                           "LAN Access",
-                                           "Audio/Video",
-                                           "Peripheral",
-                                           "Imaging",
-                                           "Uncategorized"
-                                         };
-    int s = hci_open_dev(hdev);
-    if (s < 0) {
-        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-    if (opt) {
-        uint32_t cod = strtoul(opt, NULL, 16);
-        if (hci_write_class_of_dev(s, cod, 2000) < 0) {
-            BOT_NOTIFY_ERROR("Can't write local class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-    } else {
-        uint8_t cls[3];
-        if (hci_read_class_of_dev(s, cls, 1000) < 0) {
-            BOT_NOTIFY_ERROR("Can't read class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-        print_dev_hdr(&di);
-        BOT_NOTIFY_DEBUG("\tClass: 0x%02x%02x%02x", cls[2], cls[1], cls[0]);
-        char strtmp[123] = "";
-        if (cls[2]) {
-            unsigned int i, offset = 0;
-            int first = 1;
-            for (i = 0; i < (sizeof(services) / sizeof(*services)); i++)
-                if (cls[2] & (1 << i)) {
-                    if (!first)
-                        offset += sprintf(&strtmp[offset], ", ");
-                    offset += sprintf(&strtmp[offset], "%s", services[i]);
-                    first = 0;
-                }
-            BOT_NOTIFY_DEBUG("\tService Classes: %s", strtmp);
-        } else
-            BOT_NOTIFY_DEBUG("\tService Classes: %s", "Unspecified");
-        if ((cls[1] & 0x1f) >= sizeof(major_devices) / sizeof(*major_devices))
-            BOT_NOTIFY_DEBUG("\tInvalid Device Class!");
-        else
-            BOT_NOTIFY_DEBUG("\tDevice Class: %s, %s", major_devices[cls[1] & 0x1f],
-                    get_minor_device_name(cls[1] & 0x1f, cls[0] >> 2));
-    }
 }
 
 void GattSrv::HCIvoice(int hdev, char *opt) {
@@ -1795,31 +1384,6 @@ void GattSrv::HCIafh_mode(int hdev, char *opt) {
     }
 }
 
-void GattSrv::HCIssp_mode(int hdev, char *opt) {
-    int dd;
-    dd = hci_open_dev(hdev);
-    if (dd < 0) {
-        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
-        return;
-    }
-    if (opt) {
-        uint8_t mode = atoi(opt);
-        if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
-            BOT_NOTIFY_ERROR("Can't set Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-    } else {
-        uint8_t mode;
-        if (hci_read_simple_pairing_mode(dd, &mode, 1000) < 0) {
-            BOT_NOTIFY_ERROR("Can't read Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
-            return;
-        }
-        print_dev_hdr(&di);
-        BOT_NOTIFY_DEBUG("\tSimple Pairing mode: %s",
-                         mode == 1 ? "Enabled" : "Disabled");
-    }
-}
-
 void GattSrv::HCIrevision(int hdev) {
     struct hci_version ver;
     int dd;
@@ -1876,6 +1440,466 @@ void GattSrv::HCIunblock(int hdev, char *opt) {
     hci_close_dev(dd);
 }
 
+#endif // UNUSED_HCI_COMMANDS
+
+#define CASE_RETURN(_idx, _retval) case _idx: return _retval;
+const char *GattSrv::get_minor_device_name(int major, int minor) {
+    switch (major) {
+    case 0:	/* misc */
+        return "";
+    case 1:	/* computer */
+        switch (minor) {
+            CASE_RETURN(0,"Uncategorized");
+            CASE_RETURN(1,"Desktop workstation");
+            CASE_RETURN(2,"Server");
+            CASE_RETURN(3,"Laptop");
+            CASE_RETURN(4,"Handheld");
+            CASE_RETURN(5,"Palm");
+            CASE_RETURN(6,"Wearable");
+        }
+        break;
+    case 2:	/* phone */
+        switch (minor) {
+            CASE_RETURN(0,"Uncategorized");
+            CASE_RETURN(1,"Cellular");
+            CASE_RETURN(2,"Cordless");
+            CASE_RETURN(3,"Smart phone");
+            CASE_RETURN(4,"Wired modem or voice gateway");
+            CASE_RETURN(5,"Common ISDN Access");
+            CASE_RETURN(6,"Sim Card Reader");
+        }
+        break;
+    case 3:	/* lan access */
+        if (minor == 0)
+            return "Uncategorized";
+        switch (minor / 8) {
+            CASE_RETURN(0,"Fully available");
+            CASE_RETURN(1,"1-17% utilized");
+            CASE_RETURN(2,"17-33% utilized");
+            CASE_RETURN(3,"33-50% utilized");
+            CASE_RETURN(4,"50-67% utilized");
+            CASE_RETURN(5,"67-83% utilized");
+            CASE_RETURN(6,"83-99% utilized");
+            CASE_RETURN(7,"No service available");
+        }
+        break;
+    case 4:	/* audio/video */
+        switch (minor) {
+            CASE_RETURN(0,"Uncategorized");
+            CASE_RETURN(1,"Device conforms to the Headset profile");
+            CASE_RETURN(2,"Hands-free");
+            CASE_RETURN(4,"Microphone");
+            CASE_RETURN(5,"Loudspeaker");
+            CASE_RETURN(6,"Headphones");
+            CASE_RETURN(7,"Portable Audio");
+            CASE_RETURN(8,"Car Audio");
+            CASE_RETURN(9,"Set-top box");
+            CASE_RETURN(10,"HiFi Audio Device");
+            CASE_RETURN(11,"VCR");
+            CASE_RETURN(12,"Video Camera");
+            CASE_RETURN(13,"Camcorder");
+            CASE_RETURN(14,"Video Monitor");
+            CASE_RETURN(15,"Video Display and Loudspeaker");
+            CASE_RETURN(16,"Video Conferencing");
+            CASE_RETURN(17,"reserved");
+            CASE_RETURN(18,"Gaming/Toy");
+        }
+        break;
+    case 5: {	/* peripheral */
+        static char cls_str[48];
+        cls_str[0] = '\0';
+        switch (minor & 48) {
+        case 16:
+            strncpy(cls_str, "Keyboard", sizeof(cls_str));
+            break;
+        case 32:
+            strncpy(cls_str, "Pointing device", sizeof(cls_str));
+            break;
+        case 48:
+            strncpy(cls_str, "Combo keyboard/pointing device", sizeof(cls_str));
+            break;
+        }
+        if ((minor & 15) && (strlen(cls_str) > 0))
+            strcat(cls_str, "/");
+        switch (minor & 15) {
+        case 0:
+            break;
+        case 1:
+            strncat(cls_str, "Joystick", sizeof(cls_str) - strlen(cls_str));
+            break;
+        case 2:
+            strncat(cls_str, "Gamepad", sizeof(cls_str) - strlen(cls_str));
+            break;
+        case 3:
+            strncat(cls_str, "Remote control", sizeof(cls_str) - strlen(cls_str));
+            break;
+        case 4:
+            strncat(cls_str, "Sensing device", sizeof(cls_str) - strlen(cls_str));
+            break;
+        case 5:
+            strncat(cls_str, "Digitizer tablet", sizeof(cls_str) - strlen(cls_str));
+            break;
+        case 6:
+            strncat(cls_str, "Card reader", sizeof(cls_str) - strlen(cls_str));
+            break;
+        default:
+            strncat(cls_str, "(reserved)", sizeof(cls_str) - strlen(cls_str));
+            break;
+        }
+        if (strlen(cls_str) > 0)
+            return cls_str;
+    }
+    case 6:	/* imaging */
+        if (minor & 4)
+            return "Display";
+        if (minor & 8)
+            return "Camera";
+        if (minor & 16)
+            return "Scanner";
+        if (minor & 32)
+            return "Printer";
+        break;
+    case 7: /* wearable */
+        switch (minor) {
+            CASE_RETURN(1,"Wrist Watch");
+            CASE_RETURN(2,"Pager");
+            CASE_RETURN(3,"Jacket");
+            CASE_RETURN(4,"Helmet");
+            CASE_RETURN(5,"Glasses");
+        }
+        break;
+    case 8: /* toy */
+        switch (minor) {
+            CASE_RETURN(1,"Robot");
+            CASE_RETURN(2,"Vehicle");
+            CASE_RETURN(3,"Doll / Action Figure");
+            CASE_RETURN(4,"Controller");
+            CASE_RETURN(5,"Game");
+        }
+        break;
+    case 63:	/* uncategorised */
+        return "";
+    }
+    return "Unknown (reserved) minor device class";
+}
+
+void GattSrv::HCIssp_mode(int hdev, char *opt) {
+    int dd;
+    dd = hci_open_dev(hdev);
+    if (dd < 0) {
+        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+    if (opt) {
+        uint8_t mode = atoi(opt);
+        if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
+            BOT_NOTIFY_ERROR("Can't set Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+    } else {
+        uint8_t mode;
+        if (hci_read_simple_pairing_mode(dd, &mode, 1000) < 0) {
+            BOT_NOTIFY_ERROR("Can't read Simple Pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+        print_dev_hdr(&di);
+        BOT_NOTIFY_DEBUG("\tSimple Pairing mode: %s",
+                         mode == 1 ? "Enabled" : "Disabled");
+    }
+}
+
+void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
+    struct hci_dev_req dr;
+    dr.dev_id  = hdev;
+    dr.dev_opt = SCAN_DISABLED;
+    if (!strcmp(opt, "iscan"))
+        dr.dev_opt = SCAN_INQUIRY;
+    else if (!strcmp(opt, "pscan"))
+        dr.dev_opt = SCAN_PAGE;
+    else if (!strcmp(opt, "piscan"))
+        dr.dev_opt = SCAN_PAGE | SCAN_INQUIRY;
+    if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0) {
+        BOT_NOTIFY_ERROR("Can't set scan mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+}
+
+void GattSrv::HCIup(int ctl, int hdev) {
+    /* Start HCI device */
+    if (ioctl(ctl, HCIDEVUP, hdev) < 0) {
+        if (errno == EALREADY)
+            return;
+        BOT_NOTIFY_ERROR("Can't init device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+}
+
+void GattSrv::HCIdown(int ctl, int hdev) {
+    /* Stop HCI device */
+    if (ioctl(ctl, HCIDEVDOWN, hdev) < 0) {
+        BOT_NOTIFY_ERROR("Can't down device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+}
+
+void GattSrv::HCIreset(int ctl, int hdev) {
+    /* Reset HCI device */
+#if 0
+    if (ioctl(ctl, HCIDEVRESET, hdev) < 0 ) {
+        BOT_NOTIFY_ERROR("Reset failed for device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+#else
+    GattSrv::HCIdown(ctl, hdev);
+    GattSrv::HCIup(ctl, hdev);
+#endif
+}
+
+void GattSrv::HCIno_le_adv(int hdev) {
+    struct hci_request rq;
+    le_set_advertise_enable_cp advertise_cp;
+    uint8_t status;
+    int dd, ret;
+    if (hdev < 0)
+        hdev = hci_get_route(NULL);
+    dd = hci_open_dev(hdev);
+    if (dd < 0) {
+        BOT_NOTIFY_ERROR("Could not open device");
+        return;
+    }
+    memset(&advertise_cp, 0, sizeof(advertise_cp));
+    memset(&rq, 0, sizeof(rq));
+    rq.ogf = OGF_LE_CTL;
+    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
+    rq.cparam = &advertise_cp;
+    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
+    rq.rparam = &status;
+    rq.rlen = 1;
+    ret = hci_send_req(dd, &rq, 1000);
+    hci_close_dev(dd);
+    if (ret < 0) {
+        BOT_NOTIFY_ERROR("Can't stop advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+    if (status) {
+        BOT_NOTIFY_ERROR("LE set advertise disable on hci%d returned status %d", hdev, status);
+        return;
+    }
+}
+
+#define MAKESVCUUID128(_q, _w, _e, _r, _t, _y, _u, _i, _o, _p, _a, _s, _d, _f, _g, _h) \
+                        {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+// 0000face-0000-1000-8000-00805f9b34fb
+static const Byte_t RingSvc_UUID[] = MAKESVCUUID128(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB);
+#define RingSvc_UUID_LEN   (sizeof(RingSvc_UUID)/sizeof(char))
+void GattSrv::HCIle_adv(int hdev, char *opt) {
+    struct hci_request rq;
+    le_set_advertise_enable_cp advertise_cp;
+    le_set_advertising_parameters_cp adv_params_cp;
+    uint8_t status;
+    int dd, ret;
+    if (hdev < 0)
+        hdev = hci_get_route(NULL);
+    dd = hci_open_dev(hdev);
+    if (dd < 0) {
+        BOT_NOTIFY_ERROR("Could not open device");
+        return;
+    }
+    memset(&adv_params_cp, 0, sizeof(adv_params_cp));
+    adv_params_cp.min_interval = htobs(0x0800);
+    adv_params_cp.max_interval = htobs(0x0800);
+    if (opt)
+        adv_params_cp.advtype = atoi(opt);
+    adv_params_cp.chan_map = 7;
+    memset(&rq, 0, sizeof(rq));
+    rq.ogf = OGF_LE_CTL;
+    rq.ocf = OCF_LE_SET_ADVERTISING_PARAMETERS;
+    rq.cparam = &adv_params_cp;
+    rq.clen = LE_SET_ADVERTISING_PARAMETERS_CP_SIZE;
+    rq.rparam = &status;
+    rq.rlen = 1;
+    ret = hci_send_req(dd, &rq, 1000);
+    if (ret < 0)
+        goto done;
+    memset(&advertise_cp, 0, sizeof(advertise_cp));
+    advertise_cp.enable = 0x01;
+    memset(&rq, 0, sizeof(rq));
+    rq.ogf = OGF_LE_CTL;
+    rq.ocf = OCF_LE_SET_ADVERTISE_ENABLE;
+    rq.cparam = &advertise_cp;
+    rq.clen = LE_SET_ADVERTISE_ENABLE_CP_SIZE;
+    rq.rparam = &status;
+    rq.rlen = 1;
+    ret = hci_send_req(dd, &rq, 1000);
+
+    if (ret < 0)
+        goto done;
+    else
+    {   // disable BR/EDR and add device name
+        // hci cmd 0x08 0x0008 11 02 01 06 0D 09 52 69 6e 67 53 65 74 75 70 2d 61 63
+        le_set_advertising_data_cp adv_data_cp;
+        memset(&adv_data_cp, 0, sizeof(adv_data_cp));
+
+        int name_len = strlen(mDeviceName);
+        const uint8_t flags[] = {0x02, 0x01, 0x06};
+        const int flags_len = sizeof(flags)/sizeof(uint8_t);
+
+        int offset = 0;
+        adv_data_cp.data[offset++] = flags_len + name_len + 1 /*segment len = name_len+type*/ + 1; /*type = 0x09*/
+        memcpy(&adv_data_cp.data[offset], flags, flags_len);
+        offset += flags_len;
+
+        adv_data_cp.data[offset++] = name_len + 1;
+        adv_data_cp.data[offset++] = 0x09; // full device name
+        memcpy(&adv_data_cp.data[offset], mDeviceName, name_len);
+        offset += name_len;
+
+        adv_data_cp.length = adv_data_cp.data[0] +1;
+
+        memset(&rq, 0, sizeof(rq));
+        rq.ogf = OGF_LE_CTL;
+        rq.ocf = OCF_LE_SET_ADVERTISING_DATA;
+        rq.cparam = &adv_data_cp;
+        rq.clen = LE_SET_ADVERTISING_DATA_CP_SIZE;
+        rq.rparam = &status;
+        rq.rlen = 1;
+
+        ret = hci_send_req(dd, &rq, 1000);
+        if(ret < 0)
+        {
+            BOT_NOTIFY_ERROR("failed OCF_LE_SET_ADVERTISING_DATA %s (%d)", strerror(errno), errno);
+            goto done;
+        }
+        else
+        {   // set scan response with UUID
+            // hci cmd 0x08 0x0009 12 11 07 FB 34 9B 5F 80 00 00 80 00 10 00 00 CE FA 00 00
+            le_set_scan_response_data_cp scn_data_cp;
+            memset(&scn_data_cp, 0, sizeof(scn_data_cp));
+
+            scn_data_cp.data[0] = 17;
+            scn_data_cp.data[1] = 0x07;
+            memcpy(&scn_data_cp.data[2], RingSvc_UUID, RingSvc_UUID_LEN);
+            scn_data_cp.length = 18;
+
+            memset(&rq, 0, sizeof(rq));
+            rq.ogf = OGF_LE_CTL;
+            rq.ocf = OCF_LE_SET_SCAN_RESPONSE_DATA;
+            rq.cparam = &scn_data_cp;
+            rq.clen = LE_SET_SCAN_RESPONSE_DATA_CP_SIZE;
+            rq.rparam = &status;
+            rq.rlen = 1;
+
+            ret = hci_send_req(dd, &rq, 1000);
+            if(ret < 0)
+            {
+                BOT_NOTIFY_ERROR("failed OCF_LE_SET_SCAN_RESPONSE_DATA %s (%d)", strerror(errno), errno);
+                goto done;
+            }
+        }
+    }
+
+done:
+    hci_close_dev(dd);
+    if (ret < 0) {
+        BOT_NOTIFY_ERROR("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+    if (status) {
+        BOT_NOTIFY_ERROR("LE set advertise enable on hci%d returned status %d", hdev, status);
+        return;
+    }
+}
+
+void GattSrv::HCIclass(int hdev, char *opt) {
+    static const char *services[] = { "Positioning",
+                                      "Networking",
+                                      "Rendering",
+                                      "Capturing",
+                                      "Object Transfer",
+                                      "Audio",
+                                      "Telephony",
+                                      "Information"
+                                    };
+    static const char *major_devices[] = { "Miscellaneous",
+                                           "Computer",
+                                           "Phone",
+                                           "LAN Access",
+                                           "Audio/Video",
+                                           "Peripheral",
+                                           "Imaging",
+                                           "Uncategorized"
+                                         };
+    int s = hci_open_dev(hdev);
+    if (s < 0) {
+        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+    if (opt) {
+        uint32_t cod = strtoul(opt, NULL, 16);
+        if (hci_write_class_of_dev(s, cod, 2000) < 0) {
+            BOT_NOTIFY_ERROR("Can't write local class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+    } else {
+        uint8_t cls[3];
+        if (hci_read_class_of_dev(s, cls, 1000) < 0) {
+            BOT_NOTIFY_ERROR("Can't read class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+        print_dev_hdr(&di);
+        BOT_NOTIFY_DEBUG("\tClass: 0x%02x%02x%02x", cls[2], cls[1], cls[0]);
+        char strtmp[123] = "";
+        if (cls[2]) {
+            unsigned int i, offset = 0;
+            int first = 1;
+            for (i = 0; i < (sizeof(services) / sizeof(*services)); i++)
+                if (cls[2] & (1 << i)) {
+                    if (!first)
+                        offset += sprintf(&strtmp[offset], ", ");
+                    offset += sprintf(&strtmp[offset], "%s", services[i]);
+                    first = 0;
+                }
+            BOT_NOTIFY_DEBUG("\tService Classes: %s", strtmp);
+        } else
+            BOT_NOTIFY_DEBUG("\tService Classes: %s", "Unspecified");
+        if ((cls[1] & 0x1f) >= sizeof(major_devices) / sizeof(*major_devices))
+            BOT_NOTIFY_DEBUG("\tInvalid Device Class!");
+        else
+            BOT_NOTIFY_DEBUG("\tDevice Class: %s, %s", major_devices[cls[1] & 0x1f],
+                    get_minor_device_name(cls[1] & 0x1f, cls[0] >> 2));
+    }
+}
+
+void GattSrv::HCIname(int hdev, char *opt) {
+    int dd;
+    dd = hci_open_dev(hdev);
+    if (dd < 0) {
+        BOT_NOTIFY_ERROR("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        return;
+    }
+    if (opt) {
+        if (hci_write_local_name(dd, opt, 2000) < 0) {
+            BOT_NOTIFY_ERROR("Can't change local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+    } else {
+        char name[249];
+        int i;
+        if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0) {
+            BOT_NOTIFY_ERROR("Can't read local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            return;
+        }
+        for (i = 0; i < 248 && name[i]; i++) {
+            if ((unsigned char) name[i] < 32 || name[i] == 127)
+                name[i] = '.';
+        }
+        name[248] = '\0';
+        print_dev_hdr(&di);
+        BOT_NOTIFY_DEBUG("\tName: '%s'", name);
+    }
+    hci_close_dev(dd);
+}
+
 void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
     static int hdr = -1;
     char addr[18];
@@ -1890,6 +1914,7 @@ void GattSrv::print_dev_hdr(struct hci_dev_info *di) {
                      addr, di->acl_mtu, di->acl_pkts,
                      di->sco_mtu, di->sco_pkts);
 }
+
 
 /**************************************************************
  * static functions and callbacks implementation
@@ -1994,6 +2019,7 @@ static void confirm_write(struct gatt_db_attribute *attr, int err, void *user_da
         BOT_NOTIFY_ERROR("Error caching/writing attribute %s - err: %d", (char*) user_data, err);
 }
 
+#ifndef USE_128_BIT_ID
 static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
                     unsigned int id, uint16_t offset,
                     uint8_t opcode, struct bt_att *att,
@@ -2021,6 +2047,7 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
     // TODO: implement storage if this helps to solve the "9 max characteristics problem" ... but it doesn't
     gatt_db_attribute_write_result(attrib, id, ecode);
 }
+#endif
 
 static int populate_gatt_service()
 {
@@ -2033,6 +2060,64 @@ static int populate_gatt_service()
     struct gatt_db_attribute *ringsvc;
     bool primary = true;
 
+#ifdef USE_128_BIT_ID
+    /* Add the RING service*/
+    int number_of_handlers = 32;
+    int max_attr = (int) svc->NumberAttributes;
+
+    uint128_t uuid128;
+    memcpy(&uuid128.data, &svc->ServiceUUID, sizeof(UUID_128_t));
+    bt_uuid128_create(&uuid, uuid128);
+
+    if (NULL == (ringsvc = gatt_db_add_service_ext(GattSrv::mServer.sref->db, &uuid, primary, number_of_handlers, gatt_attr_read_cb, gatt_attr_write_cb)))
+    {
+        BOT_NOTIFY_ERROR("gatt_db_add_service_ext failed, Abort");
+        return Error::FAILED_INITIALIZE;
+    }
+    BOT_NOTIFY_DEBUG("gatt_db_add_service_ext added %llu", (unsigned long long) ringsvc);
+
+    GattSrv::mServer.ring_svc_handle[RING_PAIRING_SVC_IDX] = gatt_db_attribute_get_handle(ringsvc);
+    BOT_NOTIFY_DEBUG("gatt_db_attribute_get_handle ret %d", GattSrv::mServer.ring_svc_handle[RING_PAIRING_SVC_IDX]);
+
+    for (int attr_index = 0; attr_index < max_attr; attr_index++)
+    {
+        CharacteristicInfo_t *ch_info = NULL;
+        struct gatt_db_attribute *attr_new = NULL;
+
+        if (NULL != (ch_info = (CharacteristicInfo_t *)svc->AttributeList[attr_index].Attribute))
+        {
+            BOT_NOTIFY_DEBUG("adding attr[%d] %s", attr_index, svc->AttributeList[attr_index].AttributeName);
+            memcpy(&uuid128.data, &ch_info->CharacteristicUUID, sizeof(UUID_128_t));
+            bt_uuid128_create(&uuid, uuid128); //
+
+            attr_new =  gatt_db_service_add_characteristic(ringsvc, &uuid,
+                          BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+                          BT_GATT_CHRC_PROP_READ | BT_GATT_CHRC_PROP_WRITE | BT_GATT_CHRC_PROP_NOTIFY,
+                          // gatt_characteristic_read_cb, gatt_characteristic_write_cb,
+                          NULL, NULL,   // don't overwrite callbacks for read/write each attr
+                          (void*) (unsigned long) attr_index);        // optional user_data to be passed to every callback
+
+            if (NULL == attr_new)
+            {
+                BOT_NOTIFY_ERROR("gatt_db_service_add_characteristic failed, Abort");
+                return Error::FAILED_INITIALIZE;
+            }
+            GattSrv::mServer.ring_attr_handle[attr_index] = gatt_db_attribute_get_handle(attr_new);
+            BOT_NOTIFY_DEBUG("+ attr %d added %s, hndl %d", attr_index, svc->AttributeList[attr_index].AttributeName, GattSrv::mServer.ring_attr_handle[attr_index]);
+
+            if (ch_info->Value && (ch_info->ValueLength > 0))
+            {
+                gatt_db_attribute_write(attr_new, 0,
+                                        (const uint8_t *) ch_info->Value, ch_info->ValueLength,
+                                        BT_ATT_OP_WRITE_REQ, NULL,
+                                        confirm_write, (void*) svc->AttributeList[attr_index].AttributeName);
+            }
+        }
+    }
+
+    bool ret = gatt_db_service_set_active(ringsvc, true);
+    BOT_NOTIFY_DEBUG("populate_gatt_service gatt_db_service_set_active ret %d\n-----------------------------------------------", ret);
+#else
     /* Add the RING service*/
     int attr_index = 0;
     int service_attr_max = 3;
@@ -2044,13 +2129,7 @@ static int populate_gatt_service()
     {
         uint16_t svc_id = UUID_RING + offset;
 
-#ifdef USE_128_BIT_ID
-        uint128_t uuid128;
-        memcpy(&uuid128.data, &svc->ServiceUUID, sizeof(uint128_t));
-        bt_uuid128_create(&uuid, uuid128);
-#else
         bt_uuid16_create(&uuid, svc_id);
-#endif
         if (NULL == (ringsvc = gatt_db_add_service_ext(GattSrv::mServer.sref->db, &uuid, primary, number_of_handlers, gatt_attr_read_cb, gatt_attr_write_cb)))
         {
             BOT_NOTIFY_ERROR("gatt_db_add_service_ext failed, Abort");
@@ -2066,12 +2145,7 @@ static int populate_gatt_service()
             if (NULL != (ch_info = (CharacteristicInfo_t *)svc->AttributeList[attr_index].Attribute))
             {
                 // BOT_NOTIFY_DEBUG("adding attr[%d] %s", attr_index, svc->AttributeList[attr_index].AttributeName);
-#ifdef USE_128_BIT_ID
-                memcpy(&uuid128.data, &ch_info->CharacteristicUUID, sizeof(uint128_t));
-                bt_uuid128_create(&uuid, uuid128); //
-#else
                 bt_uuid16_create(&uuid, svc_id + 1 + idx);
-#endif
 
                 attr_new =  gatt_db_service_add_characteristic(ringsvc, &uuid,
                               BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
@@ -2101,6 +2175,7 @@ static int populate_gatt_service()
         bool ret = gatt_db_service_set_active(ringsvc, true);
         BOT_NOTIFY_DEBUG("populate_gatt_service gatt_db_service_set_active( %04X ) ret %d\n-----------------------------------------------", svc_id, ret);
     }
+#endif
     return Error::NONE;
 }
 

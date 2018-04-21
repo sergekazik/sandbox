@@ -3890,8 +3890,8 @@ int GattSrv::GATTQueryConnectedDevices(ParameterList_t *aParams __attribute__ ((
                         {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
 
 // 0000face-0000-1000-8000-00805f9b34fb
-static Byte_t iBeacon_UUID[] = MAKESVCUUID128(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB);
-#define IBEACON_UUID_LEN   (sizeof(iBeacon_UUID)/sizeof(char))
+static Byte_t RingSvc_UUID[] = MAKESVCUUID128(00,00,FA,CE,00,00,10,00,80,00,00,80,5F,9B,34,FB);
+#define RingSvc_UUID_LEN   (sizeof(RingSvc_UUID)/sizeof(char))
 
 #ifdef USE_FULL_IBEACOUN
 static Byte_t iBeacon_Prefix[] = {0x02,0x01,0x06,0x1a,0xff,0x00,0x4c,0x02,0x15};
@@ -3928,9 +3928,9 @@ static void FormatAdvertisingData(DEVM_Advertising_Information_t *AdvertisingInf
         }
 
         /* Set the IBEACON UUID to the Advertising Data */
-        for(i = 0; i < (int) IBEACON_UUID_LEN; i++)
+        for(i = 0; i < (int) RingSvc_UUID_LEN; i++)
         {
-            AdvertisingBuffer[writeIndex++] = iBeacon_UUID[i] ;
+            AdvertisingBuffer[writeIndex++] = RingSvc_UUID[i] ;
         }
 
         /*Set the iBEACON Major (Big Endian) */
@@ -3979,7 +3979,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 #else
             AdvertisingBuffer[0] = 17;
             AdvertisingBuffer[1] = 0x07;
-            memcpy(&AdvertisingBuffer[2], iBeacon_UUID, IBEACON_UUID_LEN);
+            memcpy(&AdvertisingBuffer[2], RingSvc_UUID, RingSvc_UUID_LEN);
             AdvertisingInfo.AdvertisingData = AdvertisingBuffer;
             AdvertisingInfo.AdvertisingDataLength = 18;
 #endif

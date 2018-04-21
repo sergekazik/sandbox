@@ -401,7 +401,7 @@ static int pairing_test_run(const char* arguments)
         sleep(2);
 #endif
 
-        if (Ble::Error::NONE != (ret_val = Pairing->Initialize((char*) "RingTEST-BLE")))
+        if (Ble::Error::NONE != (ret_val = Pairing->Initialize((char*) "RingSetup-ac")))
         {
             printf("TESTBLE:  Pairing->Initialize() failed, ret = %d. Abort\n", ret_val);
             goto autodone;
