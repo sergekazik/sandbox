@@ -451,7 +451,7 @@ static void OnAttributeAccessCallback(int aServiceIdx, int aAttributeIdx, Ble::P
                         BOT_NOTIFY_ERROR("failed to decrypt payload value with err %d\n", ret);
                 }
                 else
-                    BOT_NOTIFY_ERROR("BlePairing::mCrypto not initialized - failed to decrypt payload value!\n");
+                    BOT_NOTIFY_ERROR("BlePairing::mCrypto not yet initialized\n");
 
 #endif
                 // ringnm callback

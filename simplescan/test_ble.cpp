@@ -330,34 +330,37 @@ void debug_print(const char* name, char* data, int len)
         printf("%s\n", out);
     }
 
-//    for (int i = 0; i < len; i++)
-//        printf("%02X%s", data[i], ((i+1) % 32)?" ":"\n");
-//    printf("\n");
-//    for (int i = 0; i < len; i++)
-//        printf("%c%s", ((0x20 <= data[i]) && (data[i] < 127)) ? data[i]:'.', ((i+1) % 64)?"":"\n");
+#ifdef TRACE_DATA_BINARY_DUMP
+    for (int i = 0; i < len; i++)
+        printf("%02X%s", data[i], ((i+1) % 32)?" ":"\n");
+    printf("\n");
+    for (int i = 0; i < len; i++)
+        printf("%c%s", ((0x20 <= data[i]) && (data[i] < 127)) ? data[i]:'.', ((i+1) % 64)?"":"\n");
+#endif
+
     printf("\n");
 }
 
-static int data_read_write_callback(int a, void* data, int len)
+static int simulated_ringnm_data_cb(int a, void* data, int len)
 {
     int ret_val = Error::NONE;
 
     BlePairing *Pairing = BlePairing::getInstance();
     if (Pairing == NULL)
     {
-        printf("TESTBLE:  data_rw_cb: failed to obtain BlePairing instance. Abort.\n");
+        printf("TESTBLE:  ringnm_data_cb(sim): failed to obtain BlePairing instance. Abort.\n");
     }
     else
     {
         const ServiceInfo_t *svc = Pairing->GetServiceTable();
         if (data && len)
         {
-            printf("TESTBLE:  data_rw_cb: Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
-            debug_print("data_rw_cb", (char*) data, len);
+            printf("TESTBLE:  ringnm_data_cb(sim): Written %d bytes of data for attr idx %d [%s]\n", len, a, !svc?"":svc->AttributeList[a].AttributeName);
+            debug_print("ringnm_data_cb(sim)", (char*) data, len);
         }
         else
         {
-            printf("TESTBLE:  data_rw_cb: Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
+            printf("TESTBLE:  ringnm_data_cb(sim): Read attr idx %d [%s]\n", a, !svc?"":svc->AttributeList[a].AttributeName);
         }
         ret_val = (1); // to inform default handler to stop further processing of this notification
 
@@ -368,9 +371,10 @@ static int data_read_write_callback(int a, void* data, int len)
                 break;
 
             default:
-                sleep(1);
-                Pairing->updateAttribute(a, (const char*) ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->Value,
-                                            ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->ValueLength);
+
+                if (((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->ValueLength)
+                    Pairing->updateAttribute(a, (const char*) ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->Value,
+                                                ((CharacteristicInfo_t*) svc->AttributeList[a].Attribute)->ValueLength);
                 break;
         }
     }
@@ -406,7 +410,7 @@ static int pairing_test_run(const char* arguments)
             printf("TESTBLE:  Pairing->Initialize() failed, ret = %d. Abort\n", ret_val);
             goto autodone;
         }
-        if (Ble::Error::NONE != (ret_val = Pairing->registerRingDataCallback(data_read_write_callback)))
+        if (Ble::Error::NONE != (ret_val = Pairing->registerRingDataCallback(simulated_ringnm_data_cb)))
         {
             printf("TESTBLE:  WARNING: Pairing->registerRingDataCallback() failed, ret = %d\n", ret_val);
         }

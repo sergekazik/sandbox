@@ -14,7 +14,7 @@
 namespace Ring { namespace Ble {
 
 #define RING_CHARACTERISTICS_MAX         24
-#define RING_SERVICES_MAX                5
+#define RING_SERVICES_MAX                1
 
 class BlePairing
 {

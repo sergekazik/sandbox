@@ -257,3 +257,5 @@ crypto/sodium_glue.h
 ../../low-powered-doorbell-fw/ambarella/ring/ringnm/ring-nm/rnm_util.h
 ../../chime_pro-firmware/app/ringnm/ring-nm/rnm_ble.cpp
 ../../chime_pro-firmware/app/ringnm/ring-nm/rnm_common.cpp
+../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/io-mainloop.c
+../../low-powered-doorbell-fw/external/build-utilities/bluez-5.48/src/shared/mainloop.c
