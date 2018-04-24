@@ -494,13 +494,22 @@ int BlePairing::updateAttribute(int attr_idx, const char * str_data, int len)
         char crypted[IO_MSG_BUFFER_SIZE];
         int crypted_len = 0;
 
-        if ((attr_idx != GET_PUBLIC_PAYLOAD) && (BlePairing::mCrypto))
+        // all except PUBLIC_PAYLOAD should be encrypted
+        if (attr_idx != GET_PUBLIC_PAYLOAD)
         {
-            crypted_len = sizeof(crypted);
-            int ret = BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len);
-            BOT_NOTIFY_DEBUG("updateAttribute encrypt ret %d, len = %d", ret, crypted_len);
-           if (Ring::Ble::Crypto::Error::NO_ERROR != ret)
-                crypted_len = 0;
+            if (BlePairing::mCrypto)
+            {
+                crypted_len = sizeof(crypted);
+                int ret = BlePairing::mCrypto->Encrypt((char*) str_data, (len > 0) ? len : strlen(str_data), crypted, crypted_len);
+                BOT_NOTIFY_DEBUG("updateAttribute encrypt ret %d, len = %d", ret, crypted_len);
+               if (Ring::Ble::Crypto::Error::NO_ERROR != ret)
+                    crypted_len = 0;
+            }
+            if (crypted_len == 0) // this is for security reasons to prevent reading our info without encryption - let's put just junk there
+            {
+                crypted_len = strlen(mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attr_idx].AttributeName);
+                strcpy(crypted, mServiceTable[RING_PAIRING_SVC_IDX].AttributeList[attr_idx].AttributeName);
+            }
         }
 
         BOT_NOTIFY_DEBUG("updateAttribute %s encryption", crypted_len ? "with":"NO");
