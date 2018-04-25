@@ -63,8 +63,8 @@ CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
 
 SRCS_LIB = $(RING_BLE)/RingBleApi.cpp $(CHIPSUBPATH)/RingGattApi.cpp $(RING_BLE)/RingBlePairing.cpp
-SRCS_APP = test_ble.cpp test_stubs.cpp BCM43/test_hello.cpp
-SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
+SRCS_APP = $(RING_BLE)/test_ble.cpp $(RING_BLE)/test_stubs.cpp
+SRCS_GATT = $(RING_BLE)/gatt_test_srv.cpp $(RING_BLE)/test_stubs.cpp
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
 OBJS_APP = test_ble.o test_stubs.o
 OBJS_GATT = gatt_test_srv.o test_stubs.o
@@ -75,6 +75,12 @@ RingBleApi.o:  $(RING_BLE)/RingBleApi.cpp
 	$(CC) -c $(CFLAGS) $(RING_BLE)/RingBleApi.cpp -o $@
 RingBlePairing.o: $(RING_BLE)/RingBlePairing.cpp
 	$(CC) -c $(CFLAGS) $(RING_BLE)/RingBlePairing.cpp -o $@
+test_ble.o: $(RING_BLE)/test_ble.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/test_ble.cpp -o $@
+test_stubs.o: $(RING_BLE)/test_stubs.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/test_stubs.cpp -o $@
+gatt_test_srv.o: $(RING_BLE)/gatt_test_srv.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/gatt_test_srv.cpp -o $@
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
@@ -120,10 +126,9 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u *.cpp *.h -v $(RING_BLE)
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
-	@cp -u test_ble.cpp -v $(HOME)/workspace/chime_pro-firmware/app/ble
+	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
 	@echo "-----------------------------------------------------"
 
 oldcpringble:
