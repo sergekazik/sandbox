@@ -126,6 +126,7 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
+	@cp -u -v version.h $(RING_BLE)
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
 	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
