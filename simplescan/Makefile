@@ -38,7 +38,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
-	    -I. -I$(CHIPSUBPATH) -I$(RING_BLE)/crypto/			    \
+	    -I. -I$(CHIPSUBPATH) -I$(RING_BLE)/crypto/	-I$(RING_BLE)/	    \
 	    -DTEST_CONSOLE_WRITE					    \
 	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)			    \
 	    $(BTPIA_SDK_INC)
@@ -62,7 +62,7 @@ TARGET_GATT = test_gatt
 CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
 
-SRCS_LIB = RingBleApi.cpp $(CHIPSUBPATH)/RingGattApi.cpp RingBlePairing.cpp
+SRCS_LIB = $(RING_BLE)/RingBleApi.cpp $(CHIPSUBPATH)/RingGattApi.cpp $(RING_BLE)/RingBlePairing.cpp
 SRCS_APP = test_ble.cpp test_stubs.cpp BCM43/test_hello.cpp
 SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
@@ -71,6 +71,10 @@ OBJS_GATT = gatt_test_srv.o test_stubs.o
 
 RingGattApi.o: $(CHIPSUBPATH)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(CHIPSUBPATH)/RingGattApi.cpp -o $@
+RingBleApi.o:  $(RING_BLE)/RingBleApi.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/RingBleApi.cpp -o $@
+RingBlePairing.o: $(RING_BLE)/RingBlePairing.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/RingBlePairing.cpp -o $@
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
@@ -116,7 +120,7 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
+	@cp -u *.cpp *.h -v $(RING_BLE)
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
 	@cp -u test_ble.cpp -v $(HOME)/workspace/chime_pro-firmware/app/ble
@@ -138,7 +142,7 @@ prepro:
 
 .PHONY: clean
 clean_obj:
-	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o
+	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o cryptoclient.cfg
 
 clean:
 	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d libRingCrypto.so
