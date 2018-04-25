@@ -1,1 +1,0 @@
-expect blt-disconnect.exp

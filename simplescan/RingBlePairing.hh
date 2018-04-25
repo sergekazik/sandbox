@@ -8,7 +8,7 @@
 
 #include "RingBleApi.hh"
 #ifdef PAIRING_ENABLE_CRYPTO
-#include "crypto/RingCrypto.hh"
+#include "RingCrypto.hh"
 #endif
 
 namespace Ring { namespace Ble {

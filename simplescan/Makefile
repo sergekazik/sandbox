@@ -5,6 +5,7 @@ RING_NAME = Linux_x86_64
 $(info RING_NAME = [${RING_NAME}])
 $(info BLE_CS = [${BLE_CS}])
 
+
 # Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
@@ -16,10 +17,11 @@ CC = gcc
 AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
 BLUEZ_548  = $(AMB_TOPDIR)/prebuild/third-party/armv7-a-hf/bluez5/bluez-5.48
 
-RING_TOP = $(AMB_TOPDIR)/ring
-RING_BLE = $(AMB_TOPDIR)/ring/ble
-RING_COM = $(AMB_TOPDIR)/ring/common
-RING_LOG = $(AMB_TOPDIR)/ring/ding/include
+RING_TOP    = $(AMB_TOPDIR)/ring
+RING_BLE    = $(AMB_TOPDIR)/ring/ble
+RING_COM    = $(AMB_TOPDIR)/ring/common
+RING_LOG    = $(AMB_TOPDIR)/ring/ding/include
+CHIPSUBPATH = $(RING_BLE)/$(BLE_CS)
 
 TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
 BTPIA_SDK = $(TIBLE_3PARTY)/BluetopiaPM
@@ -36,13 +38,14 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
-	    -I. -I$(BLE_CS)					    \
-	    -DTEST_CONSOLE_WRITE			    \
-	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)    \
+	    -I. -I$(CHIPSUBPATH) -I$(RING_BLE)/crypto/			    \
+	    -DTEST_CONSOLE_WRITE					    \
+	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)			    \
 	    $(BTPIA_SDK_INC)
 
+
 ifeq ($(BLE_CS), BCM43)
-CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -I./crypto -DPAIRING_ENABLE_CRYPTO=1
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -DPAIRING_ENABLE_CRYPTO=1
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -59,15 +62,15 @@ TARGET_GATT = test_gatt
 CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
 
-SRCS_LIB = RingBleApi.cpp ./$(BLE_CS)/RingGattApi.cpp RingBlePairing.cpp
+SRCS_LIB = RingBleApi.cpp $(CHIPSUBPATH)/RingGattApi.cpp RingBlePairing.cpp
 SRCS_APP = test_ble.cpp test_stubs.cpp BCM43/test_hello.cpp
 SRCS_GATT = gatt_test_srv.cpp test_stubs.cpp
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
 OBJS_APP = test_ble.o test_stubs.o
 OBJS_GATT = gatt_test_srv.o test_stubs.o
 
-RingGattApi.o: ./$(BLE_CS)/RingGattApi.cpp
-	$(CC) -c $(CFLAGS) $(BLE_CS)/RingGattApi.cpp -o $@
+RingGattApi.o: $(CHIPSUBPATH)/RingGattApi.cpp
+	$(CC) -c $(CFLAGS) $(CHIPSUBPATH)/RingGattApi.cpp -o $@
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
@@ -96,11 +99,11 @@ CRYPTO_LDFLAGS_APP = -L./ -lRingCrypto -lpthread -L/usr/lib/x86_64-linux-gnu/ -l
 RM = rm -f
 CC = g++
 
-CRYPTO_SRCS_LIB = crypto/sodium_glue.cpp crypto/RingCrypto.cpp
-CRYPTO_SRCS_APP = crypto/test_crypto.cpp
+CRYPTO_SRCS_LIB = $(RING_BLE)/crypto/sodium_glue.cpp $(RING_BLE)/crypto/RingCrypto.cpp
+CRYPTO_SRCS_APP = $(RING_BLE)/crypto/test_crypto.cpp
 
-CRYPTO_OBJS_LIB = crypto/sodium_glue.o crypto/RingCrypto.o
-CRYPTO_OBJS_APP = crypto/test_crypto.o
+CRYPTO_OBJS_LIB = $(RING_BLE)/crypto/sodium_glue.o $(RING_BLE)/crypto/RingCrypto.o
+CRYPTO_OBJS_APP = $(RING_BLE)/crypto/test_crypto.o
 
 .PHONY: all
 all: ${CRYPTO_TARGET_LIB} $(CRYPTO_TARGET_APP)
@@ -112,6 +115,14 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 	$(CC) $(CRYPTO_OBJS_APP) $(CRYPTO_CFLAGS) $(CRYPTO_LDFLAGS_APP) -o $@
 
 cpringble:
+	@echo "---------------- updated files: ---------------------"
+	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
+	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
+	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
+	@cp -u test_ble.cpp -v $(HOME)/workspace/chime_pro-firmware/app/ble
+	@echo "-----------------------------------------------------"
+
+oldcpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u *.cpp *.h *.hh -v $(RING_BLE)
 	@cp -u test_ble.cpp -v $(HOME)/workspace/chime_pro-firmware/app/ble
@@ -127,8 +138,7 @@ prepro:
 
 .PHONY: clean
 clean_obj:
-	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d
+	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d
-
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d libRingCrypto.so
