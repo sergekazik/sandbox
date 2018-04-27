@@ -25,12 +25,12 @@ CXXFLAGS = $(CFLAGS)
 LDFLAGS_LIB = -shared -lbluetooth -lpthread
 TARGET_BLZ = libBluez548.so
 
-SRCS_BLZ = ./BCM43/gatt_db.c		\
-	    $(BLUEZ_548)/lib/bluetooth.c \
+SRCS_BLZ =  $(BLUEZ_548)/lib/bluetooth.c \
 	    $(BLUEZ_548)/lib/hci.c	\
 	    $(BLUEZ_548)/lib/sdp.c	\
 	    $(BLUEZ_548)/lib/uuid.c	\
-	    $(BLUEZ_548)/src/uuid-helper.c			    \
+	    $(BLUEZ_548)/src/uuid-helper.c	\
+	    $(BLUEZ_548)/src/shared/gatt-db.c	\
 	    $(BLUEZ_548)/src/shared/att.c	\
 	    $(BLUEZ_548)/src/shared/btsnoop.c   \
 	    $(BLUEZ_548)/src/shared/ecc.c	\
@@ -48,12 +48,12 @@ SRCS_BLZ = ./BCM43/gatt_db.c		\
 	    $(BLUEZ_548)/src/shared/util.c	\
 	    $(BLUEZ_548)/src/shared/crypto.c
 
-OBJ_BLZ =  ./BCM43/gatt_db.o		\
-	    $(BLUEZ_548)/lib/bluetooth.o \
+OBJ_BLZ =   $(BLUEZ_548)/lib/bluetooth.o \
 	    $(BLUEZ_548)/lib/hci.o	\
 	    $(BLUEZ_548)/lib/sdp.o	\
 	    $(BLUEZ_548)/lib/uuid.o	\
-	    $(BLUEZ_548)/src/uuid-helper.o			    \
+	    $(BLUEZ_548)/src/uuid-helper.o	\
+	    $(BLUEZ_548)/src/shared/gatt-db.o	\
 	    $(BLUEZ_548)/src/shared/att.o	\
 	    $(BLUEZ_548)/src/shared/btsnoop.o   \
 	    $(BLUEZ_548)/src/shared/ecc.o	\

@@ -36,6 +36,7 @@ BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/Bluetopia/btpscfg
 
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
+	    -Wunused -Wunreachable-code	-Wunused-function   \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I. -I$(CHIPSUBPATH) -I$(RING_BLE)/crypto/	-I$(RING_BLE)/	    \
@@ -43,6 +44,7 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)			    \
 	    $(BTPIA_SDK_INC)
 
+$(info RING_BLE = [${RING_BLE}])
 
 ifeq ($(BLE_CS), BCM43)
 CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -DPAIRING_ENABLE_CRYPTO=1
@@ -112,8 +114,15 @@ CC = g++
 CRYPTO_SRCS_LIB = $(RING_BLE)/crypto/sodium_glue.cpp $(RING_BLE)/crypto/RingCrypto.cpp
 CRYPTO_SRCS_APP = $(RING_BLE)/crypto/test_crypto.cpp
 
-CRYPTO_OBJS_LIB = $(RING_BLE)/crypto/sodium_glue.o $(RING_BLE)/crypto/RingCrypto.o
-CRYPTO_OBJS_APP = $(RING_BLE)/crypto/test_crypto.o
+CRYPTO_OBJS_LIB = sodium_glue.o RingCrypto.o
+CRYPTO_OBJS_APP = test_crypto.o
+
+RingCrypto.o:	$(RING_BLE)/crypto/RingCrypto.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/crypto/RingCrypto.cpp -o $@
+test_crypto.o:	$(RING_BLE)/crypto/test_crypto.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/crypto/test_crypto.cpp -o $@
+sodium_glue.o:	$(RING_BLE)/crypto/sodium_glue.cpp
+	$(CC) -c $(CFLAGS) $(RING_BLE)/crypto/sodium_glue.cpp -o $@
 
 .PHONY: all
 all: ${CRYPTO_TARGET_LIB} $(CRYPTO_TARGET_APP)
@@ -127,6 +136,7 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u -v version.h $(RING_BLE)
+	@cp -u -v version.h $(HOME)/workspace/chime_pro-firmware/app/ble/
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
 	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
