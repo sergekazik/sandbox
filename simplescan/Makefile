@@ -135,8 +135,6 @@ $(CRYPTO_TARGET_APP): $(CRYPTO_OBJS_APP)
 
 cpringble:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u -v version.h $(RING_BLE)
-	@cp -u -v version.h $(HOME)/workspace/chime_pro-firmware/app/ble/
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
 	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
@@ -158,7 +156,7 @@ prepro:
 
 .PHONY: clean
 clean_obj:
-	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o cryptoclient.cfg
+	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o
 
 clean:
 	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d libRingCrypto.so

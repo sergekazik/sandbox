@@ -16,3 +16,6 @@ _saved
 simplescan/test_ble
 simplescan/pairing_client_x86*
 simplescan/public_payload.*
+sockets/test_client_portblock
+sockets/test_server_portblock
+*.o
