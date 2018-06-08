@@ -36,6 +36,11 @@ $(TARGET_SERVER): $(OBJS_SERVER)
 $(TARGET_CLIENT): $(OBJS_CLIENT)
 	$(CC) $(OBJS_CLIENT) $(LDFLAGS) -o $@
 
+cpportblock:
+	@echo "---------------- updated files: ---------------------"
+	@cp -u -v pb_*.cpp pb_*.h ../../chime_pro-firmware/app/diag/.
+	@echo "-----------------------------------------------------"
+
 
 .PHONY: clean
 clean:

@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     //initialize socket and structure
     int socketfd;
     struct sockaddr_in server;
-    char message[100];
+    char message[MSG_LENGHT];
     struct sockaddr src_addr;
     socklen_t addrlen = sizeof(src_addr);
 
@@ -49,11 +49,14 @@ int main(int argc, char *argv[])
         puts("Received failed");
         goto done;
     }
-    puts("Message received");
-    puts(message);
 
-    printf("Input Message: ");
-    fgets(message, 100, stdin);
+    printf("Message received: \"%s\"\n", message);
+    {
+        char const *ack = " - acknowledged";
+        if (strlen(ack) +  strlen(message) < MSG_LENGHT)
+            strcpy(&message[strlen(message)], ack);
+    }
+    printf("Sending message \"%s\" back to client\n", message);
 
     if (sendto(socketfd, message, strlen(message), 0, &src_addr, addrlen) <0) {
         perror("Send failed");

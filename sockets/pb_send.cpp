@@ -16,13 +16,14 @@
 
 int main(int argc, char *argv[])
 {
+    const char * client_local = NULL;
     if (argc > 1)
-        test_addr = argv[1];
+        client_local = argv[1];
 
     //initialize socket and structure
-    int socketfd;
+    int socketfd, rcv;
     struct sockaddr_in myaddr;
-    char message[100];
+    char message[MSG_LENGHT];
 
     struct sockaddr_in server_addr;
     socklen_t addrlen = sizeof(server_addr);
@@ -34,11 +35,11 @@ int main(int argc, char *argv[])
     }
 
     //assign local values
-    myaddr.sin_addr.s_addr = inet_addr(test_addr);
+    myaddr.sin_addr.s_addr = client_local ? inet_addr(client_local) : INADDR_ANY;
     myaddr.sin_family = AF_INET;
     myaddr.sin_port = htons( MY_PORT );
 
-    printf("Binding to %s port %d\n", test_addr, MY_PORT);
+    printf("Binding to %s port %d\n", inet_ntoa(myaddr.sin_addr), MY_PORT);
     //binds connection
     if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
         perror("bind error");
@@ -46,7 +47,9 @@ int main(int argc, char *argv[])
     }
 
     printf("Input Message: ");
-    fgets(message, 100, stdin);
+    fgets(message, MSG_LENGHT, stdin);
+    if ((message[strlen(message)-1] == '\n') || (message[strlen(message)-1] == '\r'))
+        message[strlen(message)-1] = '\0';
 
     //assign server values
     server_addr.sin_addr.s_addr = inet_addr(test_addr);
@@ -58,13 +61,14 @@ int main(int argc, char *argv[])
         perror("Send failed");
         goto done;
     }
-    puts("Message Sent");
+    printf("Message Sent to %s port %d\n", inet_ntoa(server_addr.sin_addr), SERVER_PORT);
 
     //receives message back
-    if (recvfrom(socketfd, message, sizeof(message), 0, (struct sockaddr *) &server_addr, &addrlen) < 0) {
+    if ((rcv = recvfrom(socketfd, message, sizeof(message), 0, (struct sockaddr *) &server_addr, &addrlen)) < 0) {
         puts("Received failed");
         goto done;
     }
+    message[rcv]='\0';
     puts("Message received");
     puts(message);
 

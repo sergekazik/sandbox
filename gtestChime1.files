@@ -1,0 +1,6 @@
+mocks/rnm_mock.hpp
+mocks/stubs.cpp
+ringnm/rnm_roaming_test.cpp
+ringnm/rnm_util_test.cpp
+common_util.cpp
+make.inc
