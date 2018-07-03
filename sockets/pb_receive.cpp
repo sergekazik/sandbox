@@ -13,9 +13,36 @@
 #include <netinet/in.h>      // For sockaddr_in
 
 #include "pb_common.h"
+typedef char *tokarr[8];
+
+int split(char* str, tokarr &tarr)
+{
+
+  char * pch;
+  printf ("Splitting string \"%s\" into tokens:\n",str);
+  pch = strtok (str,","); // strtok (str," ,.-");
+  int count = 0;
+  while (pch != NULL)
+  {
+    printf ("%s\n",pch);
+    tarr[count]=pch;
+    count++;
+    pch = strtok(NULL, ",");
+
+  }
+  return count;
+}
 
 int main(int argc, char *argv[])
 {
+    char str[] ="udp,1001,17";
+    tokarr tarr;
+    int num = split(str, tarr);
+    for (int i = 0; i < num; i++)
+        printf ("%s\n",tarr[i]);
+    return 0;
+
+
     if (argc > 1)
         test_addr = argv[1];
 
@@ -35,14 +62,14 @@ int main(int argc, char *argv[])
     //assign values
     server.sin_addr.s_addr = inet_addr(test_addr);
     server.sin_family = AF_INET;
-    server.sin_port = htons( MY_PORT );
+    server.sin_port = htons( SERVER_PORT );
 
     //checks connection
     if (bind(socketfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
         perror("Connection error");
         goto done;
     }
-    printf("Bind to %s port %d\n", test_addr, MY_PORT);
+    printf("Bind to %s port %d\n", test_addr, SERVER_PORT);
 
     //Receive an incoming message
     if (recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen) < 0) {
@@ -52,7 +79,7 @@ int main(int argc, char *argv[])
 
     printf("Message received: \"%s\"\n", message);
     {
-        char const *ack = " - acknowledged";
+        char const *ack = ",ACK";
         if (strlen(ack) +  strlen(message) < MSG_LENGHT)
             strcpy(&message[strlen(message)], ack);
     }

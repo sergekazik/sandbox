@@ -17,13 +17,24 @@
 int main(int argc, char *argv[])
 {
     const char * client_local = NULL;
-    if (argc > 1)
-        client_local = argv[1];
+    const char * msg = NULL;
+    bool bAuto = false;
 
+    if (argc > 1 && strstr(argv[1], "--auto"))
+    {
+        bAuto = true;
+    }
+    else
+    {
+        if (argc > 1)
+            client_local = argv[1];
+        if (argc > 2)
+            msg = argv[2];
+    }
     //initialize socket and structure
     int socketfd, rcv;
     struct sockaddr_in myaddr;
-    char message[MSG_LENGHT];
+    char message[MSG_LENGHT] = "";
 
     struct sockaddr_in server_addr;
     socklen_t addrlen = sizeof(server_addr);
@@ -37,18 +48,29 @@ int main(int argc, char *argv[])
     //assign local values
     myaddr.sin_addr.s_addr = client_local ? inet_addr(client_local) : INADDR_ANY;
     myaddr.sin_family = AF_INET;
-    myaddr.sin_port = htons( MY_PORT );
+    myaddr.sin_port = htons( CLIENT_PORT );
 
-    printf("Binding to %s port %d\n", inet_ntoa(myaddr.sin_addr), MY_PORT);
+    printf("Binding to %s port %d\n", inet_ntoa(myaddr.sin_addr), CLIENT_PORT);
     //binds connection
     if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
         perror("bind error");
         goto done;
     }
 
-    printf("Input Message: ");
-    fgets(message, MSG_LENGHT, stdin);
-    if ((message[strlen(message)-1] == '\n') || (message[strlen(message)-1] == '\r'))
+    if (bAuto)
+    {
+        strcpy(message, "start port test");
+    }
+    else if (msg == NULL)
+    {
+        printf("Input Message: ");
+        fgets(message, MSG_LENGHT, stdin);
+    }
+    else
+    {
+        strcpy(message, msg);
+    }
+    if (strlen(message) && ((message[strlen(message)-1] == '\n') || (message[strlen(message)-1] == '\r')))
         message[strlen(message)-1] = '\0';
 
     //assign server values

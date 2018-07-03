@@ -3,3 +3,7 @@
 ../chime_pro-firmware/app/ble/crypto
 ../chime_pro-firmware/prebuild/googletest/include
 ../chime_pro-firmware/app/gtests/mocks
+../chime_pro-firmware/app/ble/WILINK18
+../chime_pro-firmware/app/ringnm/ring-nm
+../chime_pro-firmware/app
+

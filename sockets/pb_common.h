@@ -9,13 +9,8 @@ static const char* test_addr = "10.0.1.15";
 #define MSG_LENGHT  0xFF
 
 // #if defined(__x86_64__) && defined(PB_CLIENT)
-#if defined(PB_CLIENT)
-#define SERVER_PORT 123
-#define MY_PORT     1101
-#else
-#define SERVER_PORT 123
-#define MY_PORT     123
-#endif
+#define SERVER_PORT     1100
+#define CLIENT_PORT     1101
 
 #endif // PB_COMMON
 

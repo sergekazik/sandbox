@@ -10,3 +10,12 @@
 ../chime_pro-firmware/app/ble/crypto/sodium_glue.cpp
 ../chime_pro-firmware/app/ble/crypto/sodium_glue.h
 ../chime_pro-firmware/app/ble/crypto/test_crypto.cpp
+../chime_pro-firmware/app/ble/WILINK18/RingGattApi.cpp
+../chime_pro-firmware/app/ble/WILINK18/RingGattApi.hh
+../chime_pro-firmware/app/ble/RingBleApi.cpp
+../chime_pro-firmware/app/ble/RingBleApi.hh
+../chime_pro-firmware/app/ble/RingBlePairing.cpp
+../chime_pro-firmware/app/ble/RingBlePairing.hh
+../chime_pro-firmware/app/gtests/mocks/btps_mock.c
+../chime_pro-firmware/app/ringnm/ring-nm/rnm_ble.cpp
+../chime_pro-firmware/app/ringnm/ring-nm/rnm_common.cpp
