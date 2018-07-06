@@ -66,10 +66,10 @@ CRYPTO_TARGET_APP = test_crypto
 
 SRCS_LIB = $(RING_BLE)/RingBleApi.cpp $(CHIPSUBPATH)/RingGattApi.cpp $(RING_BLE)/RingBlePairing.cpp
 SRCS_APP = $(RING_BLE)/test_ble.cpp $(RING_BLE)/test_stubs.cpp
-SRCS_GATT = $(RING_BLE)/gatt_test_srv.cpp $(RING_BLE)/test_stubs.cpp
+#SRCS_GATT = $(RING_BLE)/gatt_test_srv.cpp $(RING_BLE)/test_stubs.cpp
 OBJS_LIB = RingBleApi.o RingGattApi.o RingBlePairing.o
 OBJS_APP = test_ble.o test_stubs.o
-OBJS_GATT = gatt_test_srv.o test_stubs.o
+#OBJS_GATT = gatt_test_srv.o test_stubs.o
 
 RingGattApi.o: $(CHIPSUBPATH)/RingGattApi.cpp
 	$(CC) -c $(CFLAGS) $(CHIPSUBPATH)/RingGattApi.cpp -o $@
@@ -81,8 +81,8 @@ test_ble.o: $(RING_BLE)/test_ble.cpp
 	$(CC) -c $(CFLAGS) $(RING_BLE)/test_ble.cpp -o $@
 test_stubs.o: $(RING_BLE)/test_stubs.cpp
 	$(CC) -c $(CFLAGS) $(RING_BLE)/test_stubs.cpp -o $@
-gatt_test_srv.o: $(RING_BLE)/gatt_test_srv.cpp
-	$(CC) -c $(CFLAGS) $(RING_BLE)/gatt_test_srv.cpp -o $@
+#gatt_test_srv.o: $(RING_BLE)/gatt_test_srv.cpp
+#	$(CC) -c $(CFLAGS) $(RING_BLE)/gatt_test_srv.cpp -o $@
 
 .PHONY: all
 all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
