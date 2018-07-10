@@ -3,3 +3,4 @@ pb_receive.cpp
 pb_send.cpp
 pb_common.h
 ../../chime_pro-firmware/app/diag/make.inc
+test.script

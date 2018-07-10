@@ -31,20 +31,28 @@ int split(char* str, tokarr &tarr)
 
   }
   return count;
+
+//  example
+//        char str[] ="udp,1001,17";
+//        tokarr tarr;
+//        int num = split(str, tarr);
+//        for (int i = 0; i < num; i++)
+//            printf ("%s\n",tarr[i]);
+//        return 0;
 }
+
+int run_ctrl_chan_server();
 
 int main(int argc, char *argv[])
 {
-    char str[] ="udp,1001,17";
-    tokarr tarr;
-    int num = split(str, tarr);
-    for (int i = 0; i < num; i++)
-        printf ("%s\n",tarr[i]);
-    return 0;
-
-
-    if (argc > 1)
-        test_addr = argv[1];
+    if (argc > 2 && strstr(argv[1], "--ip")) // ex: test_server_portblock --ip 192.168.1.3
+    {
+        test_addr = argv[2];
+    }
+    else if (argc > 1 && strstr(argv[1], "--ctrlchan")) // ex: test_server_portblock --ctrlchan
+    {
+        return run_ctrl_chan_server();
+    }
 
     //initialize socket and structure
     int socketfd;
@@ -55,7 +63,8 @@ int main(int argc, char *argv[])
 
     //create socket
     socketfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socketfd == -1) {
+    if (socketfd == -1)
+    {
         printf("Could not create socket");
     }
 
@@ -65,14 +74,16 @@ int main(int argc, char *argv[])
     server.sin_port = htons( SERVER_PORT );
 
     //checks connection
-    if (bind(socketfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
+    if (bind(socketfd, (struct sockaddr *)&server, sizeof(server)) < 0)
+    {
         perror("Connection error");
         goto done;
     }
     printf("Bind to %s port %d\n", test_addr, SERVER_PORT);
 
     //Receive an incoming message
-    if (recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen) < 0) {
+    if (recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen) < 0)
+    {
         puts("Received failed");
         goto done;
     }
@@ -85,7 +96,8 @@ int main(int argc, char *argv[])
     }
     printf("Sending message \"%s\" back to client\n", message);
 
-    if (sendto(socketfd, message, strlen(message), 0, &src_addr, addrlen) <0) {
+    if (sendto(socketfd, message, strlen(message), 0, &src_addr, addrlen) <0)
+    {
         perror("Send failed");
         goto done;
     }
@@ -97,3 +109,100 @@ done:
         close(socketfd);
 }
 
+int run_ctrl_chan_server()
+{
+    int parentfd; /* parent socket */
+    int childfd; /* child socket */
+    int portno; /* port to listen on */
+    socklen_t clientlen; /* byte size of client's address */
+    struct sockaddr_in serveraddr; /* server's addr */
+    struct sockaddr_in clientaddr; /* client addr */
+    struct hostent *hostp; /* client host info */
+    char buf[BUFSIZE]; /* message buffer */
+    char *hostaddrp; /* dotted decimal host addr string */
+    int optval; /* flag value for setsockopt */
+    int n; /* message byte size */
+
+    // check command line arguments
+    portno = SERVER_PORT; // atoi(argv[1]);
+
+    // socket: create the parent socket
+    parentfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (parentfd < 0)
+        perror("ERROR opening socket");
+
+    /* setsockopt: Handy debugging trick that lets
+     * us rerun the server immediately after we kill it;
+     * otherwise we have to wait about 20 secs.
+     * Eliminates "ERROR on binding: Address already in use" error.
+     */
+    optval = 1;
+    setsockopt(parentfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval , sizeof(int));
+
+    // build the server's Internet address
+    bzero((char *) &serveraddr, sizeof(serveraddr));
+
+    serveraddr.sin_family = AF_INET;
+    serveraddr.sin_addr.s_addr = inet_addr(test_addr); // htonl(INADDR_ANY);
+    serveraddr.sin_port = htons((unsigned short)portno);
+
+    // bind: associate the parent socket with a port
+    if (bind(parentfd, (struct sockaddr *) &serveraddr, sizeof(serveraddr)) < 0)
+        perror("ERROR on binding");
+
+    // listen: make this socket ready to accept connection requests
+    if (listen(parentfd, 5) < 0) /* allow 5 requests to queue up */
+        perror("ERROR on listen");
+
+    // main loop: wait for a connection request, echo input line, then close connection.
+    printf("starting main loop on %s port %d\n", test_addr, portno);
+    clientlen = sizeof(clientaddr);
+    bool done = false;
+    while (!done) {
+        // accept: wait for a connection request
+        childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
+        if (childfd < 0)
+            perror("ERROR on accept");
+
+        // gethostbyaddr: determine who sent the message
+        hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
+        if (hostp == NULL)
+            perror("ERROR on gethostbyaddr");
+        hostaddrp = inet_ntoa(clientaddr.sin_addr);
+        if (hostaddrp == NULL)
+            perror("ERROR on inet_ntoa\n");
+        printf("server established connection with %s (%s)\n", hostp->h_name, hostaddrp);
+
+        while (!done)
+        {
+            // read: read input string from the client
+            bzero(buf, BUFSIZE);
+            n = recv(childfd, buf, BUFSIZE, 0);
+            if (n < 0)
+                perror("ERROR reading from socket");
+            printf("server received %d bytes:", n);
+            for (int i = 0; i < n; i++)
+                printf(" %02X", (uint8_t) buf[i]);
+            printf("\n");
+
+            // here do action, generate reply and write to socket
+            control_channel_info_t *cci = (control_channel_info_t*) buf;
+            if (cci->command != SESSION_END)
+            {
+                cci->err_code = NO_ERROR;
+                cci->len = 3;
+                n = send(childfd, buf, cci->len, 0);
+                if (n < 0)
+                    perror("ERROR writing to socket");
+            }
+            else
+            {
+                printf("end of session command - done!\n");
+                close(childfd);
+                done = true;
+                break;
+            }
+        }
+    }
+    return 0;
+}
