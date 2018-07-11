@@ -4,14 +4,14 @@ CC = gcc
 RM = rm -f
 
 ################################################################################
-CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++11	    \
+CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++11 -pthread \
 	    -Wunused -Wunreachable-code	-Wunused-function   \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -I.
 
 CXXFLAGS = $(CFLAGS)
 
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -lstdc++
 
 TARGET_SERVER = test_server_portblock
 TARGET_CLIENT = test_client_portblock

@@ -27,7 +27,7 @@ typedef enum command_list
     ERRNO       =   0,  // all | ERRNO         | ERRCODE - last error code
     OPEN_UDP    =   1,  // all | OPEN_UDP,PORT | ERRCODE,SOCK
     OPEN_TCP    =   2,  // all | OPEN_TCP,PORT | ERRCODE,SOCK
-    RECVFOMR    =   3,  // UDP | RECVFOMR,SOCK | ERRCODE
+    RECVFROM    =   3,  // UDP | RECVFROM,SOCK | ERRCODE
     SENDTO      =   4,  // UDP | SENDTO,SOCK   | ERRCODE
     LISTEN      =   5,  // TCP | LISTEN,SOCK   | ERRCODE
     CONNECT     =   6,  // TCP | CONNECT,SOCK  | ERRCODE
@@ -41,7 +41,7 @@ typedef enum comm_lenght
     ERRNO_REQ_LEN       = 1,
     OPEN_UDP_REQ_LEN    = 3,
     OPEN_TCP_REQ_LEN    = 3,
-    RECVFOMR_REQ_LEN    = 3,
+    RECVFROM_REQ_LEN    = 3,
     SENDTO_REQ_LEN      = 3,
     LISTEN_REQ_LEN      = 3,
     CONNECT_REQ_LEN     = 3,
@@ -52,7 +52,7 @@ typedef enum comm_lenght
     ERRNO_RSP_LEN    = 1,
     OPEN_UDP_RSP_LEN = 3,
     OPEN_TCP_RSP_LEN = 3,
-    RECVFOMR_RSP_LEN = 1,
+    RECVFROM_RSP_LEN = 1,
     SENDTO_RSP_LEN   = 1,
     LISTEN_RSP_LEN   = 1,
     CONNECT_RSP_LEN  = 1,

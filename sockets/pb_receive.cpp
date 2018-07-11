@@ -3,7 +3,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
 #include <mutex>
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+#include <future>
 
 #include <sys/types.h>       // For data types
 #include <sys/socket.h>      // For socket(), connect(), send(), and recv()
@@ -109,6 +115,24 @@ done:
         close(socketfd);
 }
 
+void exec_recvfrom(int test_sock)
+{
+    struct sockaddr src_addr;
+    socklen_t addrlen = sizeof(src_addr);
+    char buf[BUFSIZE]; /* message buffer */
+    int nb = 0;
+    printf("listening on UDP sock %d\n", test_sock);
+    if ((nb = recvfrom(test_sock, buf, BUFSIZE, 0, &src_addr, &addrlen)) <= 0)
+    {
+        // TODO: add error handling
+    }
+    else
+    {
+        printf("test_sock recvfrom %d bytes\n", nb);
+        sendto(test_sock, buf, strlen(buf), 0, &src_addr, addrlen);
+    }
+}
+
 int run_ctrl_chan_server()
 {
     int parentfd; /* parent socket */
@@ -122,6 +146,8 @@ int run_ctrl_chan_server()
     char *hostaddrp; /* dotted decimal host addr string */
     int optval; /* flag value for setsockopt */
     int n; /* message byte size */
+
+    int test_sock = INVALID_SOCKET;
 
     // check command line arguments
     portno = SERVER_PORT; // atoi(argv[1]);
@@ -175,33 +201,96 @@ int run_ctrl_chan_server()
 
         while (!done)
         {
+            std::future<void> fut;
             // read: read input string from the client
             bzero(buf, BUFSIZE);
-            n = recv(childfd, buf, BUFSIZE, 0);
+            n = read(childfd, buf, BUFSIZE);
             if (n < 0)
+            {
                 perror("ERROR reading from socket");
+                break; // from this loop while
+            }
             printf("server received %d bytes:", n);
+            if ( n == 0)
+                break;
             for (int i = 0; i < n; i++)
                 printf(" %02X", (uint8_t) buf[i]);
             printf("\n");
 
             // here do action, generate reply and write to socket
             control_channel_info_t *cci = (control_channel_info_t*) buf;
-            if (cci->command != SESSION_END)
+            switch (cci->command)
             {
-                cci->err_code = NO_ERROR;
-                cci->len = 3;
-                n = send(childfd, buf, cci->len, 0);
-                if (n < 0)
-                    perror("ERROR writing to socket");
-            }
-            else
-            {
+            case OPEN_UDP:
+                if (test_sock != INVALID_SOCKET)
+                {
+                    close(test_sock);
+                }
+
+                UNPACK_DATA_SOCK(cci);
+                cci->err_code = SOCKET_ERROR;
+                cci->len = 1;
+
+                test_sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+                if (test_sock != INVALID_SOCKET)
+                {
+                    struct sockaddr_in server;
+                    server.sin_addr.s_addr = inet_addr(test_addr);
+                    server.sin_family = AF_INET;
+                    server.sin_port = htons(cci->port);
+
+                    printf("binding UDP to port %d\n", cci->port);
+                    if (bind(test_sock, (struct sockaddr *)&server, sizeof(server) == 0))
+                    {
+                        cci->err_code = NO_ERROR;
+                        cci->len = 3;
+                        cci->sock = test_sock;
+                        PACK_DATA_SOCK(cci);
+                    }
+                }
+                break;
+
+            case RECVFROM:
+                UNPACK_DATA_SOCK(cci);
+                cci->len = 1;
+                if (test_sock == INVALID_SOCKET)
+                {
+                    cci->err_code = NOT_AVAILABLE;
+                }
+                else if (test_sock != cci->sock)
+                {
+                    cci->err_code = INVALID_REQUEST;
+                }
+                else
+                {
+                    fut = std::async(std::launch::async, exec_recvfrom, test_sock);
+                    cci->err_code = NO_ERROR;
+                }
+                break;
+
+            case SESSION_END:
                 printf("end of session command - done!\n");
                 close(childfd);
                 done = true;
                 break;
             }
+
+            if (!done)
+            {
+                printf("sending %d bytes:", cci->len);
+                for (int i = 0; i < cci->len; i++)
+                    printf(" %02X", (uint8_t) buf[i]);
+                printf("\n");
+
+                n = send(childfd, buf, cci->len, 0);
+                if (n < 0)
+                {
+                    perror("ERROR writing to socket");
+                    done = true;
+                }
+            }
+
         }
     }
     return 0;
