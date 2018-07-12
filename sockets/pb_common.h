@@ -5,35 +5,34 @@
 #define UNUSED(_var) (void)_var
 #define UNUSED2(_var1, _var2) (void)_var1, (void)_var2
 
-#ifdef __x86_64__
-static const char* test_addr = "192.168.1.3";
-#else
-static const char* test_addr = "10.0.1.15";
-#endif
-
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET (-1)
+#endif
+#define CLOSE_SOCKET(socket_desc_arg) { if (socket_desc_arg != INVALID_SOCKET) { close (socket_desc_arg); socket_desc_arg = INVALID_SOCKET; } }
+
+#ifdef __x86_64__
+#define TEST_ADDR "192.168.1.3"
+#else
+#define TEST_ADDR "10.0.1.15"
 #endif
 
 #define MSG_LENGHT  0xFF
 #define BUFSIZE     1024
 
-// #if defined(__x86_64__) && defined(PB_CLIENT)
 #define SERVER_PORT     1100
 #define CLIENT_PORT     1101
 
 typedef enum command_list
-{ // command     |value  |type |    format     | response
-    ERRNO       =   0,  // all | ERRNO         | ERRCODE - last error code
-    OPEN_UDP    =   1,  // all | OPEN_UDP,PORT | ERRCODE,SOCK
-    OPEN_TCP    =   2,  // all | OPEN_TCP,PORT | ERRCODE,SOCK
-    RECVFROM    =   3,  // UDP | RECVFROM,SOCK | ERRCODE
-    SENDTO      =   4,  // UDP | SENDTO,SOCK   | ERRCODE
-    LISTEN      =   5,  // TCP | LISTEN,SOCK   | ERRCODE
-    CONNECT     =   6,  // TCP | CONNECT,SOCK  | ERRCODE
-    STATS       =   7,  // all | STATS,SOCK,   | ERRCODE,RCVPACK,BYTE,SNDPACK,BYTE
-    CLOSE       =   8,  // all | CLOSE,SOCK    | ERRCODE
-    SESSION_END =   9,  // all | END           |
+{ // command      |type  |    format     | response
+    ERRNO    = 0, // all | ERRNO         | ERRCODE - last error code
+    OPEN_UDP    , // all | OPEN_UDP,PORT | ERRCODE,SOCK
+    OPEN_TCP    , // all | OPEN_TCP,PORT | ERRCODE,SOCK
+    TEST_UDP    , // UDP | TEST_UDP,SOCK | ERRCODE
+    LISTEN      , // TCP | LISTEN,SOCK   | ERRCODE
+    CONNECT     , // TCP | CONNECT,SOCK  | ERRCODE
+    STATS       , // all | STATS,SOCK,   | ERRCODE,RCVPACK,BYTE,SNDPACK,BYTE
+    CLOSE       , // all | CLOSE,SOCK    | ERRCODE
+    SESSION_END , // all | END           |
 } command_list_t;
 
 typedef enum comm_lenght
@@ -41,23 +40,22 @@ typedef enum comm_lenght
     ERRNO_REQ_LEN       = 1,
     OPEN_UDP_REQ_LEN    = 3,
     OPEN_TCP_REQ_LEN    = 3,
-    RECVFROM_REQ_LEN    = 3,
-    SENDTO_REQ_LEN      = 3,
+    TEST_UDP_REQ_LEN    = 3,
     LISTEN_REQ_LEN      = 3,
     CONNECT_REQ_LEN     = 3,
     STATS_REQ_LEN       = 3,
     CLOSE_REQ_LEN       = 3,
     SESSION_END_REQ_LEN = 1,
 
-    ERRNO_RSP_LEN    = 1,
-    OPEN_UDP_RSP_LEN = 3,
-    OPEN_TCP_RSP_LEN = 3,
-    RECVFROM_RSP_LEN = 1,
-    SENDTO_RSP_LEN   = 1,
-    LISTEN_RSP_LEN   = 1,
-    CONNECT_RSP_LEN  = 1,
-    STATS_RSP_LEN    = 5,
-    CLOSE_RSP_LEN    = 1
+    ERRNO_RSP_LEN       = 1,
+    OPEN_UDP_RSP_LEN    = 3,
+    OPEN_TCP_RSP_LEN    = 3,
+    TEST_UDP_RSP_LEN    = 1,
+    LISTEN_RSP_LEN      = 1,
+    CONNECT_RSP_LEN     = 1,
+    STATS_RSP_LEN       = 5,
+    CLOSE_RSP_LEN       = 1,
+    SESSION_END_RSP_LEN = 0,
 } comm_lenght_t;
 
 typedef enum error_code
@@ -72,7 +70,16 @@ typedef enum error_code
     RECV_ERROR,
     TIMEOUT_ERROR,
     GENERAL_ERROR,
+    NOT_INITIALIZED,
 } error_code_t;
+
+typedef struct stats_info
+{
+    uint8_t rcv_packets;
+    uint8_t rcv_bytes;
+    uint8_t snd_packets;
+    uint8_t snd_butes;
+} stats_info_t;
 
 typedef struct control_channel_info
 {
@@ -80,17 +87,15 @@ typedef struct control_channel_info
         uint8_t command;    // 8 bit command id as defined in command_list_t
         uint8_t err_code;   // 8 bit error code as defined by error_code_t
     };
-    uint8_t data[4];        // req/rsp related data
+    union
+    {
+        uint8_t data[4];    // req/rsp related data
+        stats_info_t stats;
+    };
     union
     {                       // additional fields for processing, not to be sent
-        uint16_t port;
-        uint16_t sock;
-        struct {
-            uint8_t rcv_packets;
-            uint8_t rcv_bytes;
-            uint8_t snd_packets;
-            uint8_t snd_butes;
-        } stats;
+        uint16_t     port;
+        uint16_t     sock;
     };
     uint8_t len;
 } control_channel_info_t;

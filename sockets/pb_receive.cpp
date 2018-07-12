@@ -19,46 +19,34 @@
 #include <netinet/in.h>      // For sockaddr_in
 
 #include "pb_common.h"
-typedef char *tokarr[8];
 
-int split(char* str, tokarr &tarr)
+#define PARSE_CMD_GEN(cmd_to_parse_arg) { #cmd_to_parse_arg, cmd_to_parse_arg, cmd_to_parse_arg##_RSP_LEN}
+struct parse_cmd_list
 {
-
-  char * pch;
-  printf ("Splitting string \"%s\" into tokens:\n",str);
-  pch = strtok (str,","); // strtok (str," ,.-");
-  int count = 0;
-  while (pch != NULL)
-  {
-    printf ("%s\n",pch);
-    tarr[count]=pch;
-    count++;
-    pch = strtok(NULL, ",");
-
-  }
-  return count;
-
-//  example
-//        char str[] ="udp,1001,17";
-//        tokarr tarr;
-//        int num = split(str, tarr);
-//        for (int i = 0; i < num; i++)
-//            printf ("%s\n",tarr[i]);
-//        return 0;
-}
+    char *cmd_name;
+    uint8_t cmd_val;
+    uint8_t cmd_len;
+} cmd_translated[] = {
+    PARSE_CMD_GEN(ERRNO   ),
+    PARSE_CMD_GEN(OPEN_UDP),
+    PARSE_CMD_GEN(OPEN_TCP),
+    PARSE_CMD_GEN(TEST_UDP),
+    PARSE_CMD_GEN(LISTEN  ),
+    PARSE_CMD_GEN(CONNECT ),
+    PARSE_CMD_GEN(STATS   ),
+    PARSE_CMD_GEN(CLOSE   ),
+    PARSE_CMD_GEN(SESSION_END)
+};
 
 int run_ctrl_chan_server();
 
 int main(int argc, char *argv[])
 {
-    if (argc > 2 && strstr(argv[1], "--ip")) // ex: test_server_portblock --ip 192.168.1.3
-    {
-        test_addr = argv[2];
-    }
-    else if (argc > 1 && strstr(argv[1], "--ctrlchan")) // ex: test_server_portblock --ctrlchan
+    if ((argc == 1) || ((argc > 1) && strstr(argv[1], "--ctrlchan"))) // ex: test_server_portblock --ctrlchan
     {
         return run_ctrl_chan_server();
     }
+    // else if (argc > 1 && strstr(argv[1], "--test"))
 
     //initialize socket and structure
     int socketfd;
@@ -75,7 +63,7 @@ int main(int argc, char *argv[])
     }
 
     //assign values
-    server.sin_addr.s_addr = inet_addr(test_addr);
+    server.sin_addr.s_addr = inet_addr(TEST_ADDR);
     server.sin_family = AF_INET;
     server.sin_port = htons( SERVER_PORT );
 
@@ -85,7 +73,7 @@ int main(int argc, char *argv[])
         perror("Connection error");
         goto done;
     }
-    printf("Bind to %s port %d\n", test_addr, SERVER_PORT);
+    printf("Bind to %s port %d\n", TEST_ADDR, SERVER_PORT);
 
     //Receive an incoming message
     if (recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen) < 0)
@@ -115,21 +103,26 @@ done:
         close(socketfd);
 }
 
-void exec_recvfrom(int test_sock)
+void exec_test_udp(int test_sock)
 {
+    //initialize socket and structure
+    int socketfd = test_sock;
+    char message[MSG_LENGHT];
     struct sockaddr src_addr;
     socklen_t addrlen = sizeof(src_addr);
-    char buf[BUFSIZE]; /* message buffer */
     int nb = 0;
-    printf("listening on UDP sock %d\n", test_sock);
-    if ((nb = recvfrom(test_sock, buf, BUFSIZE, 0, &src_addr, &addrlen)) <= 0)
+
+    //Receive an incoming message
+    printf("|UDP| listening on UDP sock %d\n", test_sock);
+    if ((nb = recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen)) < 0)
     {
-        // TODO: add error handling
+        perror("// TODO: add error handling");
     }
     else
     {
-        printf("test_sock recvfrom %d bytes\n", nb);
-        sendto(test_sock, buf, strlen(buf), 0, &src_addr, addrlen);
+        printf("|UDP| test_sock recvfrom %d bytes \"%s\"\n", nb, message);
+        nb = sendto(socketfd, message, strlen(message), 0,  (struct sockaddr *) &src_addr, addrlen);
+        printf("|UDP| sent %d byte on UDP socket back\n", nb);
     }
 }
 
@@ -142,7 +135,7 @@ int run_ctrl_chan_server()
     struct sockaddr_in serveraddr; /* server's addr */
     struct sockaddr_in clientaddr; /* client addr */
     struct hostent *hostp; /* client host info */
-    char buf[BUFSIZE]; /* message buffer */
+    unsigned char buf[BUFSIZE]; /* message buffer */
     char *hostaddrp; /* dotted decimal host addr string */
     int optval; /* flag value for setsockopt */
     int n; /* message byte size */
@@ -169,7 +162,7 @@ int run_ctrl_chan_server()
     bzero((char *) &serveraddr, sizeof(serveraddr));
 
     serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = inet_addr(test_addr); // htonl(INADDR_ANY);
+    serveraddr.sin_addr.s_addr = inet_addr(TEST_ADDR); // htonl(INADDR_ANY);
     serveraddr.sin_port = htons((unsigned short)portno);
 
     // bind: associate the parent socket with a port
@@ -181,10 +174,13 @@ int run_ctrl_chan_server()
         perror("ERROR on listen");
 
     // main loop: wait for a connection request, echo input line, then close connection.
-    printf("starting main loop on %s port %d\n", test_addr, portno);
+    printf("starting main loop on %s port %d\n", TEST_ADDR, portno);
     clientlen = sizeof(clientaddr);
     bool done = false;
     while (!done) {
+        bool session_done  = false;
+        printf("server is listening on ctrl_chan for connections...\n");
+
         // accept: wait for a connection request
         childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
         if (childfd < 0)
@@ -199,7 +195,7 @@ int run_ctrl_chan_server()
             perror("ERROR on inet_ntoa\n");
         printf("server established connection with %s (%s)\n", hostp->h_name, hostaddrp);
 
-        while (!done)
+        while (!session_done)
         {
             std::future<void> fut;
             // read: read input string from the client
@@ -210,15 +206,16 @@ int run_ctrl_chan_server()
                 perror("ERROR reading from socket");
                 break; // from this loop while
             }
-            printf("server received %d bytes:", n);
-            if ( n == 0)
-                break;
+            printf("server received %s - %d bytes:", n?cmd_translated[buf[0]].cmd_name:"", n);
             for (int i = 0; i < n; i++)
                 printf(" %02X", (uint8_t) buf[i]);
             printf("\n");
+            if ( n == 0)
+                break;
 
             // here do action, generate reply and write to socket
             control_channel_info_t *cci = (control_channel_info_t*) buf;
+            cci->len = cmd_translated[cci->command].cmd_len;
             switch (cci->command)
             {
             case OPEN_UDP:
@@ -229,31 +226,36 @@ int run_ctrl_chan_server()
 
                 UNPACK_DATA_SOCK(cci);
                 cci->err_code = SOCKET_ERROR;
-                cci->len = 1;
 
                 test_sock = socket(AF_INET, SOCK_DGRAM, 0);
-
                 if (test_sock != INVALID_SOCKET)
                 {
+                    //assign values
+                    int port = cci->port;
                     struct sockaddr_in server;
-                    server.sin_addr.s_addr = inet_addr(test_addr);
+                    server.sin_addr.s_addr = inet_addr(TEST_ADDR);
                     server.sin_family = AF_INET;
-                    server.sin_port = htons(cci->port);
+                    server.sin_port = htons(port);
 
-                    printf("binding UDP to port %d\n", cci->port);
-                    if (bind(test_sock, (struct sockaddr *)&server, sizeof(server) == 0))
+                    //checks connection
+                    if (bind(test_sock, (struct sockaddr *)&server, sizeof(server)) < 0)
+                    {
+                        perror("Connection error");
+                        close(test_sock);
+                        test_sock = INVALID_SOCKET;
+                    }
+                    else
                     {
                         cci->err_code = NO_ERROR;
-                        cci->len = 3;
                         cci->sock = test_sock;
                         PACK_DATA_SOCK(cci);
                     }
+                    printf("binding UDP socket %d to port %d\n", test_sock, cci->port);
                 }
                 break;
 
-            case RECVFROM:
+            case TEST_UDP:
                 UNPACK_DATA_SOCK(cci);
-                cci->len = 1;
                 if (test_sock == INVALID_SOCKET)
                 {
                     cci->err_code = NOT_AVAILABLE;
@@ -264,19 +266,36 @@ int run_ctrl_chan_server()
                 }
                 else
                 {
-                    fut = std::async(std::launch::async, exec_recvfrom, test_sock);
+                    fut = std::async(std::launch::async, exec_test_udp, test_sock);
                     cci->err_code = NO_ERROR;
                 }
                 break;
 
+            case CLOSE:
+                if (test_sock != INVALID_SOCKET)
+                {
+                    close(test_sock);
+                }
+                cci->err_code = NO_ERROR;
+                break;
+
+            case STATS:
+                cci->err_code = NO_ERROR;
+                // mocking - TODO:
+                cci->stats.rcv_packets = 1;
+                cci->stats.rcv_bytes = 15;
+                cci->stats.snd_packets = 1;
+                cci->stats.snd_butes = 15;
+                break;
+
             case SESSION_END:
-                printf("end of session command - done!\n");
+                printf("end of session command - done!\n\n");
                 close(childfd);
-                done = true;
+                session_done = true;
                 break;
             }
 
-            if (!done)
+            if (!session_done)
             {
                 printf("sending %d bytes:", cci->len);
                 for (int i = 0; i < cci->len; i++)
@@ -290,7 +309,6 @@ int run_ctrl_chan_server()
                     done = true;
                 }
             }
-
         }
     }
     return 0;
