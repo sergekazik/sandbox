@@ -16,17 +16,12 @@ LDFLAGS = -lpthread -lstdc++
 TARGET_SERVER = test_server_portblock
 TARGET_CLIENT = test_client_portblock
 
-SRCS_SERVER = pb_receive.cpp
-SRCS_CLIENT = pb_send.cpp   \
+SRCS_SERVER = test_pb_server.cpp
+SRCS_CLIENT = test_pb_client.cpp   \
 	      RingIPDetector.cpp
 
-OBJS_SERVER = pb_receive.o
-OBJS_CLIENT = pb_send.o RingIPDetector.o
-
-#pb_receive.o: pb_receive.cpp pb_common.h
-#	$(CC) -c $(CFLAGS) -DPB_SERVER pb_receive.cpp -o $@
-#pb_send.o: pb_send.cpp pb_common.h
-#	$(CC) -c $(CFLAGS) -DPB_CLIENT pb_send.cpp -o $@
+OBJS_SERVER = test_pb_server.o
+OBJS_CLIENT = test_pb_client.o RingIPDetector.o
 
 .PHONY: all
 all: ${TARGET_SERVER} $(TARGET_CLIENT)
@@ -39,7 +34,7 @@ $(TARGET_CLIENT): $(OBJS_CLIENT)
 
 cpportblock:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u -v *.cpp *.h *.hh ../../chime_pro-firmware/app/diag/.
+	@cp -u -v *.cpp *.hh ../../chime_pro-firmware/app/diag/.
 	@echo "-----------------------------------------------------"
 
 

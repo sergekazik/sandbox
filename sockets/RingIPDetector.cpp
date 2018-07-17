@@ -193,6 +193,38 @@ error_code_t ClientIPDetector::connect_tcp_server(char *line)
     return INVALID_ARGUMENT;
 }
 
+error_code_t ClientIPDetector::send_tcp_server()
+{
+    if (m_cci.len != write(m_ctrl_sock, &m_cci, m_cci.len))
+    {
+        perror("control channel communication failed");
+        return SOCKET_ERROR;
+    }
+    return NO_ERROR;
+}
+
+error_code_t ClientIPDetector::recv_tcp_server()
+{
+    bzero(m_buffer, BUFSIZE);
+    m_bytes_read = read(m_ctrl_sock, m_buffer, BUFSIZE);
+    if (m_bytes_read < 0)
+    {
+        return RECV_ERROR;
+    }
+
+    return NO_ERROR;
+}
+
+void ClientIPDetector::dump_recv_buffer(int max)
+{
+    printf("received %d bytes:", m_bytes_read);
+    for (int i = 0; i < m_bytes_read && i < max; i++)
+    {
+        printf(" %02X", (uint8_t) m_buffer[i]);
+    }
+    printf("\n");
+}
+
 error_code_t ClientIPDetector::process_server_response()
 {
     if (!m_rsp_cci)
@@ -247,16 +279,6 @@ void ClientIPDetector::handle_test_udp_command()
     {
         // TODO: error handling
     }
-}
-
-error_code_t ClientIPDetector::init_response_info(const char *buffer)
-{
-    if (!buffer)
-    {
-        return NOT_INITIALIZED;
-    }
-    m_rsp_cci = (control_channel_info_t *) buffer;
-    return NO_ERROR;
 }
 
 void ClientIPDetector::printf_cci_info(const char* command)

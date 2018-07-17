@@ -18,7 +18,8 @@
 #include <unistd.h>          // For close()
 #include <netinet/in.h>      // For sockaddr_in
 
-#include "pb_common.h"
+#include "RingIPDetector.hh"
+using namespace Ring;
 
 #define PARSE_CMD_GEN(cmd_to_parse_arg) { #cmd_to_parse_arg, cmd_to_parse_arg, cmd_to_parse_arg##_RSP_LEN}
 struct parse_cmd_list

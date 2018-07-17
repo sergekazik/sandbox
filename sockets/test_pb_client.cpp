@@ -13,6 +13,7 @@
 #include <netinet/in.h>      // For sockaddr_in
 
 #include "RingIPDetector.hh"
+using namespace Ring;
 
 int exec_script(const char* script_name);
 
@@ -160,38 +161,29 @@ int exec_script(const char* script_name)
             break;
         }
 
-        // sending command to server --------------------------------------------------------
+        // sending
         client_control.printf_cci_info(line);
-        if (client_control.m_cci.len != send(client_control.m_ctrl_sock, &client_control.m_cci, client_control.m_cci.len, 0))
+        if (NO_ERROR != (ret_val = client_control.send_tcp_server()))
         {
             perror("control channel communication failed");
-            ret_val = SOCKET_ERROR;
             break;
         }
+
         if (client_control.m_cci.command == SESSION_END)
         {   // end of the session - no need ACK
             break;
         }
 
-        // getting response and processing section -------------------------------------------
-        char buf[BUFSIZE];
-        bzero(buf, BUFSIZE);
-        int n = read(client_control.m_ctrl_sock, buf, BUFSIZE);
-        if (n < 0)
+        // getting rsp
+        if (NO_ERROR != (ret_val = client_control.recv_tcp_server()))
         {
-            perror("ERROR reading from socket");
-            ret_val = RECV_ERROR;
+            perror("control channel communication failed");
+            break;
         }
-        else
-        {
-            printf("received %d bytes:", n);
-            for (int i = 0; i < n; i++)
-                printf(" %02X", (uint8_t) buf[i]);
-            printf("\n");
 
-            client_control.init_response_info(buf);
-            ret_val = client_control.process_server_response();
-        }
+        client_control.dump_recv_buffer(16);
+
+        ret_val = client_control.process_server_response();
     }
 
     if (fin)
