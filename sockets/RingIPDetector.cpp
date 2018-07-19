@@ -13,13 +13,14 @@
 #include <netinet/in.h>      // For sockaddr_in
 
 #include "RingIPDetector.hh"
+#include "bot_notifier.h"
 
 using namespace Ring;
 
 #define PARSE_CMD_GEN(cmd_to_parse_arg) { #cmd_to_parse_arg, cmd_to_parse_arg, cmd_to_parse_arg##_REQ_LEN}
 struct parse_cmd_list
 {
-    char *cmd_name;
+    const char *cmd_name;
     uint8_t cmd_val;
     uint8_t cmd_len;
 } cmd_translated[] = {
@@ -130,12 +131,9 @@ error_code_t ClientIPDetector::preprocess_script_command()
         break;
 
     case CLOSE:
-        if (m_test_sock != INVALID_SOCKET)
-        {
-            close(m_test_sock);
-            m_test_sock = INVALID_SOCKET;
-        }
-        // no break intentionally
+        ret_val = NO_ERROR;
+        break;
+
     case STATS:
         if (m_sock_hndl)
         {
@@ -217,12 +215,13 @@ error_code_t ClientIPDetector::recv_tcp_server()
 
 void ClientIPDetector::dump_recv_buffer(int max)
 {
-    printf("received %d bytes:", m_bytes_read);
-    for (int i = 0; i < m_bytes_read && i < max; i++)
+    char out[MSG_LENGHT];
+    uint16_t offset = sprintf(out, "received %d bytes:", m_bytes_read);
+    for (int i = 0; i < m_bytes_read && i < max && offset < (MSG_LENGHT - strlen(" %02X")); i++)
     {
-        printf(" %02X", (uint8_t) m_buffer[i]);
+        offset += sprintf(&out[offset], " %02X", (uint8_t) m_buffer[i]);
     }
-    printf("\n");
+    BOT_NOTIFY_DEBUG("%s", out);
 }
 
 error_code_t ClientIPDetector::process_server_response()
@@ -243,6 +242,30 @@ error_code_t ClientIPDetector::process_server_response()
         case TEST_UDP:
             handle_test_udp_command();
             break;
+
+        case CLOSE:
+            if (m_test_sock != INVALID_SOCKET)
+            {
+                close(m_test_sock);
+                m_test_sock = INVALID_SOCKET;
+            }
+            break;
+
+        case STATS:
+            if ((m_rsp_cci->stats.sent_bytes != m_stat.recv_bytes) ||
+                (m_rsp_cci->stats.sent_packets != m_stat.recv_packets) ||
+                (m_rsp_cci->stats.recv_bytes != m_stat.sent_bytes) ||
+                (m_rsp_cci->stats.recv_packets != m_stat.sent_packets))
+            {
+                m_rsp_cci->err_code = STATS_MISMATCH;
+                BOT_NOTIFY_DEBUG("STATS_MISMATCH: %d=%d,  %d=%d,  %d=%d,  %d=%d",
+                       m_rsp_cci->stats.recv_bytes, m_stat.sent_bytes,
+                       m_rsp_cci->stats.recv_packets, m_stat.sent_packets,
+                       m_rsp_cci->stats.sent_bytes, m_stat.recv_bytes,
+                       m_rsp_cci->stats.sent_packets, m_stat.recv_packets);
+
+            }
+            break;
         }
         return NO_ERROR;
     }
@@ -261,18 +284,22 @@ void ClientIPDetector::handle_test_udp_command()
     char buf[BUFSIZE] = "test-ping-beep";
     int nb = 0;
 
-    printf("testing UDP sock %d, sendto \"%s\" to server %s port %d\n", m_test_sock, buf, m_server_ip, m_test_port);
-    sendto(m_test_sock, buf, strlen(buf), 0, (struct sockaddr *) &server_addr, addrlen);
+    BOT_NOTIFY_DEBUG("testing UDP sock %d, sendto \"%s\" to server %s port %d", m_test_sock, buf, m_server_ip, m_test_port);
     if ((nb = sendto(m_test_sock, buf, strlen(buf), 0, (struct sockaddr *) &server_addr, addrlen)) > 0)
     {
-        printf("testing UDP sock sent %d bytes, listening...\n", nb);
+        m_stat.sent_bytes += nb;
+        m_stat.sent_packets++;
+
+        BOT_NOTIFY_DEBUG("testing UDP sock sent %d bytes, listening...", nb);
         if ((nb = recvfrom(m_test_sock, buf, BUFSIZE, 0, (struct sockaddr *) &server_addr, &addrlen)) <= 0)
         {
             // TODO: add error handling
         }
         else
         {
-            printf("UDP m_test_sock recvfrom %d bytes\n", nb);
+            BOT_NOTIFY_DEBUG("UDP m_test_sock received %d bytes \"%s\"", nb, buf);
+            m_stat.recv_bytes += nb;
+            m_stat.recv_packets++;
         }
     }
     else
@@ -281,9 +308,9 @@ void ClientIPDetector::handle_test_udp_command()
     }
 }
 
-void ClientIPDetector::printf_cci_info(const char* command)
+void ClientIPDetector::print_cci_info(const char* command)
 {
-    printf("sending command \"%s\" %02X %02X %02X %02X %02X len %d\n",
-           command, m_cci.command, m_cci.data[0], m_cci.data[1], m_cci.data[2], m_cci.data[3], m_cci.len);
+    BOT_NOTIFY_DEBUG("sending command \"%s\" %02X %02X %02X %02X %02X len %d",
+                    command, m_cci.command, m_cci.data[0], m_cci.data[1], m_cci.data[2], m_cci.data[3], m_cci.len);
 
 }

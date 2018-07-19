@@ -5,3 +5,4 @@ test_pb_client.cpp
 test.script
 RingIPDetector.hh
 RingIPDetector.cpp
+test_stubs.cpp

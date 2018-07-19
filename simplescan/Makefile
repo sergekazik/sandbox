@@ -59,7 +59,7 @@ LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548 -lRingCrypto
 RM = rm -f
 TARGET_LIB = libRingBle.a
 TARGET_APP = test_ble
-TARGET_GATT = test_gatt
+#TARGET_GATT = test_gatt
 
 CRYPTO_TARGET_LIB = libRingCrypto.so
 CRYPTO_TARGET_APP = test_crypto
@@ -85,7 +85,8 @@ test_stubs.o: $(RING_BLE)/test_stubs.cpp
 #	$(CC) -c $(CFLAGS) $(RING_BLE)/gatt_test_srv.cpp -o $@
 
 .PHONY: all
-all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
+#all: ${TARGET_LIB} $(TARGET_APP) $(TARGET_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
+all: ${TARGET_LIB} $(TARGET_APP) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP)
 
 $(TARGET_LIB): $(OBJS_LIB)
 	$(AR) rcs $@ $(OBJS_LIB)
@@ -94,8 +95,8 @@ $(TARGET_LIB): $(OBJS_LIB)
 $(TARGET_APP): $(OBJS_APP)
 	$(CC) $(OBJS_APP) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
-$(TARGET_GATT): $(OBJS_GATT)
-	$(CC) $(OBJS_GATT) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
+#$(TARGET_GATT): $(OBJS_GATT)
+#	$(CC) $(OBJS_GATT) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
 $(TARGET_TEST_CRYPTO): $(OBJS_TEST_CRYPTO)
 	$(CC) $(OBJS_TEST_CRYPTO) $(LDFLAGS_APP) -o $@
@@ -159,4 +160,4 @@ clean_obj:
 	-${RM} ${OBJS_LIB} ${OBJS_APP} *.o *.d $(RING_BLE)/crypto/*.o $(RING_BLE)/WILINK18/*.o $(RING_BLE)/BCM43/*.o
 
 clean:
-	-${RM} ${TARGET_LIB} ${TARGET_APP} ${TARGET_GATT} ${OBJS_LIB} ${OBJS_APP} $(OBJS_GATT) $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d libRingCrypto.so
+	-${RM} ${TARGET_LIB} ${TARGET_APP} ${OBJS_LIB} ${OBJS_APP} $(CRYPTO_TARGET_LIB) $(CRYPTO_TARGET_APP) *.o *.d libRingCrypto.so

@@ -21,6 +21,11 @@
 #include "RingIPDetector.hh"
 using namespace Ring;
 
+int g_count_packets = 0;
+int g_count_bytes = 0;
+int g_sent_packets = 0;
+int g_sent_bytes = 0;
+
 #define PARSE_CMD_GEN(cmd_to_parse_arg) { #cmd_to_parse_arg, cmd_to_parse_arg, cmd_to_parse_arg##_RSP_LEN}
 struct parse_cmd_list
 {
@@ -115,15 +120,21 @@ void exec_test_udp(int test_sock)
 
     //Receive an incoming message
     printf("|UDP| listening on UDP sock %d\n", test_sock);
+    memset(message, 0, MSG_LENGHT);
     if ((nb = recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen)) < 0)
     {
         perror("// TODO: add error handling");
     }
     else
     {
+        g_count_packets++;
+        g_count_bytes += nb;
+        sprintf(&message[strlen(message)], "-ACK");
         printf("|UDP| test_sock recvfrom %d bytes \"%s\"\n", nb, message);
         nb = sendto(socketfd, message, strlen(message), 0,  (struct sockaddr *) &src_addr, addrlen);
         printf("|UDP| sent %d byte on UDP socket back\n", nb);
+        g_sent_packets++;
+        g_sent_bytes += nb;
     }
 }
 
@@ -186,6 +197,12 @@ int run_ctrl_chan_server()
         childfd = accept(parentfd, (struct sockaddr *) &clientaddr, &clientlen);
         if (childfd < 0)
             perror("ERROR on accept");
+
+        // reset counters
+        g_count_packets = 0;
+        g_count_bytes = 0;
+        g_sent_packets = 0;
+        g_sent_bytes = 0;
 
         // gethostbyaddr: determine who sent the message
         hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
@@ -283,10 +300,10 @@ int run_ctrl_chan_server()
             case STATS:
                 cci->err_code = NO_ERROR;
                 // mocking - TODO:
-                cci->stats.rcv_packets = 1;
-                cci->stats.rcv_bytes = 15;
-                cci->stats.snd_packets = 1;
-                cci->stats.snd_butes = 15;
+                cci->stats.recv_packets = g_count_packets;
+                cci->stats.recv_bytes = g_count_bytes;
+                cci->stats.sent_packets = g_sent_packets;
+                cci->stats.sent_bytes = g_sent_bytes;
                 break;
 
             case SESSION_END:

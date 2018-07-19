@@ -74,14 +74,15 @@ typedef enum error_code
     TIMEOUT_ERROR,
     GENERAL_ERROR,
     NOT_INITIALIZED,
+    STATS_MISMATCH,
 } error_code_t;
 
 typedef struct stats_info
 {
-    uint8_t rcv_packets;
-    uint8_t rcv_bytes;
-    uint8_t snd_packets;
-    uint8_t snd_butes;
+    uint8_t recv_packets;
+    uint8_t recv_bytes;
+    uint8_t sent_packets;
+    uint8_t sent_bytes;
 } stats_info_t;
 
 typedef struct control_channel_info
@@ -133,7 +134,7 @@ public:
 
     void handle_sendto_command();
     void handle_test_udp_command();
-    void printf_cci_info(const char *command);
+    void print_cci_info(const char *command);
     void dump_recv_buffer(int max);
 
     control_channel_info_t  m_cci;
@@ -147,9 +148,8 @@ public:
 private:
     bool check_socket(int &sock, int type);
     char m_buffer[BUFSIZE];
+    stats_info_t m_stat = {0,0,0,0};
     int m_bytes_read = 0;
-
-
 
 };
 

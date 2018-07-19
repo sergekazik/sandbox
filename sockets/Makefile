@@ -4,10 +4,12 @@ CC = gcc
 RM = rm -f
 
 ################################################################################
+CPRO_INC = -I../../chime_pro-firmware/app/common
+
 CFLAGS =    -fPIC -Wall -Wextra -O0 -g -std=c++11 -pthread \
 	    -Wunused -Wunreachable-code	-Wunused-function   \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
-	    -I.
+	    -I. $(CPRO_INC)
 
 CXXFLAGS = $(CFLAGS)
 
@@ -17,11 +19,10 @@ TARGET_SERVER = test_server_portblock
 TARGET_CLIENT = test_client_portblock
 
 SRCS_SERVER = test_pb_server.cpp
-SRCS_CLIENT = test_pb_client.cpp   \
-	      RingIPDetector.cpp
+SRCS_CLIENT = test_pb_client.cpp test_stubs.cpp RingIPDetector.cpp
 
 OBJS_SERVER = test_pb_server.o
-OBJS_CLIENT = test_pb_client.o RingIPDetector.o
+OBJS_CLIENT = test_pb_client.o test_stubs.o RingIPDetector.o
 
 .PHONY: all
 all: ${TARGET_SERVER} $(TARGET_CLIENT)

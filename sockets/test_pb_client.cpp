@@ -141,7 +141,7 @@ int exec_script(const char* script_name)
 
     while ((ret_val == NO_ERROR) && (fgets(line, 0Xff, fin) != NULL))
     {
-        printf("->%s", line);
+        printf("\n->%s", line);
         if (line[strlen(line)-1]=='\n' || line[strlen(line)-1]=='\r')
         {
             line[strlen(line)-1]='\0';
@@ -162,7 +162,7 @@ int exec_script(const char* script_name)
         }
 
         // sending
-        client_control.printf_cci_info(line);
+        client_control.print_cci_info(line);
         if (NO_ERROR != (ret_val = client_control.send_tcp_server()))
         {
             perror("control channel communication failed");
