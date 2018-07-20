@@ -28,11 +28,10 @@ struct parse_cmd_list
     PARSE_CMD_GEN(OPEN_UDP),
     PARSE_CMD_GEN(OPEN_TCP),
     PARSE_CMD_GEN(TEST_UDP),
-    PARSE_CMD_GEN(LISTEN  ),
-    PARSE_CMD_GEN(CONNECT ),
+    PARSE_CMD_GEN(TEST_TCP),
     PARSE_CMD_GEN(STATS   ),
     PARSE_CMD_GEN(CLOSE   ),
-    PARSE_CMD_GEN(SESSION_END)
+    PARSE_CMD_GEN(EOS)
 };
 
 ClientIPDetector::ClientIPDetector()
@@ -120,8 +119,7 @@ error_code_t ClientIPDetector::preprocess_script_command()
         }
         break;
 
-    case LISTEN:
-    case CONNECT:
+    case TEST_TCP:
         if (m_sock_hndl && check_socket(m_test_sock, SOCK_STREAM))
         {
             m_cci.sock = m_sock_hndl;
@@ -139,7 +137,7 @@ error_code_t ClientIPDetector::preprocess_script_command()
             ret_val = NO_ERROR;
         }
         break;
-    case SESSION_END:
+    case EOS:
     case ERRNO:
         ret_val = NO_ERROR;
     }

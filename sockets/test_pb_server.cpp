@@ -37,11 +37,10 @@ struct parse_cmd_list
     PARSE_CMD_GEN(OPEN_UDP),
     PARSE_CMD_GEN(OPEN_TCP),
     PARSE_CMD_GEN(TEST_UDP),
-    PARSE_CMD_GEN(LISTEN  ),
-    PARSE_CMD_GEN(CONNECT ),
+    PARSE_CMD_GEN(TEST_TCP),
     PARSE_CMD_GEN(STATS   ),
     PARSE_CMD_GEN(CLOSE   ),
-    PARSE_CMD_GEN(SESSION_END)
+    PARSE_CMD_GEN(EOS)
 };
 
 int run_ctrl_chan_server();
@@ -285,7 +284,7 @@ int run_ctrl_chan_server()
                         cci->sock = test_sock;
                         PACK_DATA_SOCK(cci);
                     }
-                    printf("bound UDP socket %d to port %d\n", test_sock, cci->port);
+                    printf("bound UDP socket %d to port %d %s\n", test_sock, cci->port, test_sock == INVALID_SOCKET?"failed":"");
                 }
                 break;
 
@@ -323,7 +322,7 @@ int run_ctrl_chan_server()
                 cci->stats.sent_bytes = g_sent_bytes;
                 break;
 
-            case SESSION_END:
+            case EOS:
                 printf("end of session command - done!\n\n");
                 close(childfd);
                 session_done = true;

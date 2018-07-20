@@ -169,7 +169,7 @@ int exec_script(const char* script_name)
             break;
         }
 
-        if (client_control.m_cci.command == SESSION_END)
+        if (client_control.m_cci.command == EOS)
         {   // end of the session - no need ACK
             break;
         }

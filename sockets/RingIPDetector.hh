@@ -31,11 +31,10 @@ typedef enum command_list
     OPEN_UDP    , // all | OPEN_UDP,PORT | ERRCODE,SOCK
     OPEN_TCP    , // all | OPEN_TCP,PORT | ERRCODE,SOCK
     TEST_UDP    , // UDP | TEST_UDP,SOCK | ERRCODE
-    LISTEN      , // TCP | LISTEN,SOCK   | ERRCODE
-    CONNECT     , // TCP | CONNECT,SOCK  | ERRCODE
+    TEST_TCP    , // TCP | TEST_TCP,SOCK | ERRCODE
     STATS       , // all | STATS,SOCK,   | ERRCODE,RCVPACK,BYTE,SNDPACK,BYTE
     CLOSE       , // all | CLOSE,SOCK    | ERRCODE
-    SESSION_END , // all | END           |
+    EOS         , // all | END           |
 } command_list_t;
 
 typedef enum comm_lenght
@@ -44,21 +43,19 @@ typedef enum comm_lenght
     OPEN_UDP_REQ_LEN    = 3,
     OPEN_TCP_REQ_LEN    = 3,
     TEST_UDP_REQ_LEN    = 3,
-    LISTEN_REQ_LEN      = 3,
-    CONNECT_REQ_LEN     = 3,
+    TEST_TCP_REQ_LEN    = 3,
     STATS_REQ_LEN       = 3,
     CLOSE_REQ_LEN       = 3,
-    SESSION_END_REQ_LEN = 1,
+    EOS_REQ_LEN = 1,
 
     ERRNO_RSP_LEN       = 1,
     OPEN_UDP_RSP_LEN    = 3,
     OPEN_TCP_RSP_LEN    = 3,
     TEST_UDP_RSP_LEN    = 1,
-    LISTEN_RSP_LEN      = 1,
-    CONNECT_RSP_LEN     = 1,
+    TEST_TCP_RSP_LEN    = 1,
     STATS_RSP_LEN       = 5,
     CLOSE_RSP_LEN       = 1,
-    SESSION_END_RSP_LEN = 0,
+    EOS_RSP_LEN = 0,
 } comm_lenght_t;
 
 typedef enum error_code
