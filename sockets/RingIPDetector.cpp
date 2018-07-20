@@ -131,9 +131,6 @@ error_code_t ClientIPDetector::preprocess_script_command()
         break;
 
     case CLOSE:
-        ret_val = NO_ERROR;
-        break;
-
     case STATS:
         if (m_sock_hndl)
         {
@@ -213,17 +210,6 @@ error_code_t ClientIPDetector::recv_tcp_server()
     return NO_ERROR;
 }
 
-void ClientIPDetector::dump_recv_buffer(int max)
-{
-    char out[MSG_LENGHT];
-    uint16_t offset = sprintf(out, "received %d bytes:", m_bytes_read);
-    for (int i = 0; i < m_bytes_read && i < max && offset < (MSG_LENGHT - strlen(" %02X")); i++)
-    {
-        offset += sprintf(&out[offset], " %02X", (uint8_t) m_buffer[i]);
-    }
-    BOT_NOTIFY_DEBUG("%s", out);
-}
-
 error_code_t ClientIPDetector::process_server_response()
 {
     if (!m_rsp_cci)
@@ -259,11 +245,10 @@ error_code_t ClientIPDetector::process_server_response()
             {
                 m_rsp_cci->err_code = STATS_MISMATCH;
                 BOT_NOTIFY_DEBUG("STATS_MISMATCH: %d=%d,  %d=%d,  %d=%d,  %d=%d",
-                       m_rsp_cci->stats.recv_bytes, m_stat.sent_bytes,
-                       m_rsp_cci->stats.recv_packets, m_stat.sent_packets,
-                       m_rsp_cci->stats.sent_bytes, m_stat.recv_bytes,
-                       m_rsp_cci->stats.sent_packets, m_stat.recv_packets);
-
+                     m_rsp_cci->stats.recv_packets, m_stat.sent_packets,
+                     m_rsp_cci->stats.recv_bytes, m_stat.sent_bytes,
+                     m_rsp_cci->stats.sent_packets, m_stat.recv_packets,
+                     m_rsp_cci->stats.sent_bytes, m_stat.recv_bytes);
             }
             break;
         }
@@ -274,6 +259,16 @@ error_code_t ClientIPDetector::process_server_response()
 
 void ClientIPDetector::handle_test_udp_command()
 {
+    struct timeval tv;
+    tv.tv_sec = 1; // timeout_in_seconds
+    tv.tv_usec = 0;
+    if (setsockopt(m_test_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv) < 0)
+    {
+        perror("setsockopt failed.");
+        close(m_test_sock);
+        return;
+    }
+
     struct sockaddr_in server_addr;
     socklen_t addrlen = sizeof(server_addr);
 
@@ -293,7 +288,7 @@ void ClientIPDetector::handle_test_udp_command()
         BOT_NOTIFY_DEBUG("testing UDP sock sent %d bytes, listening...", nb);
         if ((nb = recvfrom(m_test_sock, buf, BUFSIZE, 0, (struct sockaddr *) &server_addr, &addrlen)) <= 0)
         {
-            // TODO: add error handling
+            BOT_NOTIFY_DEBUG("UDP m_test_sock timeout....");
         }
         else
         {
@@ -304,13 +299,30 @@ void ClientIPDetector::handle_test_udp_command()
     }
     else
     {
-        // TODO: error handling
+        perror("// TODO: error handling");
     }
+}
+
+void ClientIPDetector::dump_buffer(const uint8_t* src, int bytes, int max, const char *msg)
+{
+    char out[MSG_LENGHT];
+    uint16_t offset = sprintf(out, msg?msg:"received %s bytes:", msg?"":std::to_string(bytes).c_str());
+    for (int i = 0; i < bytes && i < max && offset < (MSG_LENGHT - strlen(" %02X")); i++)
+    {
+        offset += sprintf(&out[offset], " %02X", (uint8_t) src[i]);
+    }
+    BOT_NOTIFY_DEBUG("%s", out);
+}
+
+void ClientIPDetector::dump_recv_buffer(int max)
+{
+    dump_buffer((uint8_t*) m_buffer, m_bytes_read, max);
 }
 
 void ClientIPDetector::print_cci_info(const char* command)
 {
-    BOT_NOTIFY_DEBUG("sending command \"%s\" %02X %02X %02X %02X %02X len %d",
-                    command, m_cci.command, m_cci.data[0], m_cci.data[1], m_cci.data[2], m_cci.data[3], m_cci.len);
+    dump_buffer((uint8_t*) &m_cci, m_cci.len, 5, command);
+//    BOT_NOTIFY_DEBUG("sending command \"%s\" %02X %02X %02X %02X %02X len %d",
+//                    command, m_cci.command, m_cci.data[0], m_cci.data[1], m_cci.data[2], m_cci.data[3], m_cci.len);
 
 }

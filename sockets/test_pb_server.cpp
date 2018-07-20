@@ -123,18 +123,25 @@ void exec_test_udp(int test_sock)
     memset(message, 0, MSG_LENGHT);
     if ((nb = recvfrom(socketfd, message, sizeof(message), 0, &src_addr, &addrlen)) < 0)
     {
-        perror("// TODO: add error handling");
+        printf("UDP socket timeout...\n");
     }
     else
     {
+        printf("|UDP| test_sock recvfrom %d bytes \"%s\"\n", nb, nb>0?message:"");
         g_count_packets++;
         g_count_bytes += nb;
-        sprintf(&message[strlen(message)], "-ACK");
-        printf("|UDP| test_sock recvfrom %d bytes \"%s\"\n", nb, message);
-        nb = sendto(socketfd, message, strlen(message), 0,  (struct sockaddr *) &src_addr, addrlen);
-        printf("|UDP| sent %d byte on UDP socket back\n", nb);
+    }
+
+    sprintf(&message[strlen(message)], "-ACK");
+    if ((nb = sendto(socketfd, message, strlen(message), 0,  (struct sockaddr *) &src_addr, addrlen)) > 0)
+    {
+        printf("|UDP| sent back %d byte to UDP socket\n", nb);
         g_sent_packets++;
         g_sent_bytes += nb;
+    }
+    else
+    {
+        perror("|UDP| sent failed");
     }
 }
 
@@ -208,6 +215,7 @@ int run_ctrl_chan_server()
         hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr, sizeof(clientaddr.sin_addr.s_addr), AF_INET);
         if (hostp == NULL)
             perror("ERROR on gethostbyaddr");
+
         hostaddrp = inet_ntoa(clientaddr.sin_addr);
         if (hostaddrp == NULL)
             perror("ERROR on inet_ntoa\n");
@@ -255,10 +263,19 @@ int run_ctrl_chan_server()
                     server.sin_family = AF_INET;
                     server.sin_port = htons(port);
 
-                    //checks connection
-                    if (bind(test_sock, (struct sockaddr *)&server, sizeof(server)) < 0)
+                    struct timeval tv;
+                    tv.tv_sec = 1; // timeout_in_seconds
+                    tv.tv_usec = 0;
+                    if (setsockopt(test_sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv) < 0)
                     {
-                        perror("Connection error");
+                        perror("setsockopt failed.");
+                        close(test_sock);
+                        test_sock = INVALID_SOCKET;
+                    }
+                    // bind to port
+                    else if (bind(test_sock, (struct sockaddr *)&server, sizeof(server)) < 0)
+                    {
+                        perror("Bind error");
                         close(test_sock);
                         test_sock = INVALID_SOCKET;
                     }
@@ -268,7 +285,7 @@ int run_ctrl_chan_server()
                         cci->sock = test_sock;
                         PACK_DATA_SOCK(cci);
                     }
-                    printf("binding UDP socket %d to port %d\n", test_sock, cci->port);
+                    printf("bound UDP socket %d to port %d\n", test_sock, cci->port);
                 }
                 break;
 

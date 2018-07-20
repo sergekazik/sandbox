@@ -146,6 +146,8 @@ public:
     int m_sock_hndl = 0;
 
 private:
+    void dump_buffer(const uint8_t *src, int bytes, int max, const char *msg = nullptr);
+
     bool check_socket(int &sock, int type);
     char m_buffer[BUFSIZE];
     stats_info_t m_stat = {0,0,0,0};
