@@ -12,7 +12,7 @@
 #include <unistd.h>          // For close()
 #include <netinet/in.h>      // For sockaddr_in
 
-#include "RingIPDetector.hh"
+#include "RingPortBlockDetect.hh"
 #include "bot_notifier.h"
 
 using namespace Ring;
@@ -34,22 +34,33 @@ struct parse_cmd_list
     PARSE_CMD_GEN(EOS)
 };
 
-ClientIPDetector::ClientIPDetector()
+PortBlockDetect::PortBlockDetect()
 {
 }
 
-ClientIPDetector::~ClientIPDetector()
+PortBlockDetect::~PortBlockDetect()
 {
     CLOSE_SOCKET(m_ctrl_sock);
     CLOSE_SOCKET(m_test_sock);
 
 }
 
-error_code_t ClientIPDetector::parse_script_command(const char *line)
+error_code_t PortBlockDetect::parse_script_command(const char *line)
 {
     if (line == NULL)
     {
         return INVALID_ARGUMENT;
+    }
+    else if (m_skip_failed_test)
+    {
+        if (0 == strncmp(line, cmd_translated[CLOSE].cmd_name, strlen(cmd_translated[CLOSE].cmd_name)))
+        {
+            m_skip_failed_test = false;
+        }
+        else
+        {
+            return COMMAND_SKIPPED;
+        }
     }
 
     memset(&m_cci, 0, sizeof(control_channel_info_t));
@@ -83,7 +94,7 @@ error_code_t ClientIPDetector::parse_script_command(const char *line)
     return INVALID_REQUEST;
 }
 
-bool ClientIPDetector::check_socket(int &sock, int type)
+bool PortBlockDetect::check_socket(int &sock, int type)
 {
     if (sock == INVALID_SOCKET)
     {
@@ -97,7 +108,7 @@ bool ClientIPDetector::check_socket(int &sock, int type)
     return true;
 }
 
-error_code_t ClientIPDetector::preprocess_script_command()
+error_code_t PortBlockDetect::preprocess_script_command()
 {
     error_code_t ret_val = SOCKET_ERROR;
 
@@ -150,7 +161,7 @@ error_code_t ClientIPDetector::preprocess_script_command()
 /// \param &m_ctrl_sock - ref.to fill socket desc
 /// \return error_code
 ///
-error_code_t ClientIPDetector::connect_tcp_server(char *line)
+error_code_t PortBlockDetect::connect_tcp_server(char *line)
 {
     char *p_start =  strchr(line, ',');
     if (p_start)
@@ -186,7 +197,7 @@ error_code_t ClientIPDetector::connect_tcp_server(char *line)
     return INVALID_ARGUMENT;
 }
 
-error_code_t ClientIPDetector::send_tcp_server()
+error_code_t PortBlockDetect::send_tcp_server()
 {
     if (m_cci.len != write(m_ctrl_sock, &m_cci, m_cci.len))
     {
@@ -196,7 +207,7 @@ error_code_t ClientIPDetector::send_tcp_server()
     return NO_ERROR;
 }
 
-error_code_t ClientIPDetector::recv_tcp_server()
+error_code_t PortBlockDetect::recv_tcp_server()
 {
     bzero(m_buffer, BUFSIZE);
     m_bytes_read = read(m_ctrl_sock, m_buffer, BUFSIZE);
@@ -208,7 +219,7 @@ error_code_t ClientIPDetector::recv_tcp_server()
     return NO_ERROR;
 }
 
-error_code_t ClientIPDetector::process_server_response()
+error_code_t PortBlockDetect::process_server_response()
 {
     if (!m_rsp_cci)
     {
@@ -255,7 +266,7 @@ error_code_t ClientIPDetector::process_server_response()
     return (error_code_t) m_rsp_cci->err_code;
 }
 
-void ClientIPDetector::handle_test_udp_command()
+void PortBlockDetect::handle_test_udp_command()
 {
     struct timeval tv;
     tv.tv_sec = 1; // timeout_in_seconds
@@ -301,7 +312,7 @@ void ClientIPDetector::handle_test_udp_command()
     }
 }
 
-void ClientIPDetector::dump_buffer(const uint8_t* src, int bytes, int max, const char *msg)
+void PortBlockDetect::dump_buffer(const uint8_t* src, int bytes, int max, const char *msg)
 {
     char out[MSG_LENGHT];
     uint16_t offset = sprintf(out, msg?msg:"received %s bytes:", msg?"":std::to_string(bytes).c_str());
@@ -312,12 +323,12 @@ void ClientIPDetector::dump_buffer(const uint8_t* src, int bytes, int max, const
     BOT_NOTIFY_DEBUG("%s", out);
 }
 
-void ClientIPDetector::dump_recv_buffer(int max)
+void PortBlockDetect::dump_recv_buffer(int max)
 {
     dump_buffer((uint8_t*) m_buffer, m_bytes_read, max);
 }
 
-void ClientIPDetector::print_cci_info(const char* command)
+void PortBlockDetect::print_cci_info(const char* command)
 {
     dump_buffer((uint8_t*) &m_cci, m_cci.len, 5, command);
 //    BOT_NOTIFY_DEBUG("sending command \"%s\" %02X %02X %02X %02X %02X len %d",

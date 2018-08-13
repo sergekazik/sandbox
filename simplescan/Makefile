@@ -14,17 +14,20 @@ CC = gcc
 ################################################################################
 ## Third party path/defs/stabs
 ################################################################################
-AMB_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw/ambarella
-BLUEZ_548  = $(AMB_TOPDIR)/prebuild/third-party/armv7-a-hf/bluez5/bluez-5.48
+LPD_TOPDIR = $(HOME)/workspace/low-powered-doorbell-fw
+BLUETOOTH  = -I$(LPD_TOPDIR)/amba-linux-sdk/ambarella/prebuild/third-party/armv7-a-hf/util-linux/include    \
+	     -I$(LPD_TOPDIR)/amba-linux-sdk/ambarella/prebuild/third-party/armv7-a-hf/bluez5/include \
+	     -I$(HOME)/workspace/all-bluez/bluez-5.47
 
-RING_TOP    = $(AMB_TOPDIR)/ring
-RING_BLE    = $(AMB_TOPDIR)/ring/ble
-RING_COM    = $(AMB_TOPDIR)/ring/common
-RING_LOG    = $(AMB_TOPDIR)/ring/ding/include
+RING_TOP    = $(LPD_TOPDIR)/ring
+RING_PROP   = $(LPD_TOPDIR)/ring/properties
+RING_BLE    = $(LPD_TOPDIR)/ring/ble
+RING_COM    = $(LPD_TOPDIR)/ring/common
+RING_LOG    = $(LPD_TOPDIR)/ring/ding/include
 CHIPSUBPATH = $(RING_BLE)/$(BLE_CS)
 
-TIBLE_3PARTY = $(AMB_TOPDIR)/prebuild/third-party/TIBle
-BTPIA_SDK = $(TIBLE_3PARTY)/BluetopiaPM
+TIBLE_3PARTY= $(LPD_TOPDIR)/amba-linux-sdk/ambarella/prebuild/third-party/TIBle
+BTPIA_SDK   = $(TIBLE_3PARTY)/BluetopiaPM
 
 BTPIA_SDK_INC = -I$(BTPIA_SDK)/include			    \
 		-I$(BTPIA_SDK)/include/client		    \
@@ -40,14 +43,14 @@ CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	    \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -D$(RING_NAME) -D$(BLE_CS) -DRING_NAME=\"$(RING_NAME)\"	    \
 	    -I. -I$(CHIPSUBPATH) -I$(RING_BLE)/crypto/	-I$(RING_BLE)/	    \
-	    -DTEST_CONSOLE_WRITE					    \
-	    -I$(RING_TOP) -I$(RING_LOG)	-I$(RING_COM)			    \
+	    -DTEST_CONSOLE_WRITE -DSYS_VOLATILE_PATH=""			    \
+	    -I$(RING_TOP) -I$(RING_LOG) -I$(RING_COM) -I$(RING_PROP)	    \
 	    $(BTPIA_SDK_INC)
 
 $(info RING_BLE = [${RING_BLE}])
 
 ifeq ($(BLE_CS), BCM43)
-CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 -I$(BLUEZ_548) -DPAIRING_ENABLE_CRYPTO=1
+CFLAGS += -DBLUEZ_TOOLS_SUPPORT=1 $(BLUETOOTH) -DPAIRING_ENABLE_CRYPTO=1
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -138,8 +141,9 @@ cpringble:
 	@echo "---------------- updated files: ---------------------"
 	@cp -u -v test_crypto $(HOME)/workspace/ring-nm/ble/.
 	@cp -u -v $(RING_BLE)/crypto/*.cpp $(RING_BLE)/crypto/*.h $(RING_BLE)/crypto/*.hh -v $(HOME)/workspace/chime_pro-firmware/app/ble/crypto
-	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
 	@echo "-----------------------------------------------------"
+
+#	@cp -u -v $(RING_BLE)/test_ble.cpp $(HOME)/workspace/chime_pro-firmware/app/ble
 
 oldcpringble:
 	@echo "---------------- updated files: ---------------------"

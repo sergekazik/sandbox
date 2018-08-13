@@ -19,10 +19,10 @@ TARGET_SERVER = test_server_portblock
 TARGET_CLIENT = test_client_portblock
 
 SRCS_SERVER = test_pb_server.cpp
-SRCS_CLIENT = test_pb_client.cpp test_stubs.cpp RingIPDetector.cpp
+SRCS_CLIENT = test_pb_client.cpp test_stubs.cpp RingPortBlockDetect.cpp
 
 OBJS_SERVER = test_pb_server.o
-OBJS_CLIENT = test_pb_client.o test_stubs.o RingIPDetector.o
+OBJS_CLIENT = test_pb_client.o test_stubs.o RingPortBlockDetect.o
 
 .PHONY: all
 all: ${TARGET_SERVER} $(TARGET_CLIENT)
@@ -35,7 +35,7 @@ $(TARGET_CLIENT): $(OBJS_CLIENT)
 
 cpportblock:
 	@echo "---------------- updated files: ---------------------"
-	@cp -u -v *.cpp *.hh ../../chime_pro-firmware/app/diag/.
+	@cp -u -v *.cpp *.hh test.script ../../chime_pro-firmware/app/diag/.
 	@echo "-----------------------------------------------------"
 
 

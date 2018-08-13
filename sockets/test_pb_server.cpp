@@ -18,7 +18,7 @@
 #include <unistd.h>          // For close()
 #include <netinet/in.h>      // For sockaddr_in
 
-#include "RingIPDetector.hh"
+#include "RingPortBlockDetect.hh"
 using namespace Ring;
 
 int g_count_packets = 0;

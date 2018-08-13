@@ -1,5 +1,5 @@
-#ifndef CLIENTIPDETECTOR_H
-#define CLIENTIPDETECTOR_H
+#ifndef _PORT_BLOCKING_DETECT_H
+#define _PORT_BLOCKING_DETECT_H
 
 #include <stdint.h>
 
@@ -72,6 +72,7 @@ typedef enum error_code
     GENERAL_ERROR,
     NOT_INITIALIZED,
     STATS_MISMATCH,
+    COMMAND_SKIPPED,
 } error_code_t;
 
 typedef struct stats_info
@@ -116,11 +117,11 @@ typedef struct control_channel_info
     (ptr_ctrl_chan_info_arg)->sock = (uint16_t) ((ptr_ctrl_chan_info_arg)->data[0] << 8) | (ptr_ctrl_chan_info_arg)->data[1];
 
 
-class ClientIPDetector
+class PortBlockDetect
 {
 public:
-    ClientIPDetector();
-    ~ClientIPDetector();
+    PortBlockDetect();
+    ~PortBlockDetect();
 
     error_code_t parse_script_command(const char *line);
     error_code_t preprocess_script_command();
@@ -133,6 +134,7 @@ public:
     void handle_test_udp_command();
     void print_cci_info(const char *command);
     void dump_recv_buffer(int max);
+    void skip_failed_test() { m_skip_failed_test = true; }
 
     control_channel_info_t  m_cci;
     control_channel_info_t *m_rsp_cci = (control_channel_info_t *) m_buffer;
@@ -149,9 +151,10 @@ private:
     char m_buffer[BUFSIZE];
     stats_info_t m_stat = {0,0,0,0};
     int m_bytes_read = 0;
+    bool m_skip_failed_test = false;
 
 };
 
 } // namespace Ring
 
-#endif // CLIENTIPDETECTOR_H
+#endif // _PORT_BLOCKING_DETECT_H

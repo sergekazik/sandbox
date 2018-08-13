@@ -12,7 +12,7 @@
 #include <unistd.h>          // For close()
 #include <netinet/in.h>      // For sockaddr_in
 
-#include "RingIPDetector.hh"
+#include "RingPortBlockDetect.hh"
 using namespace Ring;
 
 int exec_script(const char* script_name);
@@ -130,7 +130,7 @@ int exec_script(const char* script_name)
     }
 
     char line[0Xff];
-    Ring::ClientIPDetector client_control;
+    Ring::PortBlockDetect client_control;
 
     // here to connect to TCP server with client_control.m_ctrl_sock
     // the first line in script should contain valid ip address and port in format 127.0.0.1,1234
@@ -149,6 +149,12 @@ int exec_script(const char* script_name)
 
         if (NO_ERROR != (ret_val = client_control.parse_script_command(line)))
         {
+            if (ret_val == COMMAND_SKIPPED)
+            {
+                // reset to NO_ERROR to proceed with script
+                ret_val = NO_ERROR;
+                continue;
+            }
             printf("error parsing ret = %d, abort\n", ret_val);
             break;
         }
@@ -183,7 +189,14 @@ int exec_script(const char* script_name)
 
         client_control.dump_recv_buffer(16);
 
-        ret_val = client_control.process_server_response();
+        if (NO_ERROR != (ret_val = client_control.process_server_response()))
+        {
+            printf("server returned error, skip failed test");
+            client_control.skip_failed_test();
+
+            // reset to NO_ERROR to proceed with script
+            ret_val = NO_ERROR;
+        }
     }
 
     if (fin)

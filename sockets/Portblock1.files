@@ -3,6 +3,6 @@ test_pb_server.cpp
 test_pb_client.cpp
 ../../chime_pro-firmware/app/diag/make.inc
 test.script
-RingIPDetector.hh
-RingIPDetector.cpp
+RingPortBlockDetect.hh
+RingPortBlockDetect.cpp
 test_stubs.cpp
