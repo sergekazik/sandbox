@@ -14,7 +14,9 @@ do
     elif [[ $line = *"Server Report:"* ]]; then
         status="ok"
     elif [[ $line = *"failed"* ]]; then
-        status="failed"
+        status="fail"
+    elif [[ $line = *"WARNING: did not"* ]]; then
+        status="fail"
     fi
 
     if [[ $status != "" ]]; then
