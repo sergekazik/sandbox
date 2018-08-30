@@ -19,8 +19,7 @@ TARGET_CLIENT = iclient
 
 SRCS_SERVER = ipcluez.cpp gatt_api.cpp
 SRCS_CLIENT = ipclint.cpp
-INC_COMMON  = icommon.h
-INC_SERVER  = gatt_api.h $(INC_COMMON)
+INC_COMMON  = gatt_api.h icommon.h
 
 OBJS_SERVER = ipcluez.o gatt_api.o
 OBJS_CLIENT = ipclint.o
@@ -28,7 +27,7 @@ OBJS_CLIENT = ipclint.o
 .PHONY: all
 all: ${TARGET_SERVER} $(TARGET_CLIENT)
 
-$(TARGET_SERVER): $(OBJS_SERVER) $(INC_SERVER)
+$(TARGET_SERVER): $(OBJS_SERVER) $(INC_COMMON)
 	$(CC) $(OBJS_SERVER) $(LDFLAGS) -o $@
 
 $(TARGET_CLIENT): $(OBJS_CLIENT) $(INC_COMMON)
