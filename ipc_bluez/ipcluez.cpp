@@ -3,8 +3,12 @@
 #include <sys/msg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "icommon.h"
+#include "gatt_api.h"
+
+static uint8_t gsSessionId = 0;
 
 #ifdef DEBUG_ENABLED
 static const char *debug_msg[] =
@@ -19,14 +23,9 @@ static const char *debug_msg[] =
     "MSG_ADD_SERVICE",
     "MSG_ADD_ATTRIBUTE",
     "MSG_UPDATE_ATTRIBUTE",
-    "MSG_REGISTER_ON_CONNECT",
-    "MSG_REGISTER_ON_DISCONNECT",
-    "MSG_REGISTER_ON_DATA_READ",
-    "MSG_REGISTER_ON_DATA_WRITE",
-    "MSG_NOTIFY_ON_CONNECT",
-    "MSG_NOTIFY_ON_DISCONNECT",
-    "MSG_NOTIFY_ON_DATA_READ",
-    "MSG_NOTIFY_ON_DATA_WRITE",
+    "MSG_NOTIFY_STATUS_CHANGE",
+    "MSG_NOTIFY_DATA_READ",
+    "MSG_NOTIFY_DATA_WRITE",
 };
 #endif
 
@@ -37,22 +36,136 @@ void print_out_msg(Comm_Msg_t *cm)
 #endif
 }
 
-void die(char *s)
+void die(const char *s)
 {
-  perror(s);
-  exit(1);
+    perror(s);
+    exit(1);
+}
+
+int handle_request_msg(Comm_Msg_t *msg)
+{
+    int ret = NO_ERROR;
+
+    print_out_msg(msg);
+
+    if (!msg)
+    {
+        return INVALID_PARAMETER;
+    }
+
+    switch (msg->type)
+    {
+    case MSG_OPEN_SESSION:
+    {
+        // Open_Session_t *data = (Open_Session_t *) &msg->data;
+        if (gsSessionId > 0)
+        {
+            ret = SERVER_BUSY;
+        }
+        else
+        {
+            msg->session_id = gsSessionId = (time(NULL)%0x7F)+1;
+        }
+        break;
+    }
+
+    case MSG_CLOSE_SESSION:
+    {
+        Close_Session_t *data = (Close_Session_t *) &msg->data;
+        if ((gsSessionId == msg->session_id) || (data->force_override))
+        {
+            if (data->force_shutdown)
+            {
+                Ble::GattSrv::getInstance()->Shutdown();
+            }
+            gsSessionId = 0;
+        }
+        else
+        {
+            ret = SERVER_BUSY;
+        }
+        break;
+    }
+
+    case MSG_POWER:
+    {
+        Power_t *data = (Power_t *) &msg->data;
+        if (data->on_off)
+        {
+            ret = Ble::GattSrv::getInstance()->Initialize();
+        }
+        else
+        {
+            ret = Ble::GattSrv::getInstance()->Shutdown();
+        }
+        break;
+    }
+
+    case MSG_CONFIG:
+    {
+        Config_t *data = (Config_t *) &msg->data;
+        Ble::DeviceConfig_t config[] =
+        { // config tag                         count   params
+            {Ble::Config::LocalDeviceName,        {strlen(data->device_name)?1:0,   {{(char*) data->device_name, Ble::ConfigArgument::None}}}},
+            {Ble::Config::MACAddress,             {strlen(data->mac_address)?1:0,   {{(char*) data->mac_address, Ble::ConfigArgument::None}}}},
+            {Ble::Config::LocalClassOfDevice,     {data->device_class?1:0,          {{NULL, data->device_class}}}},
+            {Ble::Config::EOL,                    {0,   {{NULL, Ble::ConfigArgument::None}}}},
+        };
+        ret = Ble::GattSrv::getInstance()->Configure(config);
+        break;
+    }
+
+    case MSG_START_ADVERTISEMENT:
+    {
+        Start_Advertisement_t *data = (Start_Advertisement_t*) &msg->data;
+        break;
+    }
+
+    case MSG_STOP_ADVERTISEMENT:
+    {
+        Stop_Advertisement_t *data = (Stop_Advertisement_t *) &msg->data;
+        break;
+    }
+
+    case MSG_ADD_SERVICE:
+    {
+        Add_Service_t *data = (Add_Service_t *) &msg->data;
+        break;
+    }
+
+    case MSG_ADD_ATTRIBUTE:
+    {
+        Add_Attribute_t *data = (Add_Attribute_t *) &msg->data;
+        break;
+    }
+
+    case MSG_UPDATE_ATTRIBUTE:
+    {
+        Update_Attribute_t *data = (Update_Attribute_t *) &msg->data;
+        break;
+    }
+    default:
+        ret = INVALID_PARAMETER;
+        break;
+    }
+    return ret;
 }
 
 int main()
 {
-    int msqid;
+    int msqid, rsp_msg_id;
     key_t key;
     Comm_Msgbuf_t rcvbuffer;
     int msgflg = IPC_CREAT | 0666;
 
     key = SHARED_KEY;
-
     if ((msqid = msgget(key, msgflg )) < 0)
+    {
+      die("msgget()");
+    }
+
+    key = NOTIFY_KEY;
+    if ((rsp_msg_id = msgget(key, msgflg )) < 0)
     {
       die("msgget()");
     }
@@ -65,14 +178,11 @@ int main()
           die("msgrcv");
         }
 
-        print_out_msg(&rcvbuffer.msg);
-
-        // do handling here
-
-        rcvbuffer.msg.error = NO_ERROR;
+        // handle request provide response
+        rcvbuffer.msg.error = (Error_Type_t) handle_request_msg(&rcvbuffer.msg);
         int buflen = sizeof(Comm_Msg_t) + 1;
 
-        if (msgsnd(msqid, &rcvbuffer, buflen, IPC_NOWAIT) < 0)
+        if (msgsnd(rsp_msg_id, &rcvbuffer, buflen, IPC_NOWAIT) < 0)
         {
             die("msgrcv");
         }

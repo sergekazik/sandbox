@@ -13,7 +13,7 @@ RM = rm -f
 BLUEZ_548  = ./bluez-5.48
 
 CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14	\
-	    -Wno-format-zero-length -Wno-write-strings	\
+	    -Wno-format-zero-length -Wno-write-striings	\
 	    -Wno-missing-field-initializers		\
 	    -Wno-unused-result				\
 	    -I$(BLUEZ_548) -I./BCM43			\

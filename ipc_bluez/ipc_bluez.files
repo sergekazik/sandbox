@@ -3,3 +3,5 @@ make_bluez_548.mak
 ipclint.cpp
 ipcluez.cpp
 icommon.h
+gatt_api.cpp
+gatt_api.h
