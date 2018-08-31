@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2018-08-27T17:59:53. -->
+<!-- Written by QtCreator 3.4.2, 2018-08-30T16:42:44. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -163,9 +163,9 @@
     </valuelist>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
-    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments"></value>
+    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments">-ip</value>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">/home/ring-sergie/workspace/sandbox/ipc_bluez/iclient</value>
-    <value type="bool" key="ProjectExplorer.CustomExecutableRunConfiguration.UseTerminal">false</value>
+    <value type="bool" key="ProjectExplorer.CustomExecutableRunConfiguration.UseTerminal">true</value>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.WorkingDirectory">/home/ring-sergie/workspace/sandbox/ipc_bluez</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run /home/ring-sergie/workspace/sandbox/ipc_bluez/iclient</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>

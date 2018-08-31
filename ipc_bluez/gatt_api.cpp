@@ -128,10 +128,10 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
         switch (aConfig->tag)
         {
         case Ble::Config::ServiceTable:
-            if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.Params[0].strParam != NULL))
+            if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.strParam != NULL))
             {
-                mServiceCount = aConfig->params.Params[0].intParam;
-                mServiceTable = (ServiceInfo_t *) aConfig->params.Params[0].strParam;
+                mServiceCount = aConfig->params.intParam;
+                mServiceTable = (ServiceInfo_t *) aConfig->params.strParam;
                 GATT_SERVER_DEBUG("Service Table configure succeeded, count=%d", mServiceCount);
             }
             else
@@ -150,7 +150,7 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
             break;
 
         case Ble::Config::MACAddress:
-            strncpy(mMacAddress, aConfig->params.Params[0].strParam, DEV_MAC_ADDR_LEN);
+            strncpy(mMacAddress, aConfig->params.strParam, DEV_MAC_ADDR_LEN);
             break;
 
         default:
@@ -204,14 +204,14 @@ int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallba
 /// \param aParams
 /// \return error code
 ///
-int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)))
+int GattSrv::SetLocalDeviceName(Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
     {
-        if ((aParams) && (aParams->NumberofParameters) && (aParams->Params[0].strParam))
+        if ((aParams) && (aParams->NumberofParameters) && (aParams->strParam))
         {
-            strncpy(mDeviceName, aParams->Params[0].strParam, DEV_NAME_LEN);
+            strncpy(mDeviceName, aParams->strParam, DEV_NAME_LEN);
         }
 
         GATT_SERVER_DEBUG("Attempting to set Device Name to: \"%s\".", mDeviceName);
@@ -231,15 +231,15 @@ int GattSrv::SetLocalDeviceName(ParameterList_t *aParams __attribute__ ((unused)
 /// \param aParams
 /// \return error code
 ///
-int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unused)))
+int GattSrv::SetLocalClassOfDevice(Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
     {
         char device_class[DEV_CLASS_LEN] = "0x1F00"; // Uncategorized, specific device code not specified
-        if ((aParams) && (aParams->NumberofParameters) && (aParams->Params[0].intParam))
+        if ((aParams) && (aParams->NumberofParameters) && (aParams->intParam))
         {
-            sprintf(device_class, "%06X", aParams->Params[0].intParam);
+            sprintf(device_class, "%06X", aParams->intParam);
         }
 
         GATT_SERVER_DEBUG("setting Device Class to: \"%s\".", device_class);
@@ -262,7 +262,7 @@ int GattSrv::SetLocalClassOfDevice(ParameterList_t *aParams __attribute__ ((unus
 ///     -start LE adv,
 ///     - launch listeninng pthread on HCI socket for incoming connections
 ///
-int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
+int GattSrv::StartAdvertising(Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized && mServiceTable && mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes)
@@ -303,7 +303,7 @@ int GattSrv::StartAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
 ///     - stop LE adv
 ///     - stop listenning pthread if still listen on the socket
 ///
-int GattSrv::StopAdvertising(ParameterList_t *aParams __attribute__ ((unused)))
+int GattSrv::StopAdvertising(Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
@@ -413,10 +413,10 @@ int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, 
 /// \param aAttrOffset - ! here in BCM43 is used as aAttrIdx
 /// \return
 ///
-int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset)
+int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aServiceID, int aAttrOffset)
 {
     if (mOnCharCb)
-        (*(mOnCharCb))(aServiceID, aAttrOffset /* this is index! */, (Ble::Property::Access) aEventType);
+        (*(mOnCharCb))(aServiceID, aAttrOffset /* this is index! */,  aEventType);
     return Error::NONE;
 }
 
@@ -425,7 +425,7 @@ int GattSrv::ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServic
 /// \param aParams - not used
 /// \return
 ///
-int GattSrv::QueryLocalDeviceProperties(ParameterList_t *aParams __attribute__ ((unused)))
+int GattSrv::QueryLocalDeviceProperties(Parameter_t *aParams __attribute__ ((unused)))
 {
     PrintDeviceHeader(&di);
     HCIname(di.dev_id, NULL);
@@ -485,8 +485,8 @@ int GattSrv::OpenSocket(struct hci_dev_info &di) {
 //        return Error::FAILED_INITIALIZE;
 //    }
 
-#if defined(TEST_HCI1_DEVICE)
-    di.dev_id = 1;
+#ifdef TEST_HCI1_DEVICE
+    di.dev_id = TEST_HCI1_DEVICE;
 #else
     di.dev_id = 0;
 #endif
@@ -602,13 +602,13 @@ void GattSrv::HCIssp_mode(int hdev, char *opt) {
     int dd;
     dd = hci_open_dev(hdev);
     if (dd < 0) {
-        GATT_SERVER_DEBUG("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
+        GATT_SERVER_DEBUG("ERROR: can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
     if (opt) {
         uint8_t mode = atoi(opt);
         if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
-            GATT_SERVER_DEBUG("Can't set simple pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
+            GATT_SERVER_DEBUG("WARNING: can't set simple pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
             return;
         }
     }
@@ -1031,7 +1031,7 @@ int GattSrv::UpdateServiceTable(int attr_idx, const char *str_data, int len)
 /**************************************************************
  * static functions and callbacks
  * ***********************************************************/
-static void callback_ble_on_attribute_access(GATM_Event_Type_t aEventType, int aAttributeIdx)
+static void callback_ble_on_attribute_access(Ble::Property::Access aEventType, int aAttributeIdx)
 {
     GattSrv* gatt = GattSrv::getInstance();
     if (gatt)
@@ -1075,7 +1075,7 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
         // gatt_characteristic_read_cb serves "long read" so callback is needed to be called
         // only when the full payload read
         if (!remain_len || (remain_len <= BLE_READ_PACKET_MAX))
-            callback_ble_on_attribute_access((GATM_Event_Type_t) Ble::Property::Read, attr_index);
+            callback_ble_on_attribute_access(Ble::Property::Read, attr_index);
     }
     else
         GATT_SERVER_DEBUG("read_cb: attr_index is not found for attr_offset = %d", attr_info->AttributeOffset);
@@ -1119,7 +1119,7 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
         // update in the mServiceTable value "as is" - if encrypted by client - then it will be encrypted
         GattSrv::getInstance()->UpdateServiceTable(attr_index, (const char*) value, len);
 
-        callback_ble_on_attribute_access((GATM_Event_Type_t) Ble::Property::Write, attr_index);
+        callback_ble_on_attribute_access(Ble::Property::Write, attr_index);
     }
     else
         GATT_SERVER_DEBUG("write_cb: attr_index is not found for attr_offset = %d", attr_info->AttributeOffset);
@@ -1217,7 +1217,7 @@ static void att_disconnect_cb(int err, void *user_data)
     GATT_SERVER_DEBUG("Device disconnected: %s; exiting GATT Server loop", strerror(err));
 
     GattSrv * gatt = (GattSrv*) GattSrv::getInstance();
-    gatt->ProcessRegisteredCallback((GATM_Event_Type_t)Ble::Property::Disconnected, GATT_CLIENT_SVC_IDX, -1);
+    gatt->ProcessRegisteredCallback(Ble::Property::Disconnected, GATT_CLIENT_SVC_IDX, -1);
     mainloop_quit();
 }
 
@@ -1421,7 +1421,7 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
         GATT_SERVER_DEBUG("GATT server init failed\n\n\n");
     }
 
-    gatt->ProcessRegisteredCallback((GATM_Event_Type_t) Ble::Property::Connected, GATT_CLIENT_SVC_IDX, -1);
+    gatt->ProcessRegisteredCallback(Ble::Property::Connected, GATT_CLIENT_SVC_IDX, -1);
 
     sigset_t mask;
     sigemptyset(&mask);

@@ -1,22 +1,31 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 #include "gatt_api.h"
 
-#define SHARED_KEY 0x52696e67
-#define NOTIFY_KEY 0x676e6952
+#define SERVER      true
+#define CLIENT      false
+#define TO_SERVER   false
+#define TO_CLIENT   true
+#define FROM_SERVER false
+#define FROM_CLIENT true
 
 typedef enum msg_type
 {
     // communication session with the server
-    MSG_OPEN_SESSION = 0,
-    MSG_CLOSE_SESSION,
+    MSG_SESSION = 0,
 
     // controller / addapter
     MSG_POWER,
     MSG_CONFIG,
 
     // advertisement
-    MSG_START_ADVERTISEMENT,
-    MSG_STOP_ADVERTISEMENT,
+    MSG_ADVERTISEMENT,
 
     // GATT attribute operations
     MSG_ADD_SERVICE,
@@ -38,16 +47,12 @@ typedef enum error_type
     GENERAL_ERROR
 } Error_Type_t;
 
-typedef struct Open_session
+typedef struct session
 {
-
-} Open_Session_t;
-
-typedef struct Close_session
-{
+    uint8_t on_off;         // 1 - open session; 0 - close
     uint8_t force_shutdown; // 1 - force shutdown
     uint8_t force_override; // 1 - close any open session
-} Close_Session_t;
+} Session_t;
 
 typedef struct Power
 {
@@ -61,23 +66,21 @@ typedef struct Config
     char mac_address[DEV_MAC_ADDR_LEN];
 } Config_t;
 
-typedef struct Start_advertisement
+typedef struct advertisement
 {
-
-} Start_Advertisement_t;
-
-typedef struct Stop_advertisement
-{
-
-} Stop_Advertisement_t;
+    uint8_t on_off; // 1 - start; 0 - stop
+} Advertisement_t;
 
 typedef struct Add_service
 {
-
+    uint8_t  svc_idx;
+    uint16_t size;
+    uint8_t  data[1];
 } Add_Service_t;
 
 typedef struct Add_attribute
 {
+    uint8_t  attr_idx;
     uint16_t size;
     uint8_t  data[1];
 } Add_Attribute_t;
@@ -89,11 +92,10 @@ typedef struct Update_attribute
     uint8_t  data[1];
 } Update_Attribute_t;
 
-typedef struct Notify_status_change
+typedef struct Notify_connect_status
 {
-    uint8_t on_off; // 1 - on; 0 - off
-
-} Notify_Status_Change_t;
+    uint8_t on_off; // 1 - connected; 0 - disconnected
+} Notify_Connect_Status_t;
 
 typedef struct Notify_data_read
 {
@@ -113,25 +115,71 @@ typedef struct comm_msg
     Error_Type_t    error;
     uint8_t         session_id;
     union {
-        Open_Session_t          open_session;
-        Close_Session_t         close_session;
+        Session_t               session;
         Power_t                 power;
         Config_t                config;
-        Start_Advertisement_t   start_advertisement;
-        Stop_Advertisement_t    stop_advertisement;
+        Advertisement_t         advertisement;
         Add_Service_t           add_service;
         Add_Attribute_t         add_attribute;
         Update_Attribute_t      update_attribute;
-        Notify_Status_Change_t  notify_connect;
+        Notify_Connect_Status_t notify_connect;
         Notify_Data_Read_t      notify_data_read;
         Notify_Data_Write_t     notify_data_write;
     } data;
 
 } Comm_Msg_t;
 
-typedef struct comm_msgbuf
-{
-    __syscall_slong_t mtype;	/* type of received/sent message */
-    Comm_Msg_t msg;
-} Comm_Msgbuf_t;
+///
+/// \brief die
+/// \param s
+///
+void die(const char *s);
+
+///
+/// \brief parse_command_line
+/// \param argc
+/// \param argv
+/// \param gbIpc
+/// \param guiKey
+/// \param giPort
+/// \return
+///
+int parse_command_line(int argc, char** argv);
+
+///
+/// \brief get_msg_name
+/// \param cm
+///
+const char *get_msg_name(Comm_Msg_t *cm);
+
+///
+/// \brief init_comm
+/// \param bServer
+/// \return
+///
+int init_comm(bool bServer);
+
+///
+/// \brief send_comm
+/// \param bServer
+/// \param msg
+/// \param size
+/// \return
+///
+int send_comm(bool bServer, Comm_Msg_t *msg, int size);
+
+///
+/// \brief recv_comm
+/// \param bServer
+/// \param msg
+/// \return
+///
+int recv_comm(bool bServer, Comm_Msg_t *msg);
+
+///
+/// \brief shut_comm
+/// \param bServer
+/// \return
+///
+int shut_comm(bool bServer);
 

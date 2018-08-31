@@ -5,3 +5,4 @@ ipcluez.cpp
 icommon.h
 gatt_api.cpp
 gatt_api.h
+icommon.cpp

@@ -20,7 +20,6 @@ namespace Ble {
 #define GATT_CLIENT_SVC_IDX                 0
 #define GATT_CHARACTERISTICS_MAX            32
 #define BLE_READ_PACKET_MAX                 22
-#define MAX_NUM_OF_PARAMETERS               (4)     /* max number of parameters a command can have. */
 #define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
 #define DEV_NAME_LEN                        64      /* text string = device name */
 #define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
@@ -78,28 +77,6 @@ typedef struct _tagBD_ADDR_t
 
 typedef enum
 {
-   /* GATM Connection Events.                                           */
-   getGATTConnected,
-   getGATTDisconnected,
-   getGATTConnectionMTUUpdate,
-   getGATTHandleValueData,
-
-   /* GATM Client Events.                                               */
-   getGATTReadResponse,
-   getGATTWriteResponse,
-   getGATTErrorResponse,
-
-   /* GATM Server Events.                                               */
-   getGATTWriteRequest,
-   getGATTSignedWrite,
-   getGATTReadRequest,
-   getGATTPrepareWriteRequest,
-   getGATTCommitPrepareWrite,
-   getGATTHandleValueConfirmation
-} GATM_Event_Type_t;
-
-typedef enum
-{
    gctLE,
    gctBR_EDR
 } GATT_Connection_Type_t;
@@ -130,17 +107,12 @@ typedef struct _tagGATT_UUID_t
 
 typedef struct _tagParameter_t
 {
-    char         *strParam;
-    unsigned int  intParam;
+    int             NumberofParameters;
+    char            *strParam;
+    unsigned int    intParam;
 } Parameter_t;
 
-typedef struct _tagParameterList_t
-{
-    int         NumberofParameters;
-    Parameter_t Params[MAX_NUM_OF_PARAMETERS];
-} ParameterList_t;
-
-typedef int (*CommandFunction_t)(ParameterList_t *aParams);
+typedef int (*CommandFunction_t)(Parameter_t *aParams);
 
 namespace Config { enum Tag {
     EOL                  = 0, // End of list
@@ -153,7 +125,7 @@ namespace Config { enum Tag {
 typedef struct _tagDeviceConfig_t
 {
     Ble::Config::Tag   tag;
-    ParameterList_t params;
+    Parameter_t params;
 } DeviceConfig_t;
 
 /*********************************************************************/
@@ -178,19 +150,6 @@ typedef struct _tagDeviceConfig_t
 
 #define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                       0x00000001
 #define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                        0x00000002
-
-typedef struct _tagPrepareWriteEntry_t
-{
-    GATT_Connection_Type_t          ConnectionType;
-    BD_ADDR_t                       RemoteDeviceAddress;
-    unsigned int                    ServiceID;
-    unsigned int                    AttributeOffset;
-    unsigned int                    AttributeValueOffset;
-    unsigned int                    MaximumValueLength;
-    unsigned int                    ValueLength;
-    Byte_t                         *Value;
-    struct _tagPrepareWriteEntry_t *NextPrepareWriteEntryPtr;
-} PrepareWriteEntry_t;
 
 typedef struct _tagCharacteristicInfo_t
 {
@@ -245,7 +204,7 @@ typedef struct _tagServiceInfo_t
 
 namespace Error { enum Error {
     NONE                =  0, // NO ERROR, SUCCESS
-    PARSER              = -1, // no command was specified to the parser.
+    OPERATION_FAILED    = -1, // no command was specified to the parser.
     INVALID_COMMAND     = -2, // the Command does not exist for processing.
     EXIT_CODE           = -3, // the Command specified was the Exit Command.
     FUNCTION            = -4, // an error occurred in execution of the Command Function.
@@ -299,15 +258,15 @@ namespace Property
 
 namespace Advertising { enum Flags {
     // Flags is a bitmask in the following table
-   LocalPublicAddress  = 0x00000001, // [Local Random Address] - if not set
-   Discoverable        = 0x00000002, // [Non Discoverable] - if not set
-   Connectable         = 0x00000004, // [Non Connectable] - if not set
-   AdvertiseName       = 0x00000010, // [Advertise Name off] - if not set
-   AdvertiseTxPower    = 0x00000020, // [Advertise Tx Power off] - if not set
-   AdvertiseAppearance = 0x00000040, // [Advertise Appearance off] - if not set
-   PeerPublicAddress   = 0x00000100, // [Peer Random Address] - if not set
-   DirectConnectable   = 0x00000200, // [Undirect Connectable] // When Connectable bit (0x0004) is set: - if not set
-   LowDutyCycle        = 0x00000400, // [High Duty Cycle] // When Direct Connectable bit (0x0200) is set: - if not set
+    LocalPublicAddress  = 0x00000001, // [Local Random Address] - if not set
+    Discoverable        = 0x00000002, // [Non Discoverable] - if not set
+    Connectable         = 0x00000004, // [Non Connectable] - if not set
+    AdvertiseName       = 0x00000010, // [Advertise Name off] - if not set
+    AdvertiseTxPower    = 0x00000020, // [Advertise Tx Power off] - if not set
+    AdvertiseAppearance = 0x00000040, // [Advertise Appearance off] - if not set
+    PeerPublicAddress   = 0x00000100, // [Peer Random Address] - if not set
+    DirectConnectable   = 0x00000200, // [Undirect Connectable] // When Connectable bit (0x0004) is set: - if not set
+    LowDutyCycle        = 0x00000400, // [High Duty Cycle] // When Direct Connectable bit (0x0200) is set: - if not set
 };}
 
 typedef struct _GattServerInfo {
@@ -358,40 +317,40 @@ public:
 
     int Shutdown();
 
-    int SetLocalDeviceName(ParameterList_t *aParams);
-    int SetLocalClassOfDevice(ParameterList_t *aParams);
+    int SetLocalDeviceName(Parameter_t *aParams);
+    int SetLocalClassOfDevice(Parameter_t *aParams);
 
     int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
     int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
-    int QueryLocalDeviceProperties(ParameterList_t *aParams);
-    int SetLocalDeviceAppearance(ParameterList_t *aParams);
+    int QueryLocalDeviceProperties(Parameter_t *aParams);
+    int SetLocalDeviceAppearance(Parameter_t *aParams);
 
     // connection and security
-    int SetRemoteDeviceLinkActive(ParameterList_t *aParams);
-    int RegisterAuthentication(ParameterList_t *aParams);
-    int ChangeSimplepairingParameters(ParameterList_t *aParams);
+    int SetRemoteDeviceLinkActive(Parameter_t *aParams);
+    int RegisterAuthentication(Parameter_t *aParams);
+    int ChangeSimplepairingParameters(Parameter_t *aParams);
 
     // GATT
-    int RegisterGATMEventCallback(ParameterList_t *aParams);
-    int GATTRegisterService(ParameterList_t *aParams);
+    int RegisterGATMEventCallback(Parameter_t *aParams);
+    int GATTRegisterService(Parameter_t *aParams);
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
     int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising
-    int SetAdvertisingInterval(ParameterList_t *aParams);
-    int StartAdvertising(ParameterList_t *aParams);
-    int StopAdvertising(ParameterList_t *aParams);
+    int SetAdvertisingInterval(Parameter_t *aParams);
+    int StartAdvertising(Parameter_t *aParams);
+    int StopAdvertising(Parameter_t *aParams);
 
-    int SetAuthenticatedPayloadTimeout(ParameterList_t *aParams);
-    int SetAndUpdateConnectionAndScanBLEParameters(ParameterList_t *aParams);
+    int SetAuthenticatedPayloadTimeout(Parameter_t *aParams);
+    int SetAndUpdateConnectionAndScanBLEParameters(Parameter_t *aParams);
 
     // debug
-    int EnableBluetoothDebug(ParameterList_t *aParams);
+    int EnableBluetoothDebug(Parameter_t *aParams);
 
     // debug / display functions and helper functions
     int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
-    int ProcessRegisteredCallback(GATM_Event_Type_t aEventType, int aServiceID, int aAttrOffset);
+    int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aServiceID, int aAttrOffset);
     int UpdateServiceTable(int attr_idx, const char *str_data, int len);
 
 private:

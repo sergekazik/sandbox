@@ -1,6 +1,6 @@
 BLUEZ_TOOLS_SUPPORT = 1
 
-# Makefile for Bluez 5.48 library used by ring
+# Makefile for Bluez 5.48 library used for GATT server implementation
 
 BUILD_PATH=$(shell pwd)
 

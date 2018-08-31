@@ -8,7 +8,7 @@ BLUEZ_548  = ./bluez-5.48
 CFLAGS =    -fPIC -Wall -Wextra -O0 -g -std=c++11 -pthread \
 	    -Wunused -Wunreachable-code	-Wunused-function   \
 	    -Wno-format-zero-length -Wno-write-striings -Wno-missing-field-initializers -Wno-unused-result  \
-	    -I. -DDEBUG_ENABLED=1 -I$(BLUEZ_548) -DTEST_HCI1_DEVICE=1
+	    -I. -DDEBUG_ENABLED=1 -I$(BLUEZ_548) -DTEST_HCI1_DEVICE=0
 
 CXXFLAGS = $(CFLAGS)
 
@@ -19,18 +19,20 @@ TARGET_CLIENT = iclient
 
 SRCS_SERVER = ipcluez.cpp gatt_api.cpp
 SRCS_CLIENT = ipclint.cpp
-INC_COMMON  = gatt_api.h icommon.h
 
-OBJS_SERVER = ipcluez.o gatt_api.o
-OBJS_CLIENT = ipclint.o
+INCS_COMMON  = gatt_api.h icommon.h
+
+OBJS_COMMON  = icommon.o
+OBJS_SERVER = ipcluez.o gatt_api.o $(OBJS_COMMON)
+OBJS_CLIENT = ipclint.o  $(OBJS_COMMON)
 
 .PHONY: all
 all: ${TARGET_SERVER} $(TARGET_CLIENT)
 
-$(TARGET_SERVER): $(OBJS_SERVER) $(INC_COMMON)
+$(TARGET_SERVER): $(OBJS_SERVER) $(INCS_COMMON)
 	$(CC) $(OBJS_SERVER) $(LDFLAGS) -o $@
 
-$(TARGET_CLIENT): $(OBJS_CLIENT) $(INC_COMMON)
+$(TARGET_CLIENT): $(OBJS_CLIENT) $(INCS_COMMON)
 	$(CC) $(OBJS_CLIENT) $(LDFLAGS) -o $@
 
 cpipcbluez:

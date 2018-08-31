@@ -1,81 +1,66 @@
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
 #include "icommon.h"
 
-void die(const char *s)
-{
-  perror(s);
-  exit(1);
-}
+// static vars, status
+static bool gbPower = false;
+static bool gbSession = false;
 
-Msg_Type_t msg_list[] = {
-    MSG_OPEN_SESSION,
+static Msg_Type_t msg_list[] = {
+    MSG_SESSION,
     MSG_POWER,
     MSG_ADD_SERVICE,
     MSG_ADD_ATTRIBUTE,
-    MSG_START_ADVERTISEMENT,
-    MSG_STOP_ADVERTISEMENT,
+    MSG_ADVERTISEMENT,
     MSG_POWER,
-    MSG_CLOSE_SESSION
+    MSG_SESSION
 };
 
-int main()
+int main(int argc, char** argv )
 {
-    int msqid, rsp_msg_id;
-    key_t key;
-    Comm_Msgbuf_t sbuf;
-    size_t buflen;
-    int msgflg = 0666;
-    bool bPower = false;
+    Comm_Msg_t msg;
 
-    key = SHARED_KEY;
-    if ((msqid = msgget(key, msgflg )) < 0)   //Get the message queue ID for the given key
+    if (Ble::Error::NONE != parse_command_line(argc, argv))
     {
-      die("msgget");
+        die("invalid parameters");
     }
 
-    key = NOTIFY_KEY;
-    if ((rsp_msg_id = msgget(key, msgflg )) < 0)   //Get the message queue ID for the given key
+    if (Ble::Error::NONE != init_comm(CLIENT))
     {
-      die("msgget");
+        die("failed to init communication");
     }
-
-    //Message Type
-    sbuf.mtype = 1;
 
     for (uint32_t i = 0; i < sizeof(msg_list)/sizeof(Msg_Type_t); i++)
     {
-        sbuf.msg.error = NO_ERROR;
-        sbuf.msg.session_id = 0;
-        sbuf.msg.type = msg_list[i];
-        buflen = sizeof(Comm_Msg_t) + 1;
+        msg.error = NO_ERROR;
+        msg.session_id = 0;
+        msg.type = msg_list[i];
 
+        // handle message payload
         if (msg_list[i] == MSG_POWER)
         {
-            bPower = !bPower;
-            sbuf.msg.data.power.on_off = bPower?1:0;
+            gbPower = !gbPower;
+            msg.data.power.on_off = gbPower?1:0;
+        }
+        else if (msg_list[i] == MSG_SESSION)
+        {
+            gbSession = !gbSession;
+            msg.data.session.on_off = gbSession?1:0;
         }
 
-        if (msgsnd(msqid, &sbuf, buflen, IPC_NOWAIT) < 0)
+        if (Ble::Error::NONE != send_comm(TO_SERVER, &msg, sizeof(msg)))
         {
-            printf ("%d, %ld, %d, %d \n", msqid, sbuf.mtype, sbuf.msg.type, (int)buflen);
-            die("msgsnd");
+            die("msg send to server failed");
         }
         else
         {
-            printf ("Message Sent to %d, %ld, type %d, len %d \n", msqid, sbuf.mtype, sbuf.msg.type, (int)buflen);
-            if (msgrcv(rsp_msg_id, &sbuf, buflen, 1, 0) < 0)
+            printf ("Message Sent to server, type %d %s\n", msg.type, get_msg_name(&msg));
+            if (Ble::Error::NONE != recv_comm(FROM_SERVER, &msg))
             {
-              die("msgrcv");
+                die("failed recv from server");
             }
-            printf ("ACK-> %d, %ld, msg type %d, len %d error =  %d\n", rsp_msg_id, sbuf.mtype, sbuf.msg.type, (int)buflen, sbuf.msg.error);
+            printf ("got rsp: msg type %d, %s error =  %d\n", msg.type, get_msg_name(&msg), msg.error);
         }
     }
 
+    shut_comm(CLIENT);
     return 0;
 }
