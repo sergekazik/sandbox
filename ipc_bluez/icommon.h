@@ -80,9 +80,7 @@ typedef struct _add_service
 
 typedef struct _add_attribute
 {
-    uint8_t  attr_idx;
-    uint16_t size;
-    uint8_t  data[1];
+    Ble::AttributeInfo_t attr;
 } Add_Attribute_t;
 
 typedef struct _update_attribute

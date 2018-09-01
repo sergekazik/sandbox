@@ -1,23 +1,7 @@
 #include "icommon.h"
 
 // static vars, status
-static bool gbPower = false;
-static bool gbSession = false;
-static bool gbAdvertisement = false;
 static uint8_t giSessionId = 0;
-
-static Msg_Type_t msg_list[] = {
-    MSG_SESSION,        // open
-    MSG_POWER,          // on
-    MSG_CONFIG,
-    MSG_ADD_SERVICE,
-    MSG_ADD_ATTRIBUTE,
-    MSG_ADVERTISEMENT,  // start
-    // ending session
-    MSG_ADVERTISEMENT,  // stop
-    MSG_POWER,          // off
-    MSG_SESSION         // close
-};
 
 // sample attribute definitions
 //typedef struct characteristicinfo
@@ -58,7 +42,27 @@ static Ble::AttributeInfo_t attr_table[] =
 #define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
 static Ble::ServiceInfo_t service = {0, SERVICE_UUID, sizeof(attr_table)/sizeof(Ble::AttributeInfo_t), attr_table};
 
-void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg)
+// sample of the configuration
+typedef struct {
+    Msg_Type_t type;
+    void* data;
+} SampleStruct_t;
+SampleStruct_t msg_list[] = {
+    { MSG_SESSION,        /* open */    (void*)1 },
+    { MSG_POWER,          /* on */      (void*)1 },
+    { MSG_CONFIG,         /*..*/         NULL },
+    { MSG_ADD_SERVICE,    /*..*/ (void*) &service },
+    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[0] },
+    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[1] },
+    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[2] },
+    { MSG_ADVERTISEMENT,  /* start */   (void*)1 },
+    { MSG_ADVERTISEMENT,  /* stop */    (void*)0 },
+    { MSG_POWER,          /* off */     (void*)0 },
+    { MSG_SESSION,         /* close */  (void*)0 },
+};
+
+
+void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
     msg.hdr.size = sizeof(Common_Header_t);
     msg.hdr.error = NO_ERROR;
@@ -68,41 +72,40 @@ void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg)
     switch (type)
     {
     case MSG_SESSION:
-        gbSession = !gbSession;
-        msg.data.session.on_off = gbSession?1:0;
         msg.hdr.size += sizeof(Session_t);
+        msg.data.session.on_off = (uint8_t)(unsigned long)data;
         break;
 
     case MSG_POWER:
-        gbPower = !gbPower;
-        msg.data.power.on_off = gbPower?1:0;
         msg.hdr.size += sizeof(Power_t);
+        msg.data.power.on_off = (uint8_t)(unsigned long)data;
         break;
 
     case MSG_CONFIG:
+        msg.hdr.size += sizeof(Config_t);
         msg.data.config.device_class = 0x000430;
         strcpy(msg.data.config.device_name, "IpClint-24");
         strcpy(msg.data.config.mac_address, "AA:AA:BB:BB:CC:CC");
-        msg.hdr.size += sizeof(Config_t);
         break;
 
     case MSG_ADVERTISEMENT:
-        gbAdvertisement = !gbAdvertisement;
-        msg.data.advertisement.on_off = gbAdvertisement?1:0;
         msg.hdr.size += sizeof(Advertisement_t);
+        msg.data.advertisement.on_off = (uint8_t)(unsigned long)data;
         break;
 
     case MSG_ADD_SERVICE:
-        msg.data.add_service.desc = service;
         msg.hdr.size += sizeof(Add_Service_t);
+        msg.data.add_service.desc = *((Ble::ServiceInfo_t*)data);
         break;
 
     case MSG_ADD_ATTRIBUTE:
         msg.hdr.size += sizeof(Add_Attribute_t);
+        msg.data.add_attribute = *((Add_Attribute_t*)data);
         break;
 
     case MSG_UPDATE_ATTRIBUTE:
         msg.hdr.size += sizeof(Update_Attribute_t);
+        msg.data.update_attribute = *((Update_Attribute_t*)data);
         break;
 
     case MSG_NOTIFY_CONNECT_STATUS:
@@ -127,7 +130,7 @@ int handle_response_message(Comm_Msg_t &msg)
     // server responses
     case MSG_SESSION:
         giSessionId = msg.hdr.session_id;
-        printf("giSessionId = %d\n", giSessionId);
+        printf("giSessionId = %d %s\n", giSessionId, msg.data.session.on_off?"opened":"closed");
         break;
 
     case MSG_POWER:
@@ -146,7 +149,7 @@ int handle_response_message(Comm_Msg_t &msg)
         }
         else
         {
-            // on disconnect - reenable advertisement if needed
+            // on disconnect
         }
         break;
 
@@ -174,9 +177,9 @@ int main(int argc, char** argv )
         die("failed to init communication", ret);
     }
 
-    for (uint32_t i = 0; i < sizeof(msg_list)/sizeof(Msg_Type_t); i++)
+    for (uint32_t i = 0; i < sizeof(msg_list)/sizeof(SampleStruct_t); i++)
     {
-        format_message_payload(msg_list[i], msg);
+        format_message_payload(msg_list[i].type, msg, msg_list[i].data);
 
         if (Ble::Error::NONE != (ret = send_comm(TO_SERVER, &msg, msg.hdr.size)))
         {

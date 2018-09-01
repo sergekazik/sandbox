@@ -11,7 +11,7 @@ void cleanup_client_service()
     if (gClientService.AttributeList)
     {
         free(gClientService.AttributeList);
-        memset(gClientService, 0, sizeof(gClientService));
+        memset(&gClientService, 0, sizeof(gClientService));
     }
 }
 

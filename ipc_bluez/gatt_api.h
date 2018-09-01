@@ -304,6 +304,7 @@ public:
 
     int SetAuthenticatedPayloadTimeout(Parameter_t *aParams);
     int SetAndUpdateConnectionAndScanBLEParameters(Parameter_t *aParams);
+    void CleanupServiceList(void);
 
     // debug
     int EnableBluetoothDebug(Parameter_t *aParams);
@@ -315,7 +316,6 @@ public:
 
 private:
     struct hci_dev_info di;
-    void CleanupServiceList(void);
     int OpenSocket(struct hci_dev_info &di);
     void PrintDeviceHeader(struct hci_dev_info *di);
     void WriteBdaddr(int dd, char *opt);

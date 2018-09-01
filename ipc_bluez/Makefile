@@ -6,7 +6,7 @@ BLUEZ_548  = ./bluez-5.48
 
 ################################################################################
 CFLAGS =    -fPIC -Wall -Wextra -O0 -g -std=c++11 -pthread \
-	    -Wunused -Wunreachable-code	-Wunused-function   \
+	    -Wunused -Wunreachable-code	-Wunused-function -Wno-permissive \
 	    -Wno-format-zero-length -Wno-write-striings -Wno-missing-field-initializers -Wno-unused-result  \
 	    -I. -DDEBUG_ENABLED=1 -I$(BLUEZ_548) -DTEST_HCI1_DEVICE=0
 
