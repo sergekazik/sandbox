@@ -56,7 +56,6 @@ GattSrv* GattSrv::getInstance() {
 
 GattSrv::GattSrv() :
     mInitialized(false)
-    ,mServiceCount(0)
     ,mServiceTable(NULL)
     ,mOnCharCb(NULL)
 {
@@ -128,11 +127,10 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
         switch (aConfig->tag)
         {
         case Ble::Config::ServiceTable:
-            if ((aConfig->params.NumberofParameters > 0) && (aConfig->params.strParam != NULL))
+            if ((aConfig->params.count > 0) && (aConfig->params.strParam != NULL))
             {
-                mServiceCount = aConfig->params.intParam;
                 mServiceTable = (ServiceInfo_t *) aConfig->params.strParam;
-                GATT_SERVER_DEBUG("Service Table configure succeeded, count=%d", mServiceCount);
+                GATT_SERVER_DEBUG("Service Table configure succeeded, attr count = %d", mServiceTable->NumberAttributes);
             }
             else
             {
@@ -151,6 +149,7 @@ int GattSrv::Configure(DeviceConfig_t* aConfig)
 
         case Ble::Config::MACAddress:
             strncpy(mMacAddress, aConfig->params.strParam, DEV_MAC_ADDR_LEN);
+            GATT_SERVER_DEBUG("Device Config: stored MAC address = %s", mMacAddress);
             break;
 
         default:
@@ -209,7 +208,7 @@ int GattSrv::SetLocalDeviceName(Parameter_t *aParams __attribute__ ((unused)))
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
     {
-        if ((aParams) && (aParams->NumberofParameters) && (aParams->strParam))
+        if ((aParams) && (aParams->count) && (aParams->strParam))
         {
             strncpy(mDeviceName, aParams->strParam, DEV_NAME_LEN);
         }
@@ -237,7 +236,7 @@ int GattSrv::SetLocalClassOfDevice(Parameter_t *aParams __attribute__ ((unused))
     if (mInitialized)
     {
         char device_class[DEV_CLASS_LEN] = "0x1F00"; // Uncategorized, specific device code not specified
-        if ((aParams) && (aParams->NumberofParameters) && (aParams->intParam))
+        if ((aParams) && (aParams->count) && (aParams->intParam))
         {
             sprintf(device_class, "%06X", aParams->intParam);
         }
@@ -265,7 +264,7 @@ int GattSrv::SetLocalClassOfDevice(Parameter_t *aParams __attribute__ ((unused))
 int GattSrv::StartAdvertising(Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
-    if (mInitialized && mServiceTable && mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes)
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes)
     {
         GATT_SERVER_DEBUG("Starting LE adv");
 
@@ -345,19 +344,16 @@ int GattSrv::StopAdvertising(Parameter_t *aParams __attribute__ ((unused)))
 /// \param aStrPayload
 /// \return
 ///
-int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aPayload, int len)
+int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len)
 {
     int ret_val = Error::INVALID_PARAMETERS;
-    if (mInitialized && mServiceTable && mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes && GattSrv::mServer.sref)
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
     {
-        if (aServiceIdx == GATT_CLIENT_SVC_IDX)
+        if (aAttributeIdx < (int) mServiceTable->NumberAttributes)
         {
-            if (aAttributeIdx < (int) mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes)
-            {
-                GATT_SERVER_DEBUG("sending %s Notify \"%s\"", mServiceTable[GATT_CLIENT_SVC_IDX].AttributeList[aAttributeIdx].AttributeName, aPayload);
-                bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.client_attr_handle[aAttributeIdx], (const uint8_t*) aPayload, len?len:strlen(aPayload));
-                ret_val = Error::NONE;
-            }
+            GATT_SERVER_DEBUG("sending %s Notify \"%s\"", mServiceTable->AttributeList[aAttributeIdx].AttributeName, aPayload);
+            bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.client_attr_handle[aAttributeIdx], (const uint8_t*) aPayload, len?len:strlen(aPayload));
+            ret_val = Error::NONE;
         }
     }
     else
@@ -379,15 +375,15 @@ int GattSrv::NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char
 int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen)
 {
     int ret_val = Error::NOT_INITIALIZED;
-    if (mInitialized && mServiceTable && mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes && GattSrv::mServer.sref)
+    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
     {
-        if ((aServiceID == mServiceTable[GATT_CLIENT_SVC_IDX].ServiceID) && aAttrData && aAttrLen)
+        if ((aServiceID == mServiceTable->ServiceID) && aAttrData && aAttrLen)
         {
             ret_val = Error::NOT_FOUND;
             // find attribute idx by offset
-            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes; attributeIdx++)
+            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable->NumberAttributes; attributeIdx++)
             {
-                if ((int) mServiceTable[GATT_CLIENT_SVC_IDX].AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
+                if ((int) mServiceTable->AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
                 {
                     UpdateServiceTable(attributeIdx, (const char*) aAttrData, aAttrLen);
                 }
@@ -413,10 +409,10 @@ int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, 
 /// \param aAttrOffset - ! here in BCM43 is used as aAttrIdx
 /// \return
 ///
-int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aServiceID, int aAttrOffset)
+int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrOffset)
 {
     if (mOnCharCb)
-        (*(mOnCharCb))(aServiceID, aAttrOffset /* this is index! */,  aEventType);
+        (*(mOnCharCb))(aAttrOffset /* this is index! */,  aEventType);
     return Error::NONE;
 }
 
@@ -443,11 +439,11 @@ int GattSrv::QueryLocalDeviceProperties(Parameter_t *aParams __attribute__ ((unu
 ///
 void GattSrv::CleanupServiceList(void)
 {
-    for (unsigned int idx=0; (mServiceTable != NULL) && (idx < mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes); idx++) {
-        CharacteristicInfo_t *charin;
-        if (NULL != (charin = (CharacteristicInfo_t *)mServiceTable[GATT_CLIENT_SVC_IDX].AttributeList[idx].Attribute)) {
+    for (unsigned int idx=0; (mServiceTable != NULL) && (idx < mServiceTable->NumberAttributes); idx++) {
+        AttributeInfo_t *charin;
+        if (NULL != (charin = (AttributeInfo_t *)&mServiceTable->AttributeList[idx])) {
             // GATT_SERVER_DEBUG("Cleanup: attr idx %d, AllocatedValue = %d", idx, charin->AllocatedValue);
-            if ((charin->AllocatedValue == 1) && (charin->Value != NULL)) {
+            if ((charin->AllocatedValue) && (charin->Value != NULL)) {
                 free(charin->Value);
                 charin->Value          = NULL;
                 charin->ValueLength    = 0;
@@ -456,7 +452,7 @@ void GattSrv::CleanupServiceList(void)
         }
     }
     memset(mServer.client_attr_handle, 0, sizeof(mServer.client_attr_handle));
-    memset(mServer.client_svc_handle, 0, sizeof(mServer.client_svc_handle));
+    memset(&mServer.client_svc_handle, 0, sizeof(mServer.client_svc_handle));
 }
 
 /**********************************************************
@@ -970,12 +966,10 @@ void GattSrv::PrintDeviceHeader(struct hci_dev_info *di) {
 /// \param AttributeOffset
 /// \return index in service table or -1 if not found
 ///
-int GattSrv::GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset)
+int GattSrv::GetAttributeIdxByOffset(unsigned int AttributeOffset)
 {
-    (void) ServiceID; // unused
-    const ServiceInfo_t *svc = &mServiceTable[GATT_CLIENT_SVC_IDX];
-    for (unsigned int i = 0; svc && (i < svc->NumberAttributes); i++) {
-        if (svc->AttributeList[i].AttributeOffset == AttributeOffset) {
+    for (unsigned int i = 0; mServiceTable && (i < mServiceTable->NumberAttributes); i++) {
+        if (mServiceTable->AttributeList[i].AttributeOffset == AttributeOffset) {
             return i;
         }
     }
@@ -994,10 +988,10 @@ int GattSrv::UpdateServiceTable(int attr_idx, const char *str_data, int len)
     int ret_val = Error::UNDEFINED;
     if (mServiceTable == NULL)
         ret_val = Error::NOT_INITIALIZED;
-    else if (attr_idx >= (int) mServiceTable[GATT_CLIENT_SVC_IDX].NumberAttributes)
+    else if (attr_idx >= (int) mServiceTable->NumberAttributes)
         ret_val = Error::INVALID_PARAMETERS;
     else {
-        CharacteristicInfo_t *attr = (CharacteristicInfo_t*) mServiceTable[GATT_CLIENT_SVC_IDX].AttributeList[attr_idx].Attribute;
+        AttributeInfo_t *attr = (AttributeInfo_t*) &mServiceTable->AttributeList[attr_idx];
         if (len > (int) attr->MaximumValueLength)
             ret_val = Error::INVALID_PARAMETERS;
         else {
@@ -1035,7 +1029,7 @@ static void callback_ble_on_attribute_access(Ble::Property::Access aEventType, i
 {
     GattSrv* gatt = GattSrv::getInstance();
     if (gatt)
-        gatt->ProcessRegisteredCallback(aEventType, GATT_CLIENT_SVC_IDX, aAttributeIdx);
+        gatt->ProcessRegisteredCallback(aEventType, aAttributeIdx);
     else
         GATT_SERVER_DEBUG("callback_ble_on_attribute_access failed to obtain BleApi instance");
 }
@@ -1062,11 +1056,11 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
     AttributeInfo_t *attr_info = (AttributeInfo_t *) user_data;
 
     GATT_SERVER_DEBUG("read_cb: AttributeOffset = %d", attr_info->AttributeOffset);
-    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(GATT_CLIENT_SVC_IDX /*srv idx, but it is not used*/, attr_info->AttributeOffset);
+    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(attr_info->AttributeOffset);
 
     if (attr_index >= 0 )
     {
-        CharacteristicInfo_t *ch_info = (CharacteristicInfo_t *) attr_info->Attribute;
+        AttributeInfo_t *ch_info = attr_info;
         int remain_len = ch_info->ValueLength >= offset ? ch_info->ValueLength - offset : 0;
         GATT_SERVER_DEBUG("read_cb: opcode %d, offset = %d, remlen = %d, attr_idx = %d [%s]\n", opcode, offset, remain_len, attr_index, attr_info->AttributeName);
         gatt_db_attribute_read_result(attrib, id, 0, remain_len ? &ch_info->Value[offset] : NULL, remain_len);
@@ -1108,7 +1102,7 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
     AttributeInfo_t *attr_info = (AttributeInfo_t *) user_data;
 
     GATT_SERVER_DEBUG("write_cb: AttributeOffset = %d", attr_info->AttributeOffset);
-    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(GATT_CLIENT_SVC_IDX /*srv idx, but it is not used*/, attr_info->AttributeOffset);
+    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(attr_info->AttributeOffset);
 
     if (attr_index >= 0 )
     {
@@ -1132,7 +1126,7 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
 static int populate_gatt_service()
 {
     // populate_gap_service();
-    const ServiceInfo_t* svc = &GattSrv::getInstance()->mServiceTable[GATT_CLIENT_SVC_IDX];
+    const ServiceInfo_t* svc = GattSrv::getInstance()->mServiceTable;
     if (!svc)
         return Error::NOT_INITIALIZED;
 
@@ -1156,15 +1150,15 @@ static int populate_gatt_service()
         return Error::FAILED_INITIALIZE;
     }
 
-    GattSrv::mServer.client_svc_handle[GATT_CLIENT_SVC_IDX] = gatt_db_attribute_get_handle(client_svc);
-    GATT_SERVER_DEBUG("gatt_db_add_service added %llu hndl %d", (unsigned long long) client_svc, GattSrv::mServer.client_svc_handle[GATT_CLIENT_SVC_IDX]);
+    GattSrv::mServer.client_svc_handle = gatt_db_attribute_get_handle(client_svc);
+    GATT_SERVER_DEBUG("gatt_db_add_service added %llu hndl %d", (unsigned long long) client_svc, GattSrv::mServer.client_svc_handle);
 
     for (int attr_index = 0; attr_index < max_attr; attr_index++)
     {
-        CharacteristicInfo_t *ch_info = NULL;
+        AttributeInfo_t *ch_info = NULL;
         struct gatt_db_attribute *attr_new = NULL;
 
-        if (NULL != (ch_info = (CharacteristicInfo_t *)svc->AttributeList[attr_index].Attribute))
+        if (NULL != (ch_info = (AttributeInfo_t *)&svc->AttributeList[attr_index]))
         {
             memcpy(&uuid128.data, &ch_info->CharacteristicUUID, sizeof(UUID_128_t));
             bt_uuid128_create(&uuid, uuid128); //
@@ -1217,7 +1211,7 @@ static void att_disconnect_cb(int err, void *user_data)
     GATT_SERVER_DEBUG("Device disconnected: %s; exiting GATT Server loop", strerror(err));
 
     GattSrv * gatt = (GattSrv*) GattSrv::getInstance();
-    gatt->ProcessRegisteredCallback(Ble::Property::Disconnected, GATT_CLIENT_SVC_IDX, -1);
+    gatt->ProcessRegisteredCallback(Ble::Property::Disconnected, -1);
     mainloop_quit();
 }
 
@@ -1421,7 +1415,7 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
         GATT_SERVER_DEBUG("GATT server init failed\n\n\n");
     }
 
-    gatt->ProcessRegisteredCallback(Ble::Property::Connected, GATT_CLIENT_SVC_IDX, -1);
+    gatt->ProcessRegisteredCallback(Ble::Property::Connected, -1);
 
     sigset_t mask;
     sigemptyset(&mask);

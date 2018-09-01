@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+
 #include "gatt_api.h"
 
 #define SERVER      true
@@ -33,7 +34,7 @@ typedef enum msg_type
     MSG_UPDATE_ATTRIBUTE,
 
     // Server notifications to Client
-    MSG_NOTIFY_STATUS_CHANGE,
+    MSG_NOTIFY_CONNECT_STATUS,
     MSG_NOTIFY_DATA_READ,
     MSG_NOTIFY_DATA_WRITE,
 
@@ -44,6 +45,7 @@ typedef enum error_type
     NO_ERROR = 0,
     INVALID_PARAMETER,
     SERVER_BUSY,
+    MEMORY_ERROR,
     GENERAL_ERROR
 } Error_Type_t;
 
@@ -54,66 +56,70 @@ typedef struct session
     uint8_t force_override; // 1 - close any open session
 } Session_t;
 
-typedef struct Power
+typedef struct _power
 {
     uint8_t on_off; // 1 - on; 0 - off
 } Power_t;
 
-typedef struct Config
+typedef struct _config
 {
     uint32_t device_class;
     char device_name[DEV_NAME_LEN];
     char mac_address[DEV_MAC_ADDR_LEN];
 } Config_t;
 
-typedef struct advertisement
+typedef struct _advertisement
 {
     uint8_t on_off; // 1 - start; 0 - stop
 } Advertisement_t;
 
-typedef struct Add_service
+typedef struct _add_service
 {
-    uint8_t  svc_idx;
-    uint16_t size;
-    uint8_t  data[1];
+    Ble::ServiceInfo_t desc;
 } Add_Service_t;
 
-typedef struct Add_attribute
+typedef struct _add_attribute
 {
     uint8_t  attr_idx;
     uint16_t size;
     uint8_t  data[1];
 } Add_Attribute_t;
 
-typedef struct Update_attribute
+typedef struct _update_attribute
 {
     uint8_t  attr_idx;
     uint16_t size;
     uint8_t  data[1];
 } Update_Attribute_t;
 
-typedef struct Notify_connect_status
+typedef struct _notify_connect_status
 {
     uint8_t on_off; // 1 - connected; 0 - disconnected
 } Notify_Connect_Status_t;
 
-typedef struct Notify_data_read
+typedef struct _notify_data_read
 {
     uint8_t attr_idx;
 } Notify_Data_Read_t;
 
-typedef struct Notify_data_write
+typedef struct _notify_data_write
 {
     uint8_t  attr_idx;
     uint16_t size;
     uint8_t  data[1];
 } Notify_Data_Write_t;
 
-typedef struct comm_msg
+typedef struct _common_header
 {
-    Msg_Type_t      type;
-    Error_Type_t    error;
-    uint8_t         session_id;
+    uint16_t type;      // message type
+    uint16_t error;     // error (filled by server in response)
+    uint16_t session_id;// session id (filled by server in session open response)
+    uint16_t size;      // actual size of the following payload
+} Common_Header_t;
+
+typedef struct _comm_msg
+{
+    Common_Header_t             hdr;
     union {
         Session_t               session;
         Power_t                 power;
@@ -133,7 +139,7 @@ typedef struct comm_msg
 /// \brief die
 /// \param s
 ///
-void die(const char *s);
+void die(const char *s, int err);
 
 ///
 /// \brief parse_command_line

@@ -39,7 +39,7 @@ static const char *debug_msg[] =
     "MSG_UPDATE_ATTRIBUTE",
 
     // Server notifications to Client
-    "MSG_NOTIFY_STATUS_CHANGE",
+    "MSG_NOTIFY_CONNECT_STATUS",
     "MSG_NOTIFY_DATA_READ",
     "MSG_NOTIFY_DATA_WRITE",
 };
@@ -56,10 +56,11 @@ typedef struct comm_msgbuf
 /// \brief die
 /// \param s
 ///
-void die(const char *s)
+void die(const char *s, int err)
 {
-  perror(s);
-  exit(1);
+    printf("die.. err %d\n", err);
+    perror(s);
+    exit(1);
 }
 
 ///
@@ -69,7 +70,7 @@ void die(const char *s)
 const char* get_msg_name(Comm_Msg_t *cm)
 {
 #ifdef DEBUG_ENABLED
-    return debug_msg[cm->type];
+    return debug_msg[cm->hdr.type];
 #endif
     return "";
 }
@@ -211,8 +212,8 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size)
         rx_addr.sin_port = htons(dest_port);
         rx_addr.sin_addr.s_addr = !bServer ? inet_addr(gsServerAdd) : gClient_addr.sin_addr.s_addr;
 
-        int bsent = sendto(sockfd, (const char *)msg, sizeof(Comm_Msg_t), MSG_CONFIRM, (const struct sockaddr *) &rx_addr, sizeof(rx_addr));
-        if (bsent != sizeof(Comm_Msg_t))
+        int bsent = sendto(sockfd, (const char *)msg, size, MSG_CONFIRM, (const struct sockaddr *) &rx_addr, sizeof(rx_addr));
+        if (bsent != size)
         {
             return Ble::Error::OPERATION_FAILED;
         }
@@ -249,7 +250,7 @@ int recv_comm(bool bServer, Comm_Msg_t *msg)
         int sockfd = bServer?fdServerRx:fdClientRx;
 
         int brecv = recvfrom(sockfd, (char *)msg, sizeof(Comm_Msg_t), MSG_WAITALL, (struct sockaddr *) &addr, &len);
-        if (brecv != sizeof(Comm_Msg_t))
+        if (brecv <= 0)
         {
             return Ble::Error::OPERATION_FAILED;
         }

@@ -16,14 +16,13 @@ struct server_ref {
 
 namespace Ble {
 
-#define GATT_SERVICES_MAX                   1
-#define GATT_CLIENT_SVC_IDX                 0
 #define GATT_CHARACTERISTICS_MAX            32
 #define BLE_READ_PACKET_MAX                 22
 #define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
 #define DEV_NAME_LEN                        64      /* text string = device name */
 #define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
 #define ATT_MTU_MAX                         512     /* maximum allowed value size of 512 bytes.*/
+#define ATTR_NAME_LEN                       20
 #define ToInt(_x) (((_x) > 0x39)?(((_x) & ~0x20)-0x37):((_x)-0x30))
 
 typedef unsigned char   Byte_t;
@@ -31,13 +30,13 @@ typedef char            Boolean_t;
 typedef unsigned int    DWord_t;
 typedef unsigned short  Word_t;
 
-typedef struct _tagUUID_16_t
+typedef struct uuid_16
 {
    Byte_t UUID_Byte0;
    Byte_t UUID_Byte1;
 } UUID_16_t;
 
-typedef struct _tagUUID_32_t
+typedef struct uuid_32
 {
    Byte_t UUID_Byte0;
    Byte_t UUID_Byte1;
@@ -45,7 +44,7 @@ typedef struct _tagUUID_32_t
    Byte_t UUID_Byte3;
 } UUID_32_t;
 
-typedef struct _tagUUID_128_t
+typedef struct uuid_128
 {
    Byte_t UUID_Byte0;
    Byte_t UUID_Byte1;
@@ -65,7 +64,7 @@ typedef struct _tagUUID_128_t
    Byte_t UUID_Byte15;
 } UUID_128_t;
 
-typedef struct _tagBD_ADDR_t
+typedef struct bd_addr
 {
    Byte_t BD_ADDR0;
    Byte_t BD_ADDR1;
@@ -81,34 +80,16 @@ typedef enum
    gctBR_EDR
 } GATT_Connection_Type_t;
 
-typedef struct _tagGATT_Attribute_Handle_Group_t
+typedef struct gatt_attribute_handle_group
 {
    Word_t Starting_Handle;
    Word_t Ending_Handle;
 } GATT_Attribute_Handle_Group_t;
 
-typedef enum
+typedef struct parameter
 {
-   guUUID_16,
-   guUUID_128,
-   guUUID_32
-} GATT_UUID_Type_t;
-
-typedef struct _tagGATT_UUID_t
-{
-   GATT_UUID_Type_t UUID_Type;
-   union
-   {
-      UUID_16_t  UUID_16;
-      UUID_32_t  UUID_32;
-      UUID_128_t UUID_128;
-   } UUID;
-} GATT_UUID_t;
-
-typedef struct _tagParameter_t
-{
-    int             NumberofParameters;
-    char            *strParam;
+    int             count;
+    char           *strParam;
     unsigned int    intParam;
 } Parameter_t;
 
@@ -122,7 +103,7 @@ namespace Config { enum Tag {
     MACAddress
 };}
 
-typedef struct _tagDeviceConfig_t
+typedef struct deviceconfig
 {
     Ble::Config::Tag   tag;
     Parameter_t params;
@@ -151,28 +132,6 @@ typedef struct _tagDeviceConfig_t
 #define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                       0x00000001
 #define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                        0x00000002
 
-typedef struct _tagCharacteristicInfo_t
-{
-    unsigned long  CharacteristicPropertiesMask;
-    unsigned long  SecurityPropertiesMask;
-    UUID_128_t     CharacteristicUUID;
-    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
-    unsigned int   MaximumValueLength;
-    unsigned int   ValueLength;
-    Byte_t        *Value;
-} CharacteristicInfo_t;
-
-typedef struct _tagDescriptorInfo_t
-{
-    unsigned long  DescriptorPropertiesMask;
-    unsigned long  SecurityPropertiesMask;
-    UUID_128_t     CharacteristicUUID;
-    Boolean_t      AllocatedValue; // Note: don't replace to bool: used in C and C++ (different size) to access by pointer
-    unsigned int   MaximumValueLength;
-    unsigned int   ValueLength;
-    Byte_t        *Value;
-} DescriptorInfo_t;
-
 /* The following enumeration represents all of the different         */
 /* attributes that may be added in a service table.                  */
 typedef enum
@@ -182,24 +141,26 @@ typedef enum
     atDescriptor
 } AttributeType_t;
 
-typedef struct _tagAttributeInfo_t
+typedef struct attributeinfo
 {
-    AttributeType_t  AttributeType;
-    unsigned int     AttributeOffset;
-    void            *Attribute;
-    char            *AttributeName;
+    AttributeType_t AttributeType;
+    unsigned int    AttributeOffset;
+    char            AttributeName[ATTR_NAME_LEN];
+    unsigned long   CharacteristicPropertiesMask;
+    unsigned long   SecurityPropertiesMask;
+    UUID_128_t      CharacteristicUUID;
+    Boolean_t       AllocatedValue;
+    unsigned int    MaximumValueLength;
+    unsigned int    ValueLength;
+    Byte_t         *Value;
 } AttributeInfo_t;
 
-typedef struct _tagServiceInfo_t
+typedef struct serviceinfo
 {
-    unsigned long                  Flags;
     unsigned int                   ServiceID;
-    DWord_t                        PersistentUID;
     UUID_128_t                     ServiceUUID;
-    GATT_Attribute_Handle_Group_t  ServiceHandleRange;
     unsigned int                   NumberAttributes;
     AttributeInfo_t               *AttributeList;
-    char                          *ServiceName;
 } ServiceInfo_t;
 
 namespace Error { enum Error {
@@ -274,7 +235,7 @@ typedef struct _GattServerInfo {
     int hci_socket;
     pthread_t hci_thread_id;
     server_ref *sref;
-    uint16_t client_svc_handle[GATT_SERVICES_MAX];
+    uint16_t client_svc_handle;
     uint16_t client_attr_handle[GATT_CHARACTERISTICS_MAX];
 } GattServerInfo_t;
 
@@ -286,7 +247,6 @@ public:
     static const char *IOCapabilitiesstrings[];
     static GattServerInfo_t mServer;
     bool            mInitialized;              // initialization state
-    unsigned int    mServiceCount;             // the current number of services passed to register
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
 
     // some Bluetooth Appearance values
@@ -300,7 +260,7 @@ public:
         BLE_APPEARANCE_MOTION_SENSOR            = 1345,
     };
 
-    typedef void (*onCharacteristicAccessCallback) (int aServiceIdx, int aAttribueIdx, Ble::Property::Access aAccessType);
+    typedef void (*onCharacteristicAccessCallback) (int aAttribueIdx, Ble::Property::Access aAccessType);
 
 private:
     static GattSrv* instance;
@@ -335,7 +295,7 @@ public:
     int RegisterGATMEventCallback(Parameter_t *aParams);
     int GATTRegisterService(Parameter_t *aParams);
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
-    int NotifyCharacteristic(int aServiceIdx, int aAttributeIdx, const char* aPayload, int len=0);
+    int NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising
     int SetAdvertisingInterval(Parameter_t *aParams);
@@ -349,8 +309,8 @@ public:
     int EnableBluetoothDebug(Parameter_t *aParams);
 
     // debug / display functions and helper functions
-    int GetAttributeIdxByOffset(unsigned int ServiceID, unsigned int AttributeOffset);
-    int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aServiceID, int aAttrOffset);
+    int GetAttributeIdxByOffset(unsigned int AttributeOffset);
+    int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrOffset);
     int UpdateServiceTable(int attr_idx, const char *str_data, int len);
 
 private:
