@@ -56,9 +56,10 @@ SampleStruct_t msg_list[] = {
     { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[1] },
     { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[2] },
     { MSG_ADVERTISEMENT,  /* start */   (void*)1 },
+    { CMD_PAUSE_GETCHAR,  /* pause */    NULL },
     { MSG_ADVERTISEMENT,  /* stop */    (void*)0 },
     { MSG_POWER,          /* off */     (void*)0 },
-    { MSG_SESSION,         /* close */  (void*)0 },
+    { MSG_SESSION,        /* close */   (void*)0 },
 };
 
 
@@ -111,7 +112,8 @@ void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
     case MSG_NOTIFY_CONNECT_STATUS:
     case MSG_NOTIFY_DATA_READ:
     case MSG_NOTIFY_DATA_WRITE:
-        printf("WARNING! Wrong handler - Notification are sent from server!\n");
+    default:
+        printf("WARNING! Wrong handler - Notification and commands are not processed here\n");
         break;
     }
 }
@@ -145,7 +147,7 @@ int handle_response_message(Comm_Msg_t &msg)
     case MSG_NOTIFY_CONNECT_STATUS:
         if (msg.data.notify_connect.on_off) // connected
         {
-            // on connected
+            // on connect
         }
         else
         {
@@ -179,23 +181,31 @@ int main(int argc, char** argv )
 
     for (uint32_t i = 0; i < sizeof(msg_list)/sizeof(SampleStruct_t); i++)
     {
-        format_message_payload(msg_list[i].type, msg, msg_list[i].data);
-
-        if (Ble::Error::NONE != (ret = send_comm(TO_SERVER, &msg, msg.hdr.size)))
+        if (CMD_PAUSE_GETCHAR == msg_list[i].type)
         {
-            shut_comm(CLIENT);
-            die("msg send to server failed", ret);
+            printf("\nCMD_PAUSE_GETCHAR\\>");
+            getchar();
         }
         else
         {
-            printf ("Message Sent to server, type %d %s, size = %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.size);
-            if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, &msg)))
+            format_message_payload(msg_list[i].type, msg, msg_list[i].data);
+
+            if (Ble::Error::NONE != (ret = send_comm(TO_SERVER, &msg, msg.hdr.size)))
             {
                 shut_comm(CLIENT);
-                die("failed recv from server", ret);
+                die("msg send to server failed", ret);
             }
-            printf ("got rsp: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
-            handle_response_message(msg);
+            else
+            {
+                printf ("Message Sent to server, type %d %s, size = %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.size);
+                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, &msg)))
+                {
+                    shut_comm(CLIENT);
+                    die("failed recv from server", ret);
+                }
+                printf ("got rsp: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
+                handle_response_message(msg);
+            }
         }
     }
 

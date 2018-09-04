@@ -15,11 +15,65 @@ void cleanup_client_service()
     }
 }
 
+int allocate_zero_attr_table(int alloc_size)
+{
+    int ret = NO_ERROR;
+    // allocate clean attribute table
+    gClientService.AttributeList = (Ble::AttributeInfo_t*) malloc(alloc_size);
+    if (!gClientService.AttributeList)
+    {
+        ret = MEMORY_ERROR;
+    }
+    else
+    {
+        memset(gClientService.AttributeList, 0, alloc_size);
+    }
+    return ret;
+}
+
+int append_attribute(Add_Attribute_t *data)
+{
+    if (!gClientService.AttributeList)
+    {
+        return MEMORY_ERROR;
+    }
+    else for (int i = 0; i < (int) gClientService.NumberAttributes; i++)
+    {
+        if (0 == gClientService.AttributeList[i].MaximumValueLength)
+        {
+            memcpy(&gClientService.AttributeList[i], &data->attr, sizeof(Ble::AttributeInfo_t));
+            DEBUG_PRINTF("added attr %d %s\n", i, data->attr.AttributeName);
+            return NO_ERROR;
+        }
+    }
+    return INVALID_PARAMETER;
+}
+
+int update_attribute(Update_Attribute_t *data)
+{
+    if (!gClientService.AttributeList)
+    {
+        return MEMORY_ERROR;
+    }
+    else if ((data->attr_idx > 0) && (data->attr_idx < (int) gClientService.NumberAttributes))
+    {
+        memcpy(&gClientService.AttributeList[data->attr_idx], &data->attr, sizeof(Ble::AttributeInfo_t));
+        DEBUG_PRINTF("updated attr %d %s\n", data->attr_idx, data->attr.AttributeName);
+
+        if (data->attr.CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
+        {
+            // TODO: here to Notify if status connected
+        }
+        return NO_ERROR;
+    }
+    return INVALID_PARAMETER;
+}
+
 int handle_request_msg(Comm_Msg_t *msg)
 {
     int ret = NO_ERROR;
 
-    printf("got msg %d %s\n", msg->hdr.type, get_msg_name(msg));
+    DEBUG_PRINTF("got msg %d %s\n", msg->hdr.type, get_msg_name(msg));
 
     if (!msg)
     {
@@ -122,22 +176,16 @@ int handle_request_msg(Comm_Msg_t *msg)
             // copy service description from msg.data
             gClientService = data->desc;
 
-            // allocate clean attribute table
-            gClientService.AttributeList = (Ble::AttributeInfo_t*) malloc(alloc_size);
-            if (!gClientService.AttributeList)
+            if (NO_ERROR == (ret = allocate_zero_attr_table(alloc_size)))
             {
-                ret = MEMORY_ERROR;
-                break;
+                // congig gatt server with a new service table
+                Ble::DeviceConfig_t config[] =
+                { // config tag                             count                           params
+                    {Ble::Config::ServiceTable,           {1,   (char*) &gClientService, Ble::ConfigArgument::None}},
+                    {Ble::Config::EOL,                    {0,   NULL,                    Ble::ConfigArgument::None}},
+                };
+                ret = Ble::GattSrv::getInstance()->Configure(config);
             }
-            memset(gClientService.AttributeList, 0, alloc_size);
-
-            // congig gatt server with a new service table
-            Ble::DeviceConfig_t config[] =
-            { // config tag                             count                           params
-                {Ble::Config::ServiceTable,           {1,   (char*) &gClientService, Ble::ConfigArgument::None}},
-                {Ble::Config::EOL,                    {0,   NULL,                    Ble::ConfigArgument::None}},
-            };
-            ret = Ble::GattSrv::getInstance()->Configure(config);
         }
         else
         {
@@ -148,13 +196,13 @@ int handle_request_msg(Comm_Msg_t *msg)
 
     case MSG_ADD_ATTRIBUTE:
     {
-        Add_Attribute_t *data = (Add_Attribute_t *) &msg->data;
+        ret = append_attribute((Add_Attribute_t *) &msg->data);
         break;
     }
 
     case MSG_UPDATE_ATTRIBUTE:
     {
-        Update_Attribute_t *data = (Update_Attribute_t *) &msg->data;
+        ret = update_attribute((Update_Attribute_t *) &msg->data);
         break;
     }
 

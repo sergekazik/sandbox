@@ -16,6 +16,12 @@
 #define FROM_SERVER false
 #define FROM_CLIENT true
 
+#ifdef DEBUG_ENABLED
+#define DEBUG_PRINTF(...) {printf(__VA_ARGS__); printf("\n");}
+#else
+#define DEBUG_PRINTF
+#endif
+
 typedef enum msg_type
 {
     // communication session with the server
@@ -38,6 +44,9 @@ typedef enum msg_type
     MSG_NOTIFY_DATA_READ,
     MSG_NOTIFY_DATA_WRITE,
 
+    // client controlling commands
+    CMD_SLEEP_IN_SEC,
+    CMD_PAUSE_GETCHAR
 } Msg_Type_t;
 
 typedef enum error_type
@@ -86,8 +95,7 @@ typedef struct _add_attribute
 typedef struct _update_attribute
 {
     uint8_t  attr_idx;
-    uint16_t size;
-    uint8_t  data[1];
+    Ble::AttributeInfo_t attr;
 } Update_Attribute_t;
 
 typedef struct _notify_connect_status
