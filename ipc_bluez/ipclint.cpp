@@ -12,23 +12,23 @@ static uint8_t giSessionId = 0;
 //    unsigned long   CharacteristicPropertiesMask;
 //    unsigned long   SecurityPropertiesMask;
 //    UUID_128_t      CharacteristicUUID;
-//    Boolean_t       AllocatedValue;
+//    uint8_t       AllocatedValue;
 //    unsigned int    MaximumValueLength;
 //    unsigned int    ValueLength;
-//    Byte_t         *Value;
+//    uint8_t         *Value;
 //} AttributeInfo_t;
 
 #define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
 #define MAKE_UUID(_attr_idx) MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,20,D0,87,33,3C,2C,_attr_idx)
 #define CCCDESC_UUID() MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
-#define MAKE_PAYLOAD(_pld) (unsigned int) strlen(_pld), (unsigned char *) _pld
+#define MAKE_PAYLOAD(_pld) (unsigned int) strlen(_pld), (char *) _pld
 
 // sample Attribute Table definition
 static Ble::AttributeInfo_t attr_table[] =
 {
     {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("Char1")},
     {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("Char2")},
-    {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, CCCDESC_UUID(),0, 16,  MAKE_PAYLOAD("\x01\x00")}
+    {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
 };
 
 // sample service definitions
@@ -202,7 +202,7 @@ int main(int argc, char** argv )
         {
             Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(msg_list[i].type, msg, msg_list[i].data);
 
-            ret = send_comm(TO_SERVER, msg_to_send ? msg_to_send : &msg, msg.hdr.size);
+            ret = send_comm(TO_SERVER, ((NULL != msg_to_send) ? msg_to_send : &msg), msg.hdr.size);
 
             // if allocated by format_message_payload - release it
             if (msg_to_send)
@@ -219,7 +219,7 @@ int main(int argc, char** argv )
             else
             {
                 printf ("Message Sent to server, type %d %s, size = %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.size);
-                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, &msg)))
+                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg))))
                 {
                     shut_comm(CLIENT);
                     die("failed recv from server", ret);

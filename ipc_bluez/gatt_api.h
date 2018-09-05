@@ -8,7 +8,8 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
-struct server_ref {
+struct server_ref
+{
     struct bt_att *att;
     struct gatt_db *db;
     struct bt_gatt_server *gatt;
@@ -25,66 +26,49 @@ namespace Ble {
 #define ATTR_NAME_LEN                       20
 #define ToInt(_x) (((_x) > 0x39)?(((_x) & ~0x20)-0x37):((_x)-0x30))
 
-typedef unsigned char   Byte_t;
-typedef char            Boolean_t;
-typedef unsigned int    DWord_t;
-typedef unsigned short  Word_t;
-
 typedef struct uuid_16
 {
-   Byte_t UUID_Byte0;
-   Byte_t UUID_Byte1;
+   uint8_t UUID_Byte0;
+   uint8_t UUID_Byte1;
 } UUID_16_t;
 
 typedef struct uuid_32
 {
-   Byte_t UUID_Byte0;
-   Byte_t UUID_Byte1;
-   Byte_t UUID_Byte2;
-   Byte_t UUID_Byte3;
+   uint8_t UUID_Byte0;
+   uint8_t UUID_Byte1;
+   uint8_t UUID_Byte2;
+   uint8_t UUID_Byte3;
 } UUID_32_t;
 
 typedef struct uuid_128
 {
-   Byte_t UUID_Byte0;
-   Byte_t UUID_Byte1;
-   Byte_t UUID_Byte2;
-   Byte_t UUID_Byte3;
-   Byte_t UUID_Byte4;
-   Byte_t UUID_Byte5;
-   Byte_t UUID_Byte6;
-   Byte_t UUID_Byte7;
-   Byte_t UUID_Byte8;
-   Byte_t UUID_Byte9;
-   Byte_t UUID_Byte10;
-   Byte_t UUID_Byte11;
-   Byte_t UUID_Byte12;
-   Byte_t UUID_Byte13;
-   Byte_t UUID_Byte14;
-   Byte_t UUID_Byte15;
+   uint8_t UUID_Byte0;
+   uint8_t UUID_Byte1;
+   uint8_t UUID_Byte2;
+   uint8_t UUID_Byte3;
+   uint8_t UUID_Byte4;
+   uint8_t UUID_Byte5;
+   uint8_t UUID_Byte6;
+   uint8_t UUID_Byte7;
+   uint8_t UUID_Byte8;
+   uint8_t UUID_Byte9;
+   uint8_t UUID_Byte10;
+   uint8_t UUID_Byte11;
+   uint8_t UUID_Byte12;
+   uint8_t UUID_Byte13;
+   uint8_t UUID_Byte14;
+   uint8_t UUID_Byte15;
 } UUID_128_t;
 
 typedef struct bd_addr
 {
-   Byte_t BD_ADDR0;
-   Byte_t BD_ADDR1;
-   Byte_t BD_ADDR2;
-   Byte_t BD_ADDR3;
-   Byte_t BD_ADDR4;
-   Byte_t BD_ADDR5;
+   uint8_t BD_ADDR0;
+   uint8_t BD_ADDR1;
+   uint8_t BD_ADDR2;
+   uint8_t BD_ADDR3;
+   uint8_t BD_ADDR4;
+   uint8_t BD_ADDR5;
 } BD_ADDR_t;
-
-typedef enum
-{
-   gctLE,
-   gctBR_EDR
-} GATT_Connection_Type_t;
-
-typedef struct gatt_attribute_handle_group
-{
-   Word_t Starting_Handle;
-   Word_t Ending_Handle;
-} GATT_Attribute_Handle_Group_t;
 
 typedef struct parameter
 {
@@ -92,8 +76,6 @@ typedef struct parameter
     char           *strParam;
     unsigned int    intParam;
 } Parameter_t;
-
-typedef int (*CommandFunction_t)(Parameter_t *aParams);
 
 namespace Config { enum Tag {
     EOL                  = 0, // End of list
@@ -109,9 +91,6 @@ typedef struct deviceconfig
     Parameter_t params;
 } DeviceConfig_t;
 
-/*********************************************************************/
-/* Service Table Structures.                                         */
-/*********************************************************************/
 #define GATM_SECURITY_PROPERTIES_NO_SECURITY                         0x00000000
 #define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE    0x00000001
 #define GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE      0x00000002
@@ -132,8 +111,6 @@ typedef struct deviceconfig
 #define SERVICE_TABLE_FLAGS_USE_PERSISTENT_UID                       0x00000001
 #define SERVICE_TABLE_FLAGS_SECONDARY_SERVICE                        0x00000002
 
-/* The following enumeration represents all of the different         */
-/* attributes that may be added in a service table.                  */
 typedef enum
 {
     atInclude,
@@ -149,18 +126,18 @@ typedef struct attributeinfo
     unsigned long   CharacteristicPropertiesMask;
     unsigned long   SecurityPropertiesMask;
     UUID_128_t      CharacteristicUUID;
-    Boolean_t       AllocatedValue;
+    uint8_t         AllocatedValue;
     unsigned int    MaximumValueLength;
     unsigned int    ValueLength;
-    Byte_t         *Value;
+    char           *Value;
 } AttributeInfo_t;
 
 typedef struct serviceinfo
 {
-    unsigned int                   ServiceID;
-    UUID_128_t                     ServiceUUID;
-    unsigned int                   NumberAttributes;
-    AttributeInfo_t               *AttributeList;
+    unsigned int     ServiceID;
+    UUID_128_t       ServiceUUID;
+    unsigned int     NumberAttributes;
+    AttributeInfo_t *AttributeList;
 } ServiceInfo_t;
 
 namespace Error { enum Error {
@@ -243,13 +220,10 @@ class GattSrv
 {
 public:
     static GattSrv* getInstance();
-    static const int IOCAPABILITIESstringS_SIZE;
-    static const char *IOCapabilitiesstrings[];
     static GattServerInfo_t mServer;
     bool            mInitialized;              // initialization state
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
 
-    // some Bluetooth Appearance values
     // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.gap.appearance.xml
     enum Appearance {
         BLE_APPEARANCE_UNKNOWN                  = 0,
@@ -294,7 +268,7 @@ public:
     // GATT
     int RegisterGATMEventCallback(Parameter_t *aParams);
     int GATTRegisterService(Parameter_t *aParams);
-    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen);
+    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, uint8_t *aAttrData, int aAttrLen);
     int NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising

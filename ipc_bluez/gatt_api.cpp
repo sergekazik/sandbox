@@ -366,7 +366,7 @@ int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int l
 /// \param aAttrLen
 /// \return
 ///
-int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, Byte_t *aAttrData, int aAttrLen)
+int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, uint8_t *aAttrData, int aAttrLen)
 {
     int ret_val = Error::NOT_INITIALIZED;
     if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
@@ -752,7 +752,7 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
 #define MAKESVCUUID128(_q, _w, _e, _r, _t, _y, _u, _i, _o, _p, _a, _s, _d, _f, _g, _h) \
                         {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
 // 9760FACE-A234-4686-9E00-FCBBEE3373F7
-static const Byte_t ClientSvc_UUID[] = MAKESVCUUID128(97,60,FA,CE,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7);
+static const uint8_t ClientSvc_UUID[] = MAKESVCUUID128(97,60,FA,CE,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7);
 #define ClientSvc_UUID_LEN   (sizeof(ClientSvc_UUID)/sizeof(char))
 // TODO: !!!!!!!!!!!1
 ///
@@ -1003,7 +1003,7 @@ int GattSrv::UpdateServiceTable(int attr_idx, const char *str_data, int len)
                 attr->ValueLength = 0;
 
                 if (str_data && len) {
-                    attr->Value = (unsigned char*) malloc(len);
+                    attr->Value = (char*) malloc(len);
                     if (attr->Value) {
                         attr->AllocatedValue = 1;
                         memcpy(attr->Value, str_data, attr->ValueLength = len);
@@ -1057,7 +1057,7 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
         AttributeInfo_t *ch_info = attr_info;
         int remain_len = ch_info->ValueLength >= offset ? ch_info->ValueLength - offset : 0;
         DEBUG_PRINTF("read_cb: opcode %d, offset = %d, remlen = %d, attr_idx = %d [%s]\n", opcode, offset, remain_len, attr_index, attr_info->AttributeName);
-        gatt_db_attribute_read_result(attrib, id, 0, remain_len ? &ch_info->Value[offset] : NULL, remain_len);
+        gatt_db_attribute_read_result(attrib, id, 0, (const uint8_t *) (remain_len ? &ch_info->Value[offset] : NULL), remain_len);
 
 
         // gatt_characteristic_read_cb serves "long read" so callback is needed to be called

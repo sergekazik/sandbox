@@ -138,7 +138,6 @@ typedef struct _comm_msg
         Notify_Data_Read_t      notify_data_read;
         Notify_Data_Write_t     notify_data_write;
     } data;
-
 } Comm_Msg_t;
 
 ///
@@ -183,10 +182,11 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size);
 ///
 /// \brief recv_comm
 /// \param bServer
-/// \param msg
+/// \param buffer
+/// \param size
 /// \return
 ///
-int recv_comm(bool bServer, Comm_Msg_t *msg);
+int recv_comm(bool bServer, char *buffer, int size);
 
 ///
 /// \brief shut_comm

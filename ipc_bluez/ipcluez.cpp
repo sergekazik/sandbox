@@ -53,26 +53,25 @@ int append_attribute(Comm_Msg_t *msg)
     {
         if (0 == gClientService.AttributeList[i].MaximumValueLength)
         {
-            memcpy(&gClientService.AttributeList[i], &msg->data.add_attribute.attr, sizeof(Ble::AttributeInfo_t));
+            Ble::AttributeInfo_t *attr = &gClientService.AttributeList[i];
+            cleanup_attribute_value(attr);
+            memcpy(attr, &msg->data.add_attribute.attr, sizeof(Ble::AttributeInfo_t));
 
             // handle payload
-            if (msg->data.add_attribute.attr.ValueLength &&
-                (msg->data.add_attribute.attr.ValueLength == (msg->hdr.size - sizeof(Comm_Msg_t))))
+            if (msg->data.add_attribute.attr.ValueLength && (msg->data.add_attribute.attr.ValueLength == (msg->hdr.size - sizeof(Comm_Msg_t))))
             {
-                cleanup_attribute_value(&msg->data.add_attribute.attr);
-                msg->data.add_attribute.attr.ValueLength = msg->hdr.size - sizeof(Comm_Msg_t);
-                if (NULL != (msg->data.add_attribute.attr.Value = (Ble::Byte_t*) malloc(msg->data.add_attribute.attr.ValueLength)))
+                attr->ValueLength = msg->data.add_attribute.attr.ValueLength;
+                if (NULL == (attr->Value = (char*) malloc(attr->ValueLength+1)))
                 {
-                    msg->data.add_attribute.attr.AllocatedValue = 1;
-                    memcpy(msg->data.add_attribute.attr.Value, msg + sizeof(Comm_Msg_t), msg->data.add_attribute.attr.ValueLength);
-                }
-                else
-                {
-                    msg->data.add_attribute.attr.ValueLength = 0;
+                    attr->ValueLength = 0;
                     return MEMORY_ERROR;
                 }
+
+                memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
+                attr->Value[attr->ValueLength] = '\0';
+                attr->AllocatedValue = 1;
             }
-            DEBUG_PRINTF("added attr %d [%s] val [%d] %s\n", i, msg->data.add_attribute.attr.AttributeName, msg->data.add_attribute.attr.ValueLength, msg->data.add_attribute.attr.Value);
+            DEBUG_PRINTF("added attr %d [%s] val [%d] %s\n", i, attr->AttributeName, attr->ValueLength, attr->Value);
             return NO_ERROR;
         }
     }
@@ -245,8 +244,9 @@ int handle_request_msg(Comm_Msg_t *msg)
 
 int main(int argc, char** argv )
 {
-    Comm_Msg_t msg;
     int ret;
+    char recv_buff[sizeof(Comm_Msg_t) + ATT_MTU_MAX];
+    Comm_Msg_t *msg = (Comm_Msg_t *) recv_buff;
 
     if (Ble::Error::NONE != (ret = parse_command_line(argc, argv)))
     {
@@ -261,20 +261,20 @@ int main(int argc, char** argv )
     while (1)
     {
         //Receive message
-        if (Ble::Error::NONE != (ret = recv_comm(FROM_CLIENT, &msg)))
+        if (Ble::Error::NONE != (ret = recv_comm(FROM_CLIENT, recv_buff, sizeof(recv_buff))))
         {
             die("recv failed", ret);
         }
 
         // handle request, set response
-        msg.hdr.error = (Error_Type_t) handle_request_msg(&msg);
+        msg->hdr.error = (Error_Type_t) handle_request_msg(msg);
 
-        if (Ble::Error::NONE != (ret = send_comm(TO_CLIENT, &msg, sizeof(Common_Header_t))))
+        if (Ble::Error::NONE != (ret = send_comm(TO_CLIENT, msg, sizeof(Common_Header_t))))
         {
             die("send failed", ret);
         }
 
-        if ((msg.hdr.type == MSG_SESSION) && (!msg.data.session.on_off))
+        if ((msg->hdr.type == MSG_SESSION) && (0 == msg->data.session.on_off))
         {
             break;
         }

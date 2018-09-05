@@ -224,10 +224,11 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size)
 ///
 /// \brief recv_comm
 /// \param bServer
-/// \param msg
+/// \param buffer
+/// \param size
 /// \return
 ///
-int recv_comm(bool bServer, Comm_Msg_t *msg)
+int recv_comm(bool bServer, char* buffer, int size)
 {
     if (!gbInitialized)
         return Ble::Error::NOT_INITIALIZED;
@@ -239,7 +240,7 @@ int recv_comm(bool bServer, Comm_Msg_t *msg)
         {
             return Ble::Error::OPERATION_FAILED;
         }
-        *msg = sbuf.msg;
+        memcpy(buffer, &sbuf.msg, sizeof(sbuf.msg));
     }
     else
     {
@@ -249,13 +250,13 @@ int recv_comm(bool bServer, Comm_Msg_t *msg)
         memset(&addr, 0, sizeof(addr));
         int sockfd = bServer?fdServerRx:fdClientRx;
 
-        int brecv = recvfrom(sockfd, (char *)msg, sizeof(Comm_Msg_t), MSG_WAITALL, (struct sockaddr *) &addr, &len);
+        int brecv = recvfrom(sockfd, (char *)buffer, size, MSG_WAITALL, (struct sockaddr *) &addr, &len);
         if (brecv <= 0)
         {
             return Ble::Error::OPERATION_FAILED;
         }
 
-        // save client addres for Server to respond
+        // save client address for Server to respond
         if (bServer)
         {
             gClient_addr = addr;
