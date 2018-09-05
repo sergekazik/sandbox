@@ -5,6 +5,18 @@
 static uint8_t gsSessionId = 0;
 static Ble::ServiceInfo_t gClientService = {0,{0},0, NULL};
 
+
+void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
+{
+    if (attr && attr->Value && attr->ValueLength && attr->AllocatedValue)
+    {
+        free(attr->Value);
+        attr->Value = NULL;
+        attr->ValueLength = 0;
+        attr->AllocatedValue = 0;
+    }
+}
+
 void cleanup_client_service()
 {
     Ble::GattSrv::getInstance()->CleanupServiceList();
@@ -31,7 +43,7 @@ int allocate_zero_attr_table(int alloc_size)
     return ret;
 }
 
-int append_attribute(Add_Attribute_t *data)
+int append_attribute(Comm_Msg_t *msg)
 {
     if (!gClientService.AttributeList)
     {
@@ -41,8 +53,26 @@ int append_attribute(Add_Attribute_t *data)
     {
         if (0 == gClientService.AttributeList[i].MaximumValueLength)
         {
-            memcpy(&gClientService.AttributeList[i], &data->attr, sizeof(Ble::AttributeInfo_t));
-            DEBUG_PRINTF("added attr %d %s\n", i, data->attr.AttributeName);
+            memcpy(&gClientService.AttributeList[i], &msg->data.add_attribute.attr, sizeof(Ble::AttributeInfo_t));
+
+            // handle payload
+            if (msg->data.add_attribute.attr.ValueLength &&
+                (msg->data.add_attribute.attr.ValueLength == (msg->hdr.size - sizeof(Comm_Msg_t))))
+            {
+                cleanup_attribute_value(&msg->data.add_attribute.attr);
+                msg->data.add_attribute.attr.ValueLength = msg->hdr.size - sizeof(Comm_Msg_t);
+                if (NULL != (msg->data.add_attribute.attr.Value = (Ble::Byte_t*) malloc(msg->data.add_attribute.attr.ValueLength)))
+                {
+                    msg->data.add_attribute.attr.AllocatedValue = 1;
+                    memcpy(msg->data.add_attribute.attr.Value, msg + sizeof(Comm_Msg_t), msg->data.add_attribute.attr.ValueLength);
+                }
+                else
+                {
+                    msg->data.add_attribute.attr.ValueLength = 0;
+                    return MEMORY_ERROR;
+                }
+            }
+            DEBUG_PRINTF("added attr %d [%s] val [%d] %s\n", i, msg->data.add_attribute.attr.AttributeName, msg->data.add_attribute.attr.ValueLength, msg->data.add_attribute.attr.Value);
             return NO_ERROR;
         }
     }
@@ -196,7 +226,7 @@ int handle_request_msg(Comm_Msg_t *msg)
 
     case MSG_ADD_ATTRIBUTE:
     {
-        ret = append_attribute((Add_Attribute_t *) &msg->data);
+        ret = append_attribute(msg);
         break;
     }
 

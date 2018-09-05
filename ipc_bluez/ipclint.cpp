@@ -63,7 +63,7 @@ SampleStruct_t msg_list[] = {
 };
 
 
-void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
+void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
     msg.hdr.size = sizeof(Common_Header_t);
     msg.hdr.error = NO_ERROR;
@@ -102,6 +102,17 @@ void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
     case MSG_ADD_ATTRIBUTE:
         msg.hdr.size += sizeof(Add_Attribute_t);
         msg.data.add_attribute = *((Add_Attribute_t*)data);
+        if (msg.data.add_attribute.attr.ValueLength > 0)
+        {   // special case with message reallocation for payload = Value
+            msg.hdr.size = sizeof(Comm_Msg_t) + msg.data.add_attribute.attr.ValueLength;
+            uint8_t *msg_new = (uint8_t *) malloc(msg.hdr.size);
+            if (msg_new)
+            {
+                memcpy(msg_new, &msg, sizeof(Comm_Msg_t));
+                memcpy(msg_new + sizeof(Comm_Msg_t), msg.data.add_attribute.attr.Value, msg.data.add_attribute.attr.ValueLength);
+                return msg_new;
+            }
+        }
         break;
 
     case MSG_UPDATE_ATTRIBUTE:
@@ -116,6 +127,7 @@ void format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
         printf("WARNING! Wrong handler - Notification and commands are not processed here\n");
         break;
     }
+    return NULL;
 }
 
 int handle_response_message(Comm_Msg_t &msg)
@@ -188,9 +200,18 @@ int main(int argc, char** argv )
         }
         else
         {
-            format_message_payload(msg_list[i].type, msg, msg_list[i].data);
+            Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(msg_list[i].type, msg, msg_list[i].data);
 
-            if (Ble::Error::NONE != (ret = send_comm(TO_SERVER, &msg, msg.hdr.size)))
+            ret = send_comm(TO_SERVER, msg_to_send ? msg_to_send : &msg, msg.hdr.size);
+
+            // if allocated by format_message_payload - release it
+            if (msg_to_send)
+            {
+                free(msg_to_send);
+                msg_to_send = NULL;
+            }
+
+            if (Ble::Error::NONE != ret)
             {
                 shut_comm(CLIENT);
                 die("msg send to server failed", ret);
