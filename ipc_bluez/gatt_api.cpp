@@ -42,7 +42,8 @@ GattServerInfo_t GattSrv::mServer =
     .sref = NULL,
 };
 
-GattSrv* GattSrv::getInstance() {
+GattSrv* GattSrv::getInstance()
+{
     if (instance == NULL)
         instance = new GattSrv();
     return instance;
@@ -213,7 +214,7 @@ int GattSrv::SetLocalDeviceName(Ble::Config::Parameter_t *aParams __attribute__ 
     }
     else
     {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
+        DEBUG_PRINTF("GattSrv has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -241,7 +242,7 @@ int GattSrv::SetLocalClassOfDevice(Ble::Config::Parameter_t *aParams __attribute
     }
     else
     {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
+        DEBUG_PRINTF("GattSrv has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -282,7 +283,7 @@ int GattSrv::StartAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((
     }
     else
     {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
+        DEBUG_PRINTF("GattSrv has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -325,7 +326,7 @@ int GattSrv::StopAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((u
     }
     else
     {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
+        DEBUG_PRINTF("GattSrv has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -333,9 +334,9 @@ int GattSrv::StopAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((u
 
 ///
 /// \brief GattSrv::NotifyCharacteristic
-/// \param aServiceIdx
 /// \param aAttributeIdx
-/// \param aStrPayload
+/// \param aPayload
+/// \param len
 /// \return
 ///
 int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len)
@@ -349,10 +350,20 @@ int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int l
             bt_gatt_server_send_notification(GattSrv::mServer.sref->gatt, GattSrv::mServer.client_attr_handle[aAttributeIdx], (const uint8_t*) aPayload, len?len:strlen(aPayload));
             ret_val = Error::NONE;
         }
+        else
+        {
+            DEBUG_PRINTF("invalid attribute index %d.", aAttributeIdx);
+            ret_val = Error::INVALID_STATE;
+        }
+    }
+    else if (!GattSrv::mServer.sref)
+    {
+        DEBUG_PRINTF("GattSrv is not connected.");
+        ret_val = Error::INVALID_STATE;
     }
     else
     {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
+        DEBUG_PRINTF("GattSrv has not been Initialized.");
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -372,27 +383,33 @@ int GattSrv::GATTUpdateCharacteristic(int attr_idx, const char *str_data, int le
         ret_val = Error::NOT_INITIALIZED;
     else if (attr_idx >= (int) mServiceTable->NumberAttributes)
         ret_val = Error::INVALID_PARAMETER;
-    else {
+    else
+    {
         AttributeInfo_t *attr = (AttributeInfo_t*) &mServiceTable->AttributeList[attr_idx];
         if (len > (int) attr->MaximumValueLength)
             ret_val = Error::INVALID_PARAMETER;
-        else {
+        else
+        {
             if (attr->Value && ((int) attr->ValueLength == len) && str_data && !memcmp(attr->Value, str_data, len))
             {
                 // the same - skip
                 ret_val = Error::NONE;
             }
-            else {
-                if (attr->Value && attr->AllocatedValue) {
+            else
+            {
+                if (attr->Value && attr->AllocatedValue)
+                {
                     free(attr->Value);
                     attr->AllocatedValue = 0;
                 }
                 attr->Value = NULL;
                 attr->ValueLength = 0;
 
-                if (str_data && len) {
+                if (str_data && len)
+                {
                     attr->Value = (char*) malloc(len);
-                    if (attr->Value) {
+                    if (attr->Value)
+                    {
                         attr->AllocatedValue = 1;
                         memcpy(attr->Value, str_data, attr->ValueLength = len);
                     }
@@ -413,9 +430,7 @@ int GattSrv::GATTUpdateCharacteristic(int attr_idx, const char *str_data, int le
 int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrIdx)
 {
     if (mOnCharCb)
-    {
         (*(mOnCharCb))(aAttrIdx,  aEventType);
-    }
     return Error::NONE;
 }
 
@@ -442,11 +457,14 @@ int GattSrv::QueryLocalDeviceProperties(Ble::Config::Parameter_t *aParams __attr
 ///
 void GattSrv::CleanupServiceList(void)
 {
-    for (unsigned int idx=0; (mServiceTable != NULL) && (idx < mServiceTable->NumberAttributes); idx++) {
+    for (unsigned int idx=0; (mServiceTable != NULL) && (idx < mServiceTable->NumberAttributes); idx++)
+    {
         AttributeInfo_t *charin;
-        if (NULL != (charin = (AttributeInfo_t *)&mServiceTable->AttributeList[idx])) {
+        if (NULL != (charin = (AttributeInfo_t *)&mServiceTable->AttributeList[idx]))
+        {
             // DEBUG_PRINTF("Cleanup: attr idx %d, AllocatedValue = %d", idx, charin->AllocatedValue);
-            if ((charin->AllocatedValue) && (charin->Value != NULL)) {
+            if ((charin->AllocatedValue) && (charin->Value != NULL))
+            {
                 free(charin->Value);
                 charin->Value          = NULL;
                 charin->ValueLength    = 0;
@@ -466,14 +484,16 @@ void GattSrv::CleanupServiceList(void)
 /// \param di
 /// \return
 ///
-int GattSrv::OpenSocket(struct hci_dev_info &di) {
+int GattSrv::OpenSocket(struct hci_dev_info &di)
+{
     int ctl = -1;
     (void) di;
 
 //    bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
 
     /* Open HCI socket  */
-    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0) {
+    if ((ctl = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0)
+    {
         DEBUG_PRINTF("Can't open HCI socket. %s (%d)", strerror(errno), errno);
         return Error::FAILED_INITIALIZE;
     }
@@ -495,7 +515,6 @@ int GattSrv::OpenSocket(struct hci_dev_info &di) {
 //        hci_read_bd_addr(dd, &di.bdaddr, 1000);
 //        hci_close_dev(dd);
 //    }
-
     return ctl;
 }
 
@@ -516,7 +535,8 @@ static int conn_list(int s, int dev_id, long arg)
     if (id != -1 && dev_id != id)
         return 0;
 
-    if (!(cl = (hci_conn_list_req *) malloc(10 * sizeof(*ci) + sizeof(*cl)))) {
+    if (!(cl = (hci_conn_list_req *) malloc(10 * sizeof(*ci) + sizeof(*cl))))
+    {
         DEBUG_PRINTF("Can't allocate memory");
         return 0;
     }
@@ -524,19 +544,21 @@ static int conn_list(int s, int dev_id, long arg)
     cl->conn_num = 10;
     ci = cl->conn_info;
 
-    if (ioctl(s, HCIGETCONNLIST, (void *) cl)) {
+    if (ioctl(s, HCIGETCONNLIST, (void *) cl))
+    {
         DEBUG_PRINTF("Can't get connection list");
         return 0;
     }
 
-    for (i = 0; i < cl->conn_num; i++, ci++) {
+    for (i = 0; i < cl->conn_num; i++, ci++)
+    {
         char addr[18];
         char *str;
         ba2str(&ci->bdaddr, addr);
         str = hci_lmtostr(ci->link_mode);
         DEBUG_PRINTF("\t%s type:%d %s handle %d state %d lm %s\n",
-            ci->out ? "<" : ">", ci->type,
-            addr, ci->handle, ci->state, str);
+                     ci->out ? "<" : ">", ci->type,
+                     addr, ci->handle, ci->state, str);
         bt_free(str);
     }
 
@@ -563,7 +585,8 @@ static int get_connections(int flag, long arg)
         return -1;
 
     dl = (hci_dev_list_req *) malloc(HCI_MAX_DEV * sizeof(*dr) + sizeof(*dl));
-    if (!dl) {
+    if (!dl)
+    {
         DEBUG_PRINTF("malloc(HCI_MAX_DEV failed");
         goto done;
     }
@@ -573,12 +596,14 @@ static int get_connections(int flag, long arg)
     dl->dev_num = HCI_MAX_DEV;
     dr = dl->dev_req;
 
-    if (ioctl(sk, HCIGETDEVLIST, (void *) dl) < 0) {
+    if (ioctl(sk, HCIGETDEVLIST, (void *) dl) < 0)
+    {
         DEBUG_PRINTF("HCIGETDEVLIST failed");
         goto free;
     }
 
-    for (i = 0; i < dl->dev_num; i++, dr++) {
+    for (i = 0; i < dl->dev_num; i++, dr++)
+    {
         if (hci_test_bit(flag, &dr->dev_opt))
             if ((conns = conn_list(sk, dr->dev_id, arg)))
                 break;
@@ -597,16 +622,20 @@ done:
 /// \param hdev
 /// \param opt
 ///
-void GattSrv::HCIssp_mode(int hdev, char *opt) {
+void GattSrv::HCIssp_mode(int hdev, char *opt)
+{
     int dd;
     dd = hci_open_dev(hdev);
-    if (dd < 0) {
+    if (dd < 0)
+    {
         DEBUG_PRINTF("ERROR: can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-    if (opt) {
+    if (opt)
+    {
         uint8_t mode = atoi(opt);
-        if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0) {
+        if (hci_write_simple_pairing_mode(dd, mode, 2000) < 0)
+        {
             DEBUG_PRINTF("WARNING: can't set simple pairing mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
             return;
         }
@@ -619,7 +648,8 @@ void GattSrv::HCIssp_mode(int hdev, char *opt) {
 /// \param hdev
 /// \param opt
 ///
-void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
+void GattSrv::HCIscan(int ctl, int hdev, char *opt)
+{
     struct hci_dev_req dr;
     dr.dev_id  = hdev;
     dr.dev_opt = SCAN_DISABLED;
@@ -629,7 +659,8 @@ void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
         dr.dev_opt = SCAN_PAGE;
     else if (!strcmp(opt, "piscan"))
         dr.dev_opt = SCAN_PAGE | SCAN_INQUIRY;
-    if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0) {
+    if (ioctl(ctl, HCISETSCAN, (unsigned long) &dr) < 0)
+    {
         DEBUG_PRINTF("Can't set scan mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
@@ -640,9 +671,11 @@ void GattSrv::HCIscan(int ctl, int hdev, char *opt) {
 /// \param ctl
 /// \param hdev
 ///
-void GattSrv::HCIup(int ctl, int hdev) {
+void GattSrv::HCIup(int ctl, int hdev)
+{
     /* Start HCI device */
-    if (ioctl(ctl, HCIDEVUP, hdev) < 0) {
+    if (ioctl(ctl, HCIDEVUP, hdev) < 0)
+    {
         if (errno == EALREADY)
             return;
         DEBUG_PRINTF("Can't init device hci%d: %s (%d)", hdev, strerror(errno), errno);
@@ -655,9 +688,11 @@ void GattSrv::HCIup(int ctl, int hdev) {
 /// \param ctl
 /// \param hdev
 ///
-void GattSrv::HCIdown(int ctl, int hdev) {
+void GattSrv::HCIdown(int ctl, int hdev)
+{
     /* Stop HCI device */
-    if (ioctl(ctl, HCIDEVDOWN, hdev) < 0) {
+    if (ioctl(ctl, HCIDEVDOWN, hdev) < 0)
+    {
         DEBUG_PRINTF("Can't down device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
@@ -668,7 +703,8 @@ void GattSrv::HCIdown(int ctl, int hdev) {
 /// \param ctl
 /// \param hdev
 ///
-void GattSrv::HCIreset(int ctl, int hdev) {
+void GattSrv::HCIreset(int ctl, int hdev)
+{
     /* Reset HCI device */
     GattSrv::HCIdown(ctl, hdev);
     GattSrv::HCIup(ctl, hdev);
@@ -677,7 +713,8 @@ void GattSrv::HCIreset(int ctl, int hdev) {
 /// \brief GattSrv::HCIno_le_adv
 /// \param hdev
 ///
-void GattSrv::HCIno_le_adv(int hdev) {
+void GattSrv::HCIno_le_adv(int hdev)
+{
     struct hci_request rq;
     le_set_advertise_enable_cp advertise_cp;
     uint8_t status;
@@ -685,7 +722,8 @@ void GattSrv::HCIno_le_adv(int hdev) {
     if (hdev < 0)
         hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
-    if (dd < 0) {
+    if (dd < 0)
+    {
         DEBUG_PRINTF("Could not open device");
         return;
     }
@@ -699,11 +737,13 @@ void GattSrv::HCIno_le_adv(int hdev) {
     rq.rlen = 1;
     ret = hci_send_req(dd, &rq, 1000);
     hci_close_dev(dd);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         DEBUG_PRINTF("Can't stop advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-    if (status) {
+    if (status)
+    {
         DEBUG_PRINTF("LE set advertise disable on hci%d returned status %d", hdev, status);
         return;
     }
@@ -720,7 +760,8 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     #define OGF_VENDOR_CMD              0x3f
     // from tools/bdaddr.c
     #define OCF_BCM_WRITE_BD_ADDR       0x0001
-    typedef struct {
+    typedef struct
+    {
         bdaddr_t    bdaddr;
     } __attribute__ ((packed)) bcm_write_bd_addr_cp;
 
@@ -733,7 +774,8 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     if (hdev < 0)
         hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
-    if (dd < 0) {
+    if (dd < 0)
+    {
         err = -errno;
         DEBUG_PRINTF("Could not open device: %s(%d)", strerror(-err), -err);
         return;
@@ -748,7 +790,8 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     rq.rparam = &status;
     rq.rlen = 1;
     ret = hci_send_req(dd, &rq, 1000);
-    if (status || ret < 0) {
+    if (status || ret < 0)
+    {
         err = -errno;
         DEBUG_PRINTF("Can't write BD address for hci%d: " "%s (%d)", hdev, strerror(-err), -err);
     }
@@ -769,7 +812,8 @@ static const uint8_t ClientSvc_UUID[] = MAKESVCUUID128(97,60,FA,CE,A2,34,46,86,9
 /// \param hdev
 /// \param opt
 ///
-void GattSrv::HCIle_adv(int hdev, char *opt) {
+void GattSrv::HCIle_adv(int hdev, char *opt)
+{
     struct hci_request rq;
     le_set_advertise_enable_cp advertise_cp;
     le_set_advertising_parameters_cp adv_params_cp;
@@ -778,7 +822,8 @@ void GattSrv::HCIle_adv(int hdev, char *opt) {
     if (hdev < 0)
         hdev = hci_get_route(NULL);
     dd = hci_open_dev(hdev);
-    if (dd < 0) {
+    if (dd < 0)
+    {
         DEBUG_PRINTF("Could not open device");
         return;
     }
@@ -879,11 +924,13 @@ void GattSrv::HCIle_adv(int hdev, char *opt) {
 
 done:
     hci_close_dev(dd);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         DEBUG_PRINTF("Can't set advertise mode on hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-    if (status) {
+    if (status)
+    {
         DEBUG_PRINTF("LE set advertise enable on hci%d returned status %d", hdev, status);
         return;
     }
@@ -894,15 +941,19 @@ done:
 /// \param hdev
 /// \param opt
 ///
-void GattSrv::HCIclass(int hdev, char *opt) {
+void GattSrv::HCIclass(int hdev, char *opt)
+{
     int s = hci_open_dev(hdev);
-    if (s < 0) {
+    if (s < 0)
+    {
         DEBUG_PRINTF("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-    if (opt) {
+    if (opt)
+    {
         uint32_t cod = strtoul(opt, NULL, 16);
-        if (hci_write_class_of_dev(s, cod, 2000) < 0) {
+        if (hci_write_class_of_dev(s, cod, 2000) < 0)
+        {
             DEBUG_PRINTF("Can't write local class of device on hci%d: %s (%d)", hdev, strerror(errno), errno);
             return;
         }
@@ -914,26 +965,34 @@ void GattSrv::HCIclass(int hdev, char *opt) {
 /// \param hdev
 /// \param opt
 ///
-void GattSrv::HCIname(int hdev, char *opt) {
+void GattSrv::HCIname(int hdev, char *opt)
+{
     int dd;
     dd = hci_open_dev(hdev);
-    if (dd < 0) {
+    if (dd < 0)
+    {
         DEBUG_PRINTF("Can't open device hci%d: %s (%d)", hdev, strerror(errno), errno);
         return;
     }
-    if (opt) {
-        if (hci_write_local_name(dd, opt, 2000) < 0) {
+    if (opt)
+    {
+        if (hci_write_local_name(dd, opt, 2000) < 0)
+        {
             DEBUG_PRINTF("Can't change local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
             return;
         }
-    } else {
+    }
+    else
+    {
         char name[249];
         int i;
-        if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0) {
+        if (hci_read_local_name(dd, sizeof(name), name, 1000) < 0)
+        {
             DEBUG_PRINTF("Can't read local name on hci%d: %s (%d)", hdev, strerror(errno), errno);
             return;
         }
-        for (i = 0; i < 248 && name[i]; i++) {
+        for (i = 0; i < 248 && name[i]; i++)
+        {
             if ((unsigned char) name[i] < 32 || name[i] == 127)
                 name[i] = '.';
         }
@@ -948,7 +1007,8 @@ void GattSrv::HCIname(int hdev, char *opt) {
 /// \brief GattSrv::PrintDeviceHeader
 /// \param di
 ///
-void GattSrv::PrintDeviceHeader(struct hci_dev_info *di) {
+void GattSrv::PrintDeviceHeader(struct hci_dev_info *di)
+{
     static int hdr = -1;
     char addr[18];
     if (hdr == di->dev_id)
@@ -971,24 +1031,14 @@ void GattSrv::PrintDeviceHeader(struct hci_dev_info *di) {
 ///
 int GattSrv::GetAttributeIdxByOffset(unsigned int AttributeOffset)
 {
-    for (unsigned int i = 0; mServiceTable && (i < mServiceTable->NumberAttributes); i++) {
-        if (mServiceTable->AttributeList[i].AttributeOffset == AttributeOffset) {
+    for (unsigned int i = 0; mServiceTable && (i < mServiceTable->NumberAttributes); i++)
+    {
+        if (mServiceTable->AttributeList[i].AttributeOffset == AttributeOffset)
+        {
             return i;
         }
     }
     return -1;
-}
-
-/**************************************************************
- * static functions and callbacks
- * ***********************************************************/
-static void callback_ble_on_attribute_access(Ble::Property::Access aEventType, int aAttributeIdx)
-{
-    GattSrv* gatt = GattSrv::getInstance();
-    if (gatt)
-        gatt->ProcessRegisteredCallback(aEventType, aAttributeIdx);
-    else
-        DEBUG_PRINTF("callback_ble_on_attribute_access failed to obtain BleApi instance");
 }
 
 ///
@@ -1011,9 +1061,10 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
 {
     (void) att;
     AttributeInfo_t *attr_info = (AttributeInfo_t *) user_data;
+    GattSrv * gatt = GattSrv::getInstance();
 
     DEBUG_PRINTF("read_cb: AttributeOffset = %d", attr_info->AttributeOffset);
-    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(attr_info->AttributeOffset);
+    int attr_index = gatt->GetAttributeIdxByOffset(attr_info->AttributeOffset);
 
     if (attr_index >= 0 )
     {
@@ -1026,7 +1077,7 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
         // gatt_characteristic_read_cb serves "long read" so callback is needed to be called
         // only when the full payload read
         if (!remain_len || (remain_len <= BLE_READ_PACKET_MAX))
-            callback_ble_on_attribute_access(Ble::Property::Read, attr_index);
+            gatt->ProcessRegisteredCallback(Ble::Property::Read, attr_index);
     }
     else
         DEBUG_PRINTF("read_cb: attr_index is not found for attr_offset = %d", attr_info->AttributeOffset);
@@ -1045,7 +1096,7 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
 ///
 /// Note: this callback is service ALL client WRITE requests
 /// store data "as is" in the mServiceTable
-/// This callback invokes OnAttributeAccessCallback callback via BleApi class
+/// This callback invokes OnAttributeAccessCallback callback
 ///
 static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
                     unsigned int id, uint16_t offset,
@@ -1055,11 +1106,12 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
 {
     (void) id, (void) offset, (void) opcode, (void) att,(void)user_data, (void) value, (void)len;
     uint8_t ecode = 0;
+    GattSrv * gatt = GattSrv::getInstance();
 
     AttributeInfo_t *attr_info = (AttributeInfo_t *) user_data;
 
     DEBUG_PRINTF("write_cb: AttributeOffset = %d", attr_info->AttributeOffset);
-    int attr_index = GattSrv::getInstance()->GetAttributeIdxByOffset(attr_info->AttributeOffset);
+    int attr_index = gatt->GetAttributeIdxByOffset(attr_info->AttributeOffset);
 
     if (attr_index >= 0 )
     {
@@ -1068,9 +1120,8 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
         gatt_db_attribute_write_result(attrib, id, ecode);
 
         // update in the mServiceTable value "as is" - if encrypted by client - then it will be encrypted
-        GattSrv::getInstance()->GATTUpdateCharacteristic(attr_index, (const char*) value, len);
-
-        callback_ble_on_attribute_access(Ble::Property::Write, attr_index);
+        gatt->GATTUpdateCharacteristic(attr_index, (const char*) value, len);
+        gatt->ProcessRegisteredCallback(Ble::Property::Write, attr_index);
     }
     else
         DEBUG_PRINTF("write_cb: attr_index is not found for attr_offset = %d", attr_info->AttributeOffset);
@@ -1166,9 +1217,7 @@ static void att_disconnect_cb(int err, void *user_data)
 {
     (void) user_data;
     DEBUG_PRINTF("Device disconnected: %s; exiting GATT Server loop", strerror(err));
-
-    GattSrv * gatt = (GattSrv*) GattSrv::getInstance();
-    gatt->ProcessRegisteredCallback(Ble::Property::Disconnected, -1);
+    GattSrv::getInstance()->ProcessRegisteredCallback(Ble::Property::Disconnected, -1);
     mainloop_quit();
 }
 
@@ -1214,35 +1263,41 @@ int server_create()
 
     uint16_t mtu = 0;
     struct server_ref *server = new0(struct server_ref, 1);
-    if (!server) {
+    if (!server)
+    {
         DEBUG_PRINTF("Failed to allocate memory for server reference");
         goto fail;
     }
 
     server->att = bt_att_new(GattSrv::mServer.fd, false);
-    if (!server->att) {
+    if (!server->att)
+    {
         DEBUG_PRINTF("Failed to initialze ATT transport layer");
         goto fail;
     }
 
-    if (!bt_att_set_close_on_unref(server->att, true)) {
+    if (!bt_att_set_close_on_unref(server->att, true))
+    {
         DEBUG_PRINTF("Failed to set up ATT transport layer");
         goto fail;
     }
 
-    if (!bt_att_register_disconnect(server->att, att_disconnect_cb, NULL, NULL)) {
+    if (!bt_att_register_disconnect(server->att, att_disconnect_cb, NULL, NULL))
+    {
         DEBUG_PRINTF("Failed to set ATT disconnect handler");
         goto fail;
     }
 
     server->db = gatt_db_new();
-    if (!server->db) {
+    if (!server->db)
+    {
         DEBUG_PRINTF("Failed to create GATT database");
         goto fail;
     }
 
     server->gatt = bt_gatt_server_new(server->db, server->att, mtu);
-    if (!server->gatt) {
+    if (!server->gatt)
+    {
         DEBUG_PRINTF("Failed to create GATT server");
         goto fail;
     }
@@ -1278,7 +1333,8 @@ fail:
 static void signal_cb(int signum, void *user_data)
 {
     (void) user_data;
-    switch (signum) {
+    switch (signum)
+    {
     case SIGINT:
     case SIGTERM:
         mainloop_quit();
@@ -1302,7 +1358,7 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     struct bt_security btsec;
     char ba[18];
     bdaddr_t  _BDADDR_ANY = {{0, 0, 0, 0, 0, 0}};
-    GattSrv *gatt = (GattSrv *) GattSrv::getInstance();
+    GattSrv *gatt = GattSrv::getInstance();
 
     bdaddr_t src_addr;
     int dev_id = -1;
@@ -1311,13 +1367,15 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
 
     if (dev_id == -1)
         bacpy(&src_addr, &_BDADDR_ANY);
-    else if (hci_devba(dev_id, &src_addr) < 0) {
+    else if (hci_devba(dev_id, &src_addr) < 0)
+    {
         DEBUG_PRINTF("Adapter not available %s (%d)", strerror(errno), errno);
         return (void*) EXIT_FAILURE;
     }
 
     GattSrv::mServer.hci_socket = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-    if (GattSrv::mServer.hci_socket < 0) {
+    if (GattSrv::mServer.hci_socket < 0)
+    {
         DEBUG_PRINTF("Failed to create L2CAP socket %s (%d)", strerror(errno), errno);
         goto fail;    }
 
@@ -1328,7 +1386,8 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     srcaddr.l2_bdaddr_type = src_type;
     bacpy(&srcaddr.l2_bdaddr, &src_addr);
 
-    if (bind(GattSrv::mServer.hci_socket, (struct sockaddr *) &srcaddr, sizeof(srcaddr)) < 0) {
+    if (bind(GattSrv::mServer.hci_socket, (struct sockaddr *) &srcaddr, sizeof(srcaddr)) < 0)
+    {
         DEBUG_PRINTF("Failed to bind L2CAP socket %s (%d)", strerror(errno), errno);
         goto fail;
     }
@@ -1336,12 +1395,14 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     /* Set the security level */
     memset(&btsec, 0, sizeof(btsec));
     btsec.level = sec;
-    if (setsockopt(GattSrv::mServer.hci_socket, SOL_BLUETOOTH, BT_SECURITY, &btsec, sizeof(btsec)) != 0) {
+    if (setsockopt(GattSrv::mServer.hci_socket, SOL_BLUETOOTH, BT_SECURITY, &btsec, sizeof(btsec)) != 0)
+    {
         DEBUG_PRINTF("Failed to set L2CAP security level");
         goto fail;
     }
 
-    if (listen(GattSrv::mServer.hci_socket, 10) < 0) {
+    if (listen(GattSrv::mServer.hci_socket, 10) < 0)
+    {
         DEBUG_PRINTF("Listening on socket failed %s (%d)", strerror(errno), errno);
         goto fail;
     }
@@ -1351,7 +1412,8 @@ static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
     memset(&addr, 0, sizeof(addr));
     optlen = sizeof(addr);
     nsk = accept(GattSrv::mServer.hci_socket, (struct sockaddr *) &addr, &optlen);
-    if (nsk < 0) {
+    if (nsk < 0)
+    {
         DEBUG_PRINTF("Accept failed %s (%d)", strerror(errno), errno);
         goto fail;
     }

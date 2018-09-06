@@ -106,11 +106,11 @@ namespace Error { enum Error {
     FUNCTION            = -4, // an error occurred in execution of the Command Function.
     TOO_MANY_PARAMS     = -5, // there are more parameters then will fit in the UserCommand.
     INVALID_PARAMETER   = -6, // an error occurred due to the fact that one or more of the required parameters were invalid.
-    NOT_INITIALIZED     = -7, // an error occurred due to the fact that the Platform Manager has not been initialized.
+    NOT_INITIALIZED     = -7, // an error occurred due to the fact that the GattSrv has not been initialized.
     UNDEFINED           = -8, // Not initialized value; not all paths of the function modify return value
     NOT_IMPLEMENTED     = -9, // Not yet implemented or not supported for this target
     NOT_FOUND           = -10,// Search not found
-    INVALID_STATE       = -11,// Already set or single use error
+    INVALID_STATE       = -11,// Already set, single use error or not connected
     NOT_REGISTERED      = -12,// Callback is not registered
     FAILED_INITIALIZE   = -13,//
     PTHREAD_ERROR       = -14,// create or cancel error

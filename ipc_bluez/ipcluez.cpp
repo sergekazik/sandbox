@@ -8,9 +8,12 @@ static Ble::ServiceInfo_t gClientService = {0,{0},0, NULL};
 
 void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 {
-    if (attr && attr->Value && attr->ValueLength && attr->AllocatedValue)
+    if (attr != NULL)
     {
-        free(attr->Value);
+        if (attr->Value && attr->AllocatedValue)
+        {
+            free(attr->Value);
+        }
         attr->Value = NULL;
         attr->ValueLength = 0;
         attr->AllocatedValue = 0;
@@ -66,7 +69,6 @@ int append_attribute(Comm_Msg_t *msg)
                     attr->ValueLength = 0;
                     return Ble::Error::MEMORY_ALLOOCATION;
                 }
-
                 memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
                 attr->AllocatedValue = 1;
             }
@@ -88,6 +90,7 @@ int update_attribute(Update_Attribute_t *data)
 {
     int ret = Ble::Error::NONE;
     Ble::AttributeInfo_t *attr = NULL;
+    Ble::GattSrv* gatt = Ble::GattSrv::getInstance();
 
     if (!gClientService.AttributeList)
     {
@@ -97,30 +100,25 @@ int update_attribute(Update_Attribute_t *data)
     {
         attr = &gClientService.AttributeList[data->attr_idx];
     }
-#ifdef MANUAL_UPDATE
-    if (attr != NULL)
+    else
     {
-
-        cleanup_attribute_value(attr);
-
+        return Ble::Error::INVALID_PARAMETER;
+    }
+#ifdef DIRECT_UPDATE
+    cleanup_attribute_value(attr);
+    if (data->size > 0)
+    {
+        if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
+            return Ble::Error::MEMORY_ALLOOCATION;
         attr->ValueLength = data->size;
-        if (attr->ValueLength > 0)
-        {
-            if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
-            {
-                attr->ValueLength = 0;
-                return Ble::Error::MEMORY_ALLOOCATION;
-            }
-
-            memcpy(attr->Value, data->data, attr->ValueLength);
-            attr->AllocatedValue = 1;
-        }
+        attr->AllocatedValue = 1;
+        memcpy(attr->Value, data->data, attr->ValueLength);
     }
 #else
-    ret = Ble::GattSrv::getInstance()->GATTUpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size);
+    ret = gatt->GATTUpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size);
 #endif
 
-    if ((ret == Ble::Error::NONE) && (attr != NULL))
+    if (ret == Ble::Error::NONE)
     {
 #ifdef DEBUG_ENABLED
         char print_string_tmp[attr->ValueLength+1];
@@ -128,12 +126,13 @@ int update_attribute(Update_Attribute_t *data)
         print_string_tmp[attr->ValueLength] = '\0';
         DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
 #endif
-        // TODO: here to Notify if connected
+        // Notify if connected
         if (attr->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
         {
-
+            ret = gatt->NotifyCharacteristic(data->attr_idx, (const char*) data->data, data->size);
+            DEBUG_PRINTF("Notify characteristic err = %d", ret);
+            ret = Ble::Error::NONE;
         }
-        ret = Ble::Error::NONE;
     }
     return ret;
 }
