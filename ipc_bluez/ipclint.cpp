@@ -3,66 +3,61 @@
 // static vars, status
 static uint8_t giSessionId = 0;
 
-// sample attribute definitions
-//typedef struct characteristicinfo
-//{
-//    AttributeType_t AttributeType;
-//    unsigned int    AttributeOffset;
-//    char            AttributeName[ATTR_NAME_LEN];
-//    unsigned long   CharacteristicPropertiesMask;
-//    unsigned long   SecurityPropertiesMask;
-//    UUID_128_t      CharacteristicUUID;
-//    uint8_t       AllocatedValue;
-//    unsigned int    MaximumValueLength;
-//    unsigned int    ValueLength;
-//    uint8_t         *Value;
-//} AttributeInfo_t;
-
+// sample UUID definitions and macros
 #define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
 #define MAKE_UUID(_attr_idx) MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,20,D0,87,33,3C,2C,_attr_idx)
 #define CCCDESC_UUID() MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
 #define MAKE_PAYLOAD(_pld) (unsigned int) strlen(_pld), (char *) _pld
 
 // sample Attribute Table definition
+// defines 2 characteristics and 1 descriptor
 static Ble::AttributeInfo_t attr_table[] =
 {
-    {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("Char1")},
-    {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("Char2")},
+    {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("value1")},
+    {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("value2")},
     {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
 };
 
+// sample to demonstrate update value
+static Define_Update_t attr_upd = {
+    .size = strlen("updated_val"),
+    .attr_idx = 1,
+    .data = (uint8_t*) "updated_val"
+};
+
 // sample service definitions
-//typedef struct serviceinfo
-//{
-//    unsigned int                   ServiceID;
-//    UUID_128_t                     ServiceUUID;
-//    unsigned int                   NumberAttributes;
-//    AttributeInfo_t               *AttributeList;
-//} ServiceInfo_t;
 #define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
 static Ble::ServiceInfo_t service = {0, SERVICE_UUID, sizeof(attr_table)/sizeof(Ble::AttributeInfo_t), attr_table};
 
-// sample of the configuration
+// sample of communication sequence
 typedef struct {
     Msg_Type_t type;
     void* data;
 } SampleStruct_t;
+
 SampleStruct_t msg_list[] = {
-    { MSG_SESSION,        /* open */    (void*)1 },
-    { MSG_POWER,          /* on */      (void*)1 },
-    { MSG_CONFIG,         /*..*/         NULL },
-    { MSG_ADD_SERVICE,    /*..*/ (void*) &service },
-    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[0] },
-    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[1] },
-    { MSG_ADD_ATTRIBUTE,  /*..*/ (void*) &attr_table[2] },
-    { MSG_ADVERTISEMENT,  /* start */   (void*)1 },
-    { CMD_PAUSE_GETCHAR,  /* pause */    NULL },
-    { MSG_ADVERTISEMENT,  /* stop */    (void*)0 },
-    { MSG_POWER,          /* off */     (void*)0 },
-    { MSG_SESSION,        /* close */   (void*)0 },
+    { MSG_SESSION,          (void*) Ble::ConfigArgument::Enable},
+    { MSG_POWER,            (void*) Ble::ConfigArgument::PowerOn},
+    { MSG_CONFIG,           /* config*/ NULL        },
+    { MSG_ADD_SERVICE,      (void*) &service        },
+    { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[0]  },
+    { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[1]  },
+    { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[2]  },
+    { MSG_UPDATE_ATTRIBUTE, (void*) &attr_upd       },
+    { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Start},
+    { CMD_PAUSE_GETCHAR,    /* pause */ NULL        },
+    { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Stop},
+    { MSG_POWER,            (void*) Ble::ConfigArgument::PowerOff},
+    { MSG_SESSION,          (void*) Ble::ConfigArgument::Disable},
 };
 
-
+///
+/// \brief sample format_message_payload before sending to Server
+/// \param type
+/// \param msg
+/// \param data
+/// \return
+///
 void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
     msg.hdr.size = sizeof(Common_Header_t);
@@ -100,24 +95,49 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
         break;
 
     case MSG_ADD_ATTRIBUTE:
-        msg.hdr.size += sizeof(Add_Attribute_t);
-        msg.data.add_attribute = *((Add_Attribute_t*)data);
-        if (msg.data.add_attribute.attr.ValueLength > 0)
-        {   // special case with message reallocation for payload = Value
-            msg.hdr.size = sizeof(Comm_Msg_t) + msg.data.add_attribute.attr.ValueLength;
-            uint8_t *msg_new = (uint8_t *) malloc(msg.hdr.size);
-            if (msg_new)
+        if (data != NULL)
+        {   // for MSG_ADD_ATTRIBUTE case data contains attribute description as Add_Attribute_t
+            msg.hdr.size += sizeof(Add_Attribute_t);
+            msg.data.add_attribute = *((Add_Attribute_t*)data);
+
+            // if contains payload - re-allocate message to include payload = Value
+            if (msg.data.add_attribute.attr.ValueLength > 0)
             {
-                memcpy(msg_new, &msg, sizeof(Comm_Msg_t));
-                memcpy(msg_new + sizeof(Comm_Msg_t), msg.data.add_attribute.attr.Value, msg.data.add_attribute.attr.ValueLength);
-                return msg_new;
+                msg.hdr.size = sizeof(Comm_Msg_t) + msg.data.add_attribute.attr.ValueLength;
+                uint8_t *msg_new = (uint8_t *) malloc(msg.hdr.size);
+                if (msg_new)
+                {
+                    memcpy(msg_new, &msg, sizeof(Comm_Msg_t));
+                    memcpy(msg_new + sizeof(Comm_Msg_t), msg.data.add_attribute.attr.Value, msg.data.add_attribute.attr.ValueLength);
+                    return msg_new;
+                }
             }
         }
         break;
 
     case MSG_UPDATE_ATTRIBUTE:
-        msg.hdr.size += sizeof(Update_Attribute_t);
-        msg.data.update_attribute = *((Update_Attribute_t*)data);
+        if (data != NULL)
+        {   // for MSG_UPDATE_ATTRIBUTE case data contains Define_Update_t; the updated Value of the attribute may be NULL
+            msg.hdr.size += sizeof(Update_Attribute_t);
+            Define_Update_t* def = (Define_Update_t*)data;
+
+            msg.data.update_attribute.attr_idx = def->attr_idx;
+            msg.data.update_attribute.size = def->size;
+
+            // if updated Value is not NULL - re-allocate message to include payload = Value
+            if (msg.data.update_attribute.size > 0)
+            {
+                int new_size = msg.hdr.size + msg.data.update_attribute.size - 1;
+                uint8_t *msg_new = (uint8_t *) malloc(new_size);
+                if (msg_new)
+                {
+                    memcpy(msg_new, &msg, msg.hdr.size);
+                    memcpy(((Comm_Msg_t*)msg_new)->data.update_attribute.data, def->data, msg.data.update_attribute.size);
+                    msg.hdr.size = new_size;
+                    return msg_new;
+                }
+            }
+        }
         break;
 
     case MSG_NOTIFY_CONNECT_STATUS:
@@ -130,6 +150,11 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
     return NULL;
 }
 
+///
+/// \brief sample handle_response_message or notification from Server
+/// \param msg
+/// \return
+///
 int handle_response_message(Comm_Msg_t &msg)
 {
     int ret = NO_ERROR;
@@ -176,6 +201,12 @@ int handle_response_message(Comm_Msg_t &msg)
     return ret;
 }
 
+///
+/// \brief sample client main
+/// \param argc
+/// \param argv
+/// \return
+///
 int main(int argc, char** argv )
 {
     Comm_Msg_t msg;

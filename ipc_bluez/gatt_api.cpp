@@ -112,7 +112,7 @@ int GattSrv::Shutdown()
     return ret;
 }
 
-int GattSrv::Configure(DeviceConfig_t* aConfig)
+int GattSrv::Configure(Ble::Config::DeviceConfig_t* aConfig)
 {
     int ret_val = Error::NONE;
 
@@ -197,7 +197,7 @@ int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallba
 /// \param aParams
 /// \return error code
 ///
-int GattSrv::SetLocalDeviceName(Parameter_t *aParams __attribute__ ((unused)))
+int GattSrv::SetLocalDeviceName(Ble::Config::Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
@@ -224,7 +224,7 @@ int GattSrv::SetLocalDeviceName(Parameter_t *aParams __attribute__ ((unused)))
 /// \param aParams
 /// \return error code
 ///
-int GattSrv::SetLocalClassOfDevice(Parameter_t *aParams __attribute__ ((unused)))
+int GattSrv::SetLocalClassOfDevice(Ble::Config::Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
@@ -255,7 +255,7 @@ int GattSrv::SetLocalClassOfDevice(Parameter_t *aParams __attribute__ ((unused))
 ///     -start LE adv,
 ///     - launch listeninng pthread on HCI socket for incoming connections
 ///
-int GattSrv::StartAdvertising(Parameter_t *aParams __attribute__ ((unused)))
+int GattSrv::StartAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized && mServiceTable && mServiceTable->NumberAttributes)
@@ -296,7 +296,7 @@ int GattSrv::StartAdvertising(Parameter_t *aParams __attribute__ ((unused)))
 ///     - stop LE adv
 ///     - stop listenning pthread if still listen on the socket
 ///
-int GattSrv::StopAdvertising(Parameter_t *aParams __attribute__ ((unused)))
+int GattSrv::StopAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((unused)))
 {
     int ret_val = Error::UNDEFINED;
     if (mInitialized)
@@ -415,7 +415,7 @@ int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAt
 /// \param aParams - not used
 /// \return
 ///
-int GattSrv::QueryLocalDeviceProperties(Parameter_t *aParams __attribute__ ((unused)))
+int GattSrv::QueryLocalDeviceProperties(Ble::Config::Parameter_t *aParams __attribute__ ((unused)))
 {
     PrintDeviceHeader(&di);
     HCIname(di.dev_id, NULL);

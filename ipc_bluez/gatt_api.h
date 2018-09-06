@@ -8,6 +8,14 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 
+#define GATT_CHARACTERISTICS_MAX            32
+#define BLE_READ_PACKET_MAX                 22
+#define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
+#define DEV_NAME_LEN                        64      /* text string = device name */
+#define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
+#define ATT_MTU_MAX                         512     /* maximum allowed value size of 512 bytes.*/
+#define ATTR_NAME_LEN                       20
+
 struct server_ref
 {
     struct bt_att *att;
@@ -17,79 +25,29 @@ struct server_ref
 
 namespace Ble {
 
-#define GATT_CHARACTERISTICS_MAX            32
-#define BLE_READ_PACKET_MAX                 22
-#define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
-#define DEV_NAME_LEN                        64      /* text string = device name */
-#define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
-#define ATT_MTU_MAX                         512     /* maximum allowed value size of 512 bytes.*/
-#define ATTR_NAME_LEN                       20
-#define ToInt(_x) (((_x) > 0x39)?(((_x) & ~0x20)-0x37):((_x)-0x30))
+typedef uint8_t UUID_128_t[16];
 
-typedef struct uuid_16
-{
-   uint8_t UUID_Byte0;
-   uint8_t UUID_Byte1;
-} UUID_16_t;
-
-typedef struct uuid_32
-{
-   uint8_t UUID_Byte0;
-   uint8_t UUID_Byte1;
-   uint8_t UUID_Byte2;
-   uint8_t UUID_Byte3;
-} UUID_32_t;
-
-typedef struct uuid_128
-{
-   uint8_t UUID_Byte0;
-   uint8_t UUID_Byte1;
-   uint8_t UUID_Byte2;
-   uint8_t UUID_Byte3;
-   uint8_t UUID_Byte4;
-   uint8_t UUID_Byte5;
-   uint8_t UUID_Byte6;
-   uint8_t UUID_Byte7;
-   uint8_t UUID_Byte8;
-   uint8_t UUID_Byte9;
-   uint8_t UUID_Byte10;
-   uint8_t UUID_Byte11;
-   uint8_t UUID_Byte12;
-   uint8_t UUID_Byte13;
-   uint8_t UUID_Byte14;
-   uint8_t UUID_Byte15;
-} UUID_128_t;
-
-typedef struct bd_addr
-{
-   uint8_t BD_ADDR0;
-   uint8_t BD_ADDR1;
-   uint8_t BD_ADDR2;
-   uint8_t BD_ADDR3;
-   uint8_t BD_ADDR4;
-   uint8_t BD_ADDR5;
-} BD_ADDR_t;
-
-typedef struct parameter
+namespace Config {
+typedef struct
 {
     int             count;
     char           *strParam;
     unsigned int    intParam;
 } Parameter_t;
 
-namespace Config { enum Tag {
+enum Tag {
     EOL                  = 0, // End of list
     ServiceTable,
     LocalDeviceName,
     LocalClassOfDevice,
     MACAddress
-};}
-
-typedef struct deviceconfig
+};
+typedef struct
 {
-    Ble::Config::Tag   tag;
-    Parameter_t params;
+    Config::Tag         tag;
+    Config::Parameter_t params;
 } DeviceConfig_t;
+}
 
 #define GATM_SECURITY_PROPERTIES_NO_SECURITY                         0x00000000
 #define GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE    0x00000001
@@ -167,9 +125,8 @@ namespace ConfigArgument { enum Arg {
     Disable = 0,
     PowerOn = 1,
     PowerOff = 0,
-    ASCII_File = 1,
-    Terminal = 2,
-    FTS_File = 3,
+    Start = 1,
+    Stop = 0
 };}
 
 namespace Property
@@ -245,43 +202,43 @@ private:
 
 public:
     int Initialize();
-    int Configure(DeviceConfig_t* aConfig);
+    int Configure(Ble::Config::DeviceConfig_t* aConfig);
 
     int SetDevicePower(Ble::ConfigArgument::Arg aOnOff);
 
     int Shutdown();
 
-    int SetLocalDeviceName(Parameter_t *aParams);
-    int SetLocalClassOfDevice(Parameter_t *aParams);
+    int SetLocalDeviceName(Ble::Config::Parameter_t *aParams);
+    int SetLocalClassOfDevice(Ble::Config::Parameter_t *aParams);
 
     int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
     int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
-    int QueryLocalDeviceProperties(Parameter_t *aParams);
-    int SetLocalDeviceAppearance(Parameter_t *aParams);
+    int QueryLocalDeviceProperties(Ble::Config::Parameter_t *aParams);
+    int SetLocalDeviceAppearance(Ble::Config::Parameter_t *aParams);
 
     // connection and security
-    int SetRemoteDeviceLinkActive(Parameter_t *aParams);
-    int RegisterAuthentication(Parameter_t *aParams);
-    int ChangeSimplepairingParameters(Parameter_t *aParams);
+    int SetRemoteDeviceLinkActive(Ble::Config::Parameter_t *aParams);
+    int RegisterAuthentication(Ble::Config::Parameter_t *aParams);
+    int ChangeSimplepairingParameters(Ble::Config::Parameter_t *aParams);
 
     // GATT
-    int RegisterGATMEventCallback(Parameter_t *aParams);
-    int GATTRegisterService(Parameter_t *aParams);
+    int RegisterGATMEventCallback(Ble::Config::Parameter_t *aParams);
+    int GATTRegisterService(Ble::Config::Parameter_t *aParams);
     int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, uint8_t *aAttrData, int aAttrLen);
     int NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising
-    int SetAdvertisingInterval(Parameter_t *aParams);
-    int StartAdvertising(Parameter_t *aParams);
-    int StopAdvertising(Parameter_t *aParams);
+    int SetAdvertisingInterval(Ble::Config::Parameter_t *aParams);
+    int StartAdvertising(Ble::Config::Parameter_t *aParams);
+    int StopAdvertising(Ble::Config::Parameter_t *aParams);
 
-    int SetAuthenticatedPayloadTimeout(Parameter_t *aParams);
-    int SetAndUpdateConnectionAndScanBLEParameters(Parameter_t *aParams);
+    int SetAuthenticatedPayloadTimeout(Ble::Config::Parameter_t *aParams);
+    int SetAndUpdateConnectionAndScanBLEParameters(Ble::Config::Parameter_t *aParams);
     void CleanupServiceList(void);
 
     // debug
-    int EnableBluetoothDebug(Parameter_t *aParams);
+    int EnableBluetoothDebug(Ble::Config::Parameter_t *aParams);
 
     // debug / display functions and helper functions
     int GetAttributeIdxByOffset(unsigned int AttributeOffset);

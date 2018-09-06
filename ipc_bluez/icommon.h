@@ -94,8 +94,9 @@ typedef struct _add_attribute
 
 typedef struct _update_attribute
 {
+    uint16_t size;
     uint8_t  attr_idx;
-    Ble::AttributeInfo_t attr;
+    uint8_t  data[1];
 } Update_Attribute_t;
 
 typedef struct _notify_connect_status
@@ -139,6 +140,15 @@ typedef struct _comm_msg
         Notify_Data_Write_t     notify_data_write;
     } data;
 } Comm_Msg_t;
+
+// helper defitions
+typedef struct _define_update
+{
+    uint16_t size;
+    uint8_t  attr_idx;
+    uint8_t  *data;
+} Define_Update_t;
+
 
 ///
 /// \brief die

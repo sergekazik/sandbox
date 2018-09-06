@@ -61,17 +61,23 @@ int append_attribute(Comm_Msg_t *msg)
             if (msg->data.add_attribute.attr.ValueLength && (msg->data.add_attribute.attr.ValueLength == (msg->hdr.size - sizeof(Comm_Msg_t))))
             {
                 attr->ValueLength = msg->data.add_attribute.attr.ValueLength;
-                if (NULL == (attr->Value = (char*) malloc(attr->ValueLength+1)))
+                if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
                 {
                     attr->ValueLength = 0;
                     return MEMORY_ERROR;
                 }
 
                 memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
-                attr->Value[attr->ValueLength] = '\0';
                 attr->AllocatedValue = 1;
             }
-            DEBUG_PRINTF("added attr %d [%s] val [%d] %s\n", i, attr->AttributeName, attr->ValueLength, attr->Value);
+#ifdef DEBUG_ENABLED
+            {
+                char print_string_tmp[attr->ValueLength+1];
+                memcpy(print_string_tmp, attr->Value, attr->ValueLength);
+                print_string_tmp[attr->ValueLength] = '\0';
+                DEBUG_PRINTF("\tadded attr %d [%s] val [%d] %s", i, attr->AttributeName, attr->ValueLength, print_string_tmp);
+            }
+#endif
             return NO_ERROR;
         }
     }
@@ -86,12 +92,33 @@ int update_attribute(Update_Attribute_t *data)
     }
     else if ((data->attr_idx > 0) && (data->attr_idx < (int) gClientService.NumberAttributes))
     {
-        memcpy(&gClientService.AttributeList[data->attr_idx], &data->attr, sizeof(Ble::AttributeInfo_t));
-        DEBUG_PRINTF("updated attr %d %s\n", data->attr_idx, data->attr.AttributeName);
+        Ble::AttributeInfo_t *attr = &gClientService.AttributeList[data->attr_idx];
+        cleanup_attribute_value(attr);
 
-        if (data->attr.CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
+        attr->ValueLength = data->size;
+        if (attr->ValueLength > 0)
         {
-            // TODO: here to Notify if status connected
+            if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
+            {
+                attr->ValueLength = 0;
+                return MEMORY_ERROR;
+            }
+
+            memcpy(attr->Value, data->data, attr->ValueLength);
+            attr->AllocatedValue = 1;
+        }
+#ifdef DEBUG_ENABLED
+            {
+                char print_string_tmp[attr->ValueLength+1];
+                memcpy(print_string_tmp, attr->Value, attr->ValueLength);
+                print_string_tmp[attr->ValueLength] = '\0';
+                DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
+            }
+#endif
+        // TODO: here to Notify if connected
+        if (attr->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
+        {
+
         }
         return NO_ERROR;
     }
@@ -102,7 +129,7 @@ int handle_request_msg(Comm_Msg_t *msg)
 {
     int ret = NO_ERROR;
 
-    DEBUG_PRINTF("got msg %d %s\n", msg->hdr.type, get_msg_name(msg));
+    DEBUG_PRINTF("got msg %d %s", msg->hdr.type, get_msg_name(msg));
 
     if (!msg)
     {
@@ -166,7 +193,7 @@ int handle_request_msg(Comm_Msg_t *msg)
     {
         Config_t *data = (Config_t *) &msg->data;
 
-        Ble::DeviceConfig_t config[] =
+        Ble::Config::DeviceConfig_t config[] =
         { // config tag                             count                           params
             {Ble::Config::LocalDeviceName,        {strlen(data->device_name)?1:0,   (char*) data->device_name, Ble::ConfigArgument::None}},
             {Ble::Config::MACAddress,             {strlen(data->mac_address)?1:0,   (char*) data->mac_address, Ble::ConfigArgument::None}},
@@ -208,7 +235,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             if (NO_ERROR == (ret = allocate_zero_attr_table(alloc_size)))
             {
                 // congig gatt server with a new service table
-                Ble::DeviceConfig_t config[] =
+                Ble::Config::DeviceConfig_t config[] =
                 { // config tag                             count                           params
                     {Ble::Config::ServiceTable,           {1,   (char*) &gClientService, Ble::ConfigArgument::None}},
                     {Ble::Config::EOL,                    {0,   NULL,                    Ble::ConfigArgument::None}},
