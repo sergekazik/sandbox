@@ -29,12 +29,12 @@ void cleanup_client_service()
 
 int allocate_zero_attr_table(int alloc_size)
 {
-    int ret = NO_ERROR;
+    int ret = Ble::Error::NONE;
     // allocate clean attribute table
     gClientService.AttributeList = (Ble::AttributeInfo_t*) malloc(alloc_size);
     if (!gClientService.AttributeList)
     {
-        ret = MEMORY_ERROR;
+        ret = Ble::Error::MEMORY_ALLOOCATION;
     }
     else
     {
@@ -47,7 +47,7 @@ int append_attribute(Comm_Msg_t *msg)
 {
     if (!gClientService.AttributeList)
     {
-        return MEMORY_ERROR;
+        return Ble::Error::MEMORY_ALLOOCATION;
     }
     else for (int i = 0; i < (int) gClientService.NumberAttributes; i++)
     {
@@ -64,7 +64,7 @@ int append_attribute(Comm_Msg_t *msg)
                 if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
                 {
                     attr->ValueLength = 0;
-                    return MEMORY_ERROR;
+                    return Ble::Error::MEMORY_ALLOOCATION;
                 }
 
                 memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
@@ -78,21 +78,29 @@ int append_attribute(Comm_Msg_t *msg)
                 DEBUG_PRINTF("\tadded attr %d [%s] val [%d] %s", i, attr->AttributeName, attr->ValueLength, print_string_tmp);
             }
 #endif
-            return NO_ERROR;
+            return Ble::Error::NONE;
         }
     }
-    return INVALID_PARAMETER;
+    return Ble::Error::INVALID_PARAMETER;
 }
 
 int update_attribute(Update_Attribute_t *data)
 {
+    int ret = Ble::Error::NONE;
+    Ble::AttributeInfo_t *attr = NULL;
+
     if (!gClientService.AttributeList)
     {
-        return MEMORY_ERROR;
+        return Ble::Error::MEMORY_ALLOOCATION;
     }
     else if ((data->attr_idx > 0) && (data->attr_idx < (int) gClientService.NumberAttributes))
     {
-        Ble::AttributeInfo_t *attr = &gClientService.AttributeList[data->attr_idx];
+        attr = &gClientService.AttributeList[data->attr_idx];
+    }
+#ifdef MANUAL_UPDATE
+    if (attr != NULL)
+    {
+
         cleanup_attribute_value(attr);
 
         attr->ValueLength = data->size;
@@ -101,43 +109,48 @@ int update_attribute(Update_Attribute_t *data)
             if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
             {
                 attr->ValueLength = 0;
-                return MEMORY_ERROR;
+                return Ble::Error::MEMORY_ALLOOCATION;
             }
 
             memcpy(attr->Value, data->data, attr->ValueLength);
             attr->AllocatedValue = 1;
         }
+    }
+#else
+    ret = Ble::GattSrv::getInstance()->GATTUpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size);
+#endif
+
+    if ((ret == Ble::Error::NONE) && (attr != NULL))
+    {
 #ifdef DEBUG_ENABLED
-            {
-                char print_string_tmp[attr->ValueLength+1];
-                memcpy(print_string_tmp, attr->Value, attr->ValueLength);
-                print_string_tmp[attr->ValueLength] = '\0';
-                DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
-            }
+        char print_string_tmp[attr->ValueLength+1];
+        memcpy(print_string_tmp, attr->Value, attr->ValueLength);
+        print_string_tmp[attr->ValueLength] = '\0';
+        DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
 #endif
         // TODO: here to Notify if connected
         if (attr->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
         {
 
         }
-        return NO_ERROR;
+        ret = Ble::Error::NONE;
     }
-    return INVALID_PARAMETER;
+    return ret;
 }
 
 int handle_request_msg(Comm_Msg_t *msg)
 {
-    int ret = NO_ERROR;
+    int ret = Ble::Error::NONE;
 
     DEBUG_PRINTF("got msg %d %s", msg->hdr.type, get_msg_name(msg));
 
     if (!msg)
     {
-        return INVALID_PARAMETER;
+        return Ble::Error::INVALID_PARAMETER;
     }
     else if (gsSessionId && (msg->hdr.session_id != gsSessionId))
     {
-        return SERVER_BUSY; // wrong session or client
+        return Ble::Error::RESOURCE_UNAVAILABLE; // wrong session or client
     }
 
     switch (msg->hdr.type)
@@ -150,7 +163,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             // Open_Session_t *data = (Open_Session_t *) &msg->data;
             if (gsSessionId > 0)
             {
-                ret = SERVER_BUSY;
+                ret = Ble::Error::RESOURCE_UNAVAILABLE;
             }
             else
             {
@@ -169,7 +182,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             }
             else
             {
-                ret = SERVER_BUSY;
+                ret = Ble::Error::RESOURCE_UNAVAILABLE;
             }
         }
         break;
@@ -232,7 +245,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             // copy service description from msg.data
             gClientService = data->desc;
 
-            if (NO_ERROR == (ret = allocate_zero_attr_table(alloc_size)))
+            if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))
             {
                 // congig gatt server with a new service table
                 Ble::Config::DeviceConfig_t config[] =
@@ -245,7 +258,7 @@ int handle_request_msg(Comm_Msg_t *msg)
         }
         else
         {
-            ret = INVALID_PARAMETER;
+            ret = Ble::Error::INVALID_PARAMETER;
         }
         break;
     }
@@ -263,7 +276,7 @@ int handle_request_msg(Comm_Msg_t *msg)
     }
 
     default:
-        ret = INVALID_PARAMETER;
+        ret = Ble::Error::INVALID_PARAMETER;
         break;
     }
     return ret;
@@ -294,7 +307,7 @@ int main(int argc, char** argv )
         }
 
         // handle request, set response
-        msg->hdr.error = (Error_Type_t) handle_request_msg(msg);
+        msg->hdr.error = handle_request_msg(msg);
 
         if (Ble::Error::NONE != (ret = send_comm(TO_CLIENT, msg, sizeof(Common_Header_t))))
         {

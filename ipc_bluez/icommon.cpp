@@ -117,7 +117,7 @@ int parse_command_line(int argc, char** argv)
         else
         {
             printf("invalid argument %s \nusage [-k key][-p port]\n", argv[i]);
-            return Ble::Error::INVALID_PARAMETERS;
+            return Ble::Error::INVALID_PARAMETER;
         }
     }
     printf("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort);

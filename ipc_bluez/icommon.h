@@ -49,15 +49,6 @@ typedef enum msg_type
     CMD_PAUSE_GETCHAR
 } Msg_Type_t;
 
-typedef enum error_type
-{
-    NO_ERROR = 0,
-    INVALID_PARAMETER,
-    SERVER_BUSY,
-    MEMORY_ERROR,
-    GENERAL_ERROR
-} Error_Type_t;
-
 typedef struct session
 {
     uint8_t on_off;         // 1 - open session; 0 - close

@@ -105,7 +105,7 @@ namespace Error { enum Error {
     EXIT_CODE           = -3, // the Command specified was the Exit Command.
     FUNCTION            = -4, // an error occurred in execution of the Command Function.
     TOO_MANY_PARAMS     = -5, // there are more parameters then will fit in the UserCommand.
-    INVALID_PARAMETERS  = -6, // an error occurred due to the fact that one or more of the required parameters were invalid.
+    INVALID_PARAMETER   = -6, // an error occurred due to the fact that one or more of the required parameters were invalid.
     NOT_INITIALIZED     = -7, // an error occurred due to the fact that the Platform Manager has not been initialized.
     UNDEFINED           = -8, // Not initialized value; not all paths of the function modify return value
     NOT_IMPLEMENTED     = -9, // Not yet implemented or not supported for this target
@@ -114,9 +114,10 @@ namespace Error { enum Error {
     NOT_REGISTERED      = -12,// Callback is not registered
     FAILED_INITIALIZE   = -13,//
     PTHREAD_ERROR       = -14,// create or cancel error
-    CONNECTED_STATE     = -15,// already connected
+    RESOURCE_UNAVAILABLE= -15,// server busy, adapter unavailable, etc.
     CB_REGISTER_FAILED  = -16,// registering callback failed
     REGISTER_SVC_ERROR  = -17,// registering gatt service failed
+    MEMORY_ALLOOCATION  = -18,// memory allocation error
 };}
 
 namespace ConfigArgument { enum Arg {
@@ -225,7 +226,7 @@ public:
     // GATT
     int RegisterGATMEventCallback(Ble::Config::Parameter_t *aParams);
     int GATTRegisterService(Ble::Config::Parameter_t *aParams);
-    int GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, uint8_t *aAttrData, int aAttrLen);
+    int GATTUpdateCharacteristic(int attr_idx, const char *str_data, int len);
     int NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising
@@ -240,10 +241,9 @@ public:
     // debug
     int EnableBluetoothDebug(Ble::Config::Parameter_t *aParams);
 
-    // debug / display functions and helper functions
+    // helper functions
     int GetAttributeIdxByOffset(unsigned int AttributeOffset);
-    int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrOffset);
-    int UpdateServiceTable(int attr_idx, const char *str_data, int len);
+    int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrIdx);
 
 private:
     struct hci_dev_info di;

@@ -148,7 +148,7 @@ int GattSrv::Configure(Ble::Config::DeviceConfig_t* aConfig)
 
         default:
             DEBUG_PRINTF("Device Config: unknown tag = %d", aConfig->tag);
-            ret_val = Error::INVALID_PARAMETERS;
+            ret_val = Error::INVALID_PARAMETER;
             break;
         }
         aConfig++;
@@ -164,7 +164,7 @@ int GattSrv::Configure(Ble::Config::DeviceConfig_t* aConfig)
 int GattSrv::RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
 {
     if (!aCb)
-        return Error::INVALID_PARAMETERS;
+        return Error::INVALID_PARAMETER;
     if (!mInitialized)
         return Error::NOT_INITIALIZED;
     if (mOnCharCb)
@@ -182,7 +182,7 @@ int GattSrv::RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback
 int GattSrv::UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb)
 {
     if (!aCb)
-        return Error::INVALID_PARAMETERS;
+        return Error::INVALID_PARAMETER;
     if (!mInitialized)
         return Error::NOT_INITIALIZED;
     if (!mOnCharCb || mOnCharCb != aCb)
@@ -266,7 +266,7 @@ int GattSrv::StartAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((
         if (get_connections(HCI_UP, di.dev_id) > 0)
         {
             // don't restart advertising if any device is currently connected
-            return Ble::Error::CONNECTED_STATE;
+            return Ble::Error::RESOURCE_UNAVAILABLE;
         }
 
         WriteBdaddr(di.dev_id, mMacAddress);
@@ -340,7 +340,7 @@ int GattSrv::StopAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((u
 ///
 int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len)
 {
-    int ret_val = Error::INVALID_PARAMETERS;
+    int ret_val = Error::INVALID_PARAMETER;
     if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
     {
         if (aAttributeIdx < (int) mServiceTable->NumberAttributes)
@@ -360,38 +360,46 @@ int GattSrv::NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int l
 
 ///
 /// \brief GattSrv::GATTUpdateCharacteristic
-/// \param aServiceID
-/// \param aAttrOffset
-/// \param aAttrData
-/// \param aAttrLen
+/// \param attr_idx
+/// \param str_data
+/// \param len
 /// \return
 ///
-int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, uint8_t *aAttrData, int aAttrLen)
+int GattSrv::GATTUpdateCharacteristic(int attr_idx, const char *str_data, int len)
 {
-    int ret_val = Error::NOT_INITIALIZED;
-    if (mInitialized && mServiceTable && mServiceTable->NumberAttributes && GattSrv::mServer.sref)
-    {
-        if ((aServiceID == mServiceTable->ServiceID) && aAttrData && aAttrLen)
-        {
-            ret_val = Error::NOT_FOUND;
-            // find attribute idx by offset
-            for (unsigned int attributeIdx = 0; attributeIdx < mServiceTable->NumberAttributes; attributeIdx++)
+    int ret_val = Error::UNDEFINED;
+    if (mServiceTable == NULL)
+        ret_val = Error::NOT_INITIALIZED;
+    else if (attr_idx >= (int) mServiceTable->NumberAttributes)
+        ret_val = Error::INVALID_PARAMETER;
+    else {
+        AttributeInfo_t *attr = (AttributeInfo_t*) &mServiceTable->AttributeList[attr_idx];
+        if (len > (int) attr->MaximumValueLength)
+            ret_val = Error::INVALID_PARAMETER;
+        else {
+            if (attr->Value && ((int) attr->ValueLength == len) && str_data && !memcmp(attr->Value, str_data, len))
             {
-                if ((int) mServiceTable->AttributeList[attributeIdx].AttributeOffset == aAttrOffset)
-                {
-                    UpdateServiceTable(attributeIdx, (const char*) aAttrData, aAttrLen);
+                // the same - skip
+                ret_val = Error::NONE;
+            }
+            else {
+                if (attr->Value && attr->AllocatedValue) {
+                    free(attr->Value);
+                    attr->AllocatedValue = 0;
                 }
+                attr->Value = NULL;
+                attr->ValueLength = 0;
+
+                if (str_data && len) {
+                    attr->Value = (char*) malloc(len);
+                    if (attr->Value) {
+                        attr->AllocatedValue = 1;
+                        memcpy(attr->Value, str_data, attr->ValueLength = len);
+                    }
+                }
+                ret_val = Error::NONE;
             }
         }
-        else
-        {
-            DEBUG_PRINTF("GATTUpdateCharacteristic INVALID_PARAMETERS, id %d, offset %d, data %08X, len %d", aServiceID, aAttrOffset, (int) (unsigned long) aAttrData, aAttrLen);
-            ret_val = Error::INVALID_PARAMETERS;
-        }
-    }
-    else
-    {
-        DEBUG_PRINTF("Platform Manager has not been Initialized.");
     }
     return ret_val;
 }
@@ -399,14 +407,15 @@ int GattSrv::GATTUpdateCharacteristic(unsigned int aServiceID, int aAttrOffset, 
 ///
 /// \brief GattSrv::ProcessRegisteredCallback
 /// \param aEventType
-/// \param aServiceID
-/// \param aAttrOffset - ! here in BCM43 is used as aAttrIdx
+/// \param aAttrIdx
 /// \return
 ///
-int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrOffset)
+int GattSrv::ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrIdx)
 {
     if (mOnCharCb)
-        (*(mOnCharCb))(aAttrOffset /* this is index! */,  aEventType);
+    {
+        (*(mOnCharCb))(aAttrIdx,  aEventType);
+    }
     return Error::NONE;
 }
 
@@ -970,52 +979,6 @@ int GattSrv::GetAttributeIdxByOffset(unsigned int AttributeOffset)
     return -1;
 }
 
-///
-/// \brief GattSrv::UpdateServiceTable
-/// \param attr_idx
-/// \param str_data
-/// \param len
-/// \return
-///
-int GattSrv::UpdateServiceTable(int attr_idx, const char *str_data, int len)
-{
-    int ret_val = Error::UNDEFINED;
-    if (mServiceTable == NULL)
-        ret_val = Error::NOT_INITIALIZED;
-    else if (attr_idx >= (int) mServiceTable->NumberAttributes)
-        ret_val = Error::INVALID_PARAMETERS;
-    else {
-        AttributeInfo_t *attr = (AttributeInfo_t*) &mServiceTable->AttributeList[attr_idx];
-        if (len > (int) attr->MaximumValueLength)
-            ret_val = Error::INVALID_PARAMETERS;
-        else {
-            if (attr->Value && ((int) attr->ValueLength == len) && str_data && !memcmp(attr->Value, str_data, len))
-            {
-                // the same - skip
-                ret_val = Error::NONE;
-            }
-            else {
-                if (attr->Value && attr->AllocatedValue) {
-                    free(attr->Value);
-                    attr->AllocatedValue = 0;
-                }
-                attr->Value = NULL;
-                attr->ValueLength = 0;
-
-                if (str_data && len) {
-                    attr->Value = (char*) malloc(len);
-                    if (attr->Value) {
-                        attr->AllocatedValue = 1;
-                        memcpy(attr->Value, str_data, attr->ValueLength = len);
-                    }
-                }
-                ret_val = Error::NONE;
-            }
-        }
-    }
-    return ret_val;
-}
-
 /**************************************************************
  * static functions and callbacks
  * ***********************************************************/
@@ -1105,7 +1068,7 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
         gatt_db_attribute_write_result(attrib, id, ecode);
 
         // update in the mServiceTable value "as is" - if encrypted by client - then it will be encrypted
-        GattSrv::getInstance()->UpdateServiceTable(attr_index, (const char*) value, len);
+        GattSrv::getInstance()->GATTUpdateCharacteristic(attr_index, (const char*) value, len);
 
         callback_ble_on_attribute_access(Ble::Property::Write, attr_index);
     }

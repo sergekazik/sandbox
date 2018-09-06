@@ -61,7 +61,7 @@ SampleStruct_t msg_list[] = {
 void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
     msg.hdr.size = sizeof(Common_Header_t);
-    msg.hdr.error = NO_ERROR;
+    msg.hdr.error = Ble::Error::NONE;
     msg.hdr.session_id = giSessionId;
     msg.hdr.type = type;
 
@@ -157,9 +157,9 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 ///
 int handle_response_message(Comm_Msg_t &msg)
 {
-    int ret = NO_ERROR;
+    int ret = Ble::Error::NONE;
 
-    if (msg.hdr.error != NO_ERROR)
+    if (msg.hdr.error != Ble::Error::NONE)
     {
         printf("ERROR in response: %d\n", msg.hdr.error);
         ret = msg.hdr.error;
