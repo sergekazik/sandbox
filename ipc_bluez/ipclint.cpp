@@ -4,21 +4,23 @@
 static uint8_t giSessionId = 0;
 
 // sample UUID definitions and macros
-#define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+#define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) \
+    {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
+
 #define MAKE_UUID(_attr_idx) MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,20,D0,87,33,3C,2C,_attr_idx)
-#define CCCDESC_UUID() MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
-#define MAKE_PAYLOAD(_pld) (unsigned int) strlen(_pld), (char *) _pld
+#define CCCDESC_UUID()       MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
+#define MAKE_PAYLOAD(_pld)  (unsigned int) strlen(_pld), (char *) _pld
 
 // sample Attribute Table definition
 // defines 2 characteristics and 1 descriptor
 static Ble::AttributeInfo_t attr_table[] =
 {
-    {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("value1")},
-    {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATM_SECURITY_PROPERTIES_NO_SECURITY, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("value2")},
-    {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATM_SECURITY_PROPERTIES_NO_SECURITY, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
+    {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATT_SECURITY_NONE, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("value1")},
+    {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATT_SECURITY_NONE, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("value2")},
+    {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATT_SECURITY_NONE, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
 };
 
-// sample to demonstrate update value
+// sample to demo "update value" operation
 static Define_Update_t attr_upd = {
     .size = strlen("updated_val"),
     .attr_idx = 1,
@@ -182,7 +184,7 @@ int handle_response_message(Comm_Msg_t &msg)
 
     // server notifications
     case MSG_NOTIFY_CONNECT_STATUS:
-        if (msg.data.notify_connect.on_off) // connected
+        if (msg.data.notify_connect.on_off)
         {
             // on connect
         }

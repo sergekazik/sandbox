@@ -5,7 +5,6 @@
 static uint8_t gsSessionId = 0;
 static Ble::ServiceInfo_t gClientService = {0,{0},0, NULL};
 
-
 void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 {
     if (attr != NULL)
@@ -127,7 +126,7 @@ int update_attribute(Update_Attribute_t *data)
         DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
 #endif
         // Notify if connected
-        if (attr->CharacteristicPropertiesMask & GATM_CHARACTERISTIC_PROPERTIES_NOTIFY)
+        if (attr->CharacteristicPropertiesMask & GATT_PROPERTY_NOTIFY)
         {
             ret = gatt->NotifyCharacteristic(data->attr_idx, (const char*) data->data, data->size);
             DEBUG_PRINTF("Notify characteristic err = %d", ret);
@@ -137,9 +136,82 @@ int update_attribute(Update_Attribute_t *data)
     return ret;
 }
 
+static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccessType)
+{
+    Comm_Msg_t _msg, *msg = &_msg;
+    msg->hdr.error = Ble::Error::NONE;
+    msg->hdr.session_id = gsSessionId;
+    msg->hdr.size = sizeof(Common_Header_t);
+
+    switch (aAccessType)
+    {
+    case Ble::Property::Access::Connected:
+    case Ble::Property::Access::Disconnected:
+        msg->hdr.type = MSG_NOTIFY_CONNECT_STATUS;
+        msg->hdr.size += sizeof(Notify_Connect_Status_t);
+        msg->data.notify_connect.on_off = (aAccessType == Ble::Property::Access::Connected)?1:0;
+        break;
+
+    case Ble::Property::Access::Read:
+        msg->hdr.type = MSG_NOTIFY_DATA_READ;
+        msg->hdr.size += sizeof(Notify_Data_Read_t);
+        msg->data.notify_data_read.attr_idx = aAttribueIdx;
+        break;
+
+    case Ble::Property::Access::Write:
+        msg->hdr.type = MSG_NOTIFY_DATA_WRITE;
+        msg->hdr.size += sizeof(Notify_Data_Write_t);
+        msg->data.notify_data_write.attr_idx = aAttribueIdx;
+        msg->data.notify_data_write.size = gClientService.AttributeList[aAttribueIdx].ValueLength;
+
+        if (gClientService.AttributeList[aAttribueIdx].ValueLength > 1)
+        {
+            // re-alloc message to include Value
+            int new_size = sizeof(Common_Header_t) + sizeof(Notify_Data_Write_t) + gClientService.AttributeList[aAttribueIdx].ValueLength -1;
+            msg = (Comm_Msg_t*) malloc(new_size);
+            if (msg)
+            {
+                *msg = _msg; // restore header and data values
+                msg->hdr.size = new_size;
+                memcpy(msg->data.notify_data_write.data, gClientService.AttributeList[aAttribueIdx].Value, gClientService.AttributeList[aAttribueIdx].ValueLength);
+            }
+            else
+            {   // Notify Client about Error
+                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
+                msg = &_msg; // restore pointer
+                msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
+            }
+        }
+        else
+        {
+            msg->data.notify_data_write.data[0] = (gClientService.AttributeList[aAttribueIdx].Value != NULL)?*gClientService.AttributeList[aAttribueIdx].Value:0;
+        }
+        break;
+
+    default:
+        DEBUG_PRINTF("Unexpected aAccessType = %d", aAccessType);
+        msg->hdr.error = Ble::Error::INVALID_COMMAND;
+        break;
+    }
+
+    // send to Client
+    if (msg->hdr.error == Ble::Error::NONE)
+    {
+        int ret = send_comm(TO_CLIENT, msg, msg->hdr.size);
+        DEBUG_PRINTF("Notify Client aAccessType = %d, err = %d", aAccessType, ret);
+    }
+
+    // if msg was allocated - release it
+    if (msg != &_msg)
+    {
+        free(msg);
+    }
+}
+
 int handle_request_msg(Comm_Msg_t *msg)
 {
     int ret = Ble::Error::NONE;
+    Ble::GattSrv* gatt = Ble::GattSrv::getInstance();
 
     DEBUG_PRINTF("got msg %d %s", msg->hdr.type, get_msg_name(msg));
 
@@ -175,7 +247,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             {
                 if (session->force_shutdown)
                 {
-                    Ble::GattSrv::getInstance()->Shutdown();
+                    gatt->Shutdown();
                 }
                 gsSessionId = 0;
             }
@@ -192,11 +264,13 @@ int handle_request_msg(Comm_Msg_t *msg)
         Power_t *data = (Power_t *) &msg->data;
         if (data->on_off)
         {
-            ret = Ble::GattSrv::getInstance()->Initialize();
+            ret = gatt->Initialize();
         }
         else
         {
-            ret = Ble::GattSrv::getInstance()->Shutdown();
+            // unregister attribute access callback
+            gatt->UnregisterCharacteristicAccessCallback(attr_access_callback);
+            ret = gatt->Shutdown();
         }
         break;
     }
@@ -213,7 +287,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             {Ble::Config::EOL,                    {0,                               NULL,                      Ble::ConfigArgument::None}},
         };
 
-        ret = Ble::GattSrv::getInstance()->Configure(config);
+        ret = gatt->Configure(config);
         break;
     }
 
@@ -222,11 +296,11 @@ int handle_request_msg(Comm_Msg_t *msg)
         Advertisement_t *data = (Advertisement_t*) &msg->data;
         if (data->on_off)
         {
-            ret = Ble::GattSrv::getInstance()->StartAdvertising(NULL);
+            ret = gatt->StartAdvertising(NULL);
         }
         else
         {
-            ret = Ble::GattSrv::getInstance()->StopAdvertising(NULL);
+            ret = gatt->StopAdvertising(NULL);
         }
         break;
     }
@@ -252,7 +326,13 @@ int handle_request_msg(Comm_Msg_t *msg)
                     {Ble::Config::ServiceTable,           {1,   (char*) &gClientService, Ble::ConfigArgument::None}},
                     {Ble::Config::EOL,                    {0,   NULL,                    Ble::ConfigArgument::None}},
                 };
-                ret = Ble::GattSrv::getInstance()->Configure(config);
+                ret = gatt->Configure(config);
+            }
+
+            // register attribute access callback
+            if (ret == Ble::Error::NONE)
+            {
+                gatt->RegisterCharacteristicAccessCallback(attr_access_callback);
             }
         }
         else

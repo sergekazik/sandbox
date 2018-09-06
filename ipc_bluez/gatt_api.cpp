@@ -60,7 +60,7 @@ GattSrv::GattSrv() :
 
 // static callback definitions
 typedef int (*cb_on_accept) (int fd);
-static void* l2cap_le_att_listen_and_accept(void *data);
+static void* start_L2CAP_listener(void *data);
 static int get_connections(int flag, long arg);
 
 int GattSrv::Initialize()
@@ -273,7 +273,7 @@ int GattSrv::StartAdvertising(Ble::Config::Parameter_t *aParams __attribute__ ((
         WriteBdaddr(di.dev_id, mMacAddress);
         HCIle_adv(di.dev_id, NULL);
 
-        ret_val = pthread_create(&mServer.hci_thread_id, NULL, l2cap_le_att_listen_and_accept, NULL);
+        ret_val = pthread_create(&mServer.hci_thread_id, NULL, start_L2CAP_listener, NULL);
         if (ret_val != Error::NONE)
         {
             DEBUG_PRINTF("failed to create pthread %s (%d)", strerror(errno), errno);
@@ -801,12 +801,6 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     hci_close_dev(dd);
 }
 
-#define MAKESVCUUID128(_q, _w, _e, _r, _t, _y, _u, _i, _o, _p, _a, _s, _d, _f, _g, _h) \
-                        {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
-// 9760FACE-A234-4686-9E00-FCBBEE3373F7
-static const uint8_t ClientSvc_UUID[] = MAKESVCUUID128(97,60,FA,CE,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7);
-#define ClientSvc_UUID_LEN   (sizeof(ClientSvc_UUID)/sizeof(char))
-// TODO: !!!!!!!!!!!1
 ///
 /// \brief GattSrv::HCIle_adv
 /// \param hdev
@@ -859,8 +853,6 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
     else
     {   // disable BR/EDR and add device name
         // hcitool -i hci0 cmd 0x08 0x0008 11 02 01 06 0D 09 52 69 6e 67 53 65 74 75 70 2d 61 63
-        // difference with command line - the total packet length is not needed?
-        //                                    02 01 06 0D 09 52 69 6e 67 53 65 74 75 70 2d 61 63
         le_set_advertising_data_cp adv_data_cp;
         memset(&adv_data_cp, 0, sizeof(adv_data_cp));
 
@@ -895,14 +887,14 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
             DEBUG_PRINTF("failed OCF_LE_SET_ADVERTISING_DATA %s (%d)", strerror(errno), errno);
             goto done;
         }
-        else
+        else if (mServiceTable != NULL)
         {   // set scan response with UUID
             // hci cmd 0x08 0x0009 12 11 07 FB 34 9B 5F 80 00 00 80 00 10 00 00 CE FA 00 00
             le_set_scan_response_data_cp scn_data_cp;
             memset(&scn_data_cp, 0, sizeof(scn_data_cp));
             scn_data_cp.data[0] = 17;
             scn_data_cp.data[1] = 0x07;
-            memcpy(&scn_data_cp.data[2], ClientSvc_UUID, ClientSvc_UUID_LEN);
+            memcpy(&scn_data_cp.data[2], &mServiceTable->ServiceUUID, sizeof(UUID_128_t));
             scn_data_cp.length = 18;
 
             memset(&rq, 0, sizeof(rq));
@@ -1143,7 +1135,7 @@ static int populate_gatt_service()
     bool primary = true;
 
     /* Add the Client service*/
-    int number_of_handlers = 48;
+    int number_of_handlers = GATT_SVC_NUM_OF_HANDLERS_MAX;
     int max_attr = (int) svc->NumberAttributes;
 
     uint128_t uuid128;
@@ -1184,11 +1176,8 @@ static int populate_gatt_service()
                     DEBUG_PRINTF("+ attr %d %s, hndl %d", attr_index, svc->AttributeList[attr_index].AttributeName, GattSrv::mServer.client_attr_handle[attr_index]);
                 }
             }
-            // TODO: adding descriptors breaks indexing in x86 bluetoothctl
-            // currently disabled until integration with iOS client
             else if (svc->AttributeList[attr_index].AttributeType == atDescriptor)
             {
-                continue;
                 if (NULL != (attr_new = gatt_db_service_add_descriptor(client_svc, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE, NULL, NULL, NULL)))
                 {
                     DEBUG_PRINTF("+ desc %d %s, hndl %d", attr_index, svc->AttributeList[attr_index].AttributeName, 0);
@@ -1303,7 +1292,7 @@ int server_create()
     }
 
     GattSrv::mServer.sref = server;
-    // enable debug for levels TRACE DEBUG and INFO
+    // enable debug
 #ifdef DEBUG_ENABLED
         bt_att_set_debug(server->att, att_debug_cb, (void*) "att: ", NULL);
         bt_gatt_server_set_debug(server->gatt, gatt_debug_cb, (void*) "server: ", NULL);
@@ -1345,11 +1334,11 @@ static void signal_cb(int signum, void *user_data)
 }
 
 ///
-/// \brief l2cap_le_att_listen_and_accept
+/// \brief start_L2CAP_listener
 /// \param data
 /// \return
 ///
-static void* l2cap_le_att_listen_and_accept(void *data __attribute__ ((unused)))
+static void* start_L2CAP_listener(void *data __attribute__ ((unused)))
 {
     #define ATT_CID 4
     int nsk;
