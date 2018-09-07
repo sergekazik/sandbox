@@ -213,11 +213,18 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
     while (server_notify_listener_done == 0)
     {
         Comm_Msg_t msg;
-        int ret = Ble::Error::NONE;
+        int ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg), 333);
 
-        if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg))))
+        if (ret == Ble::Error::TIMEOUT)
         {
-            printf("failed recv notification from server in server_notify_listener\nerr = %d, stop listening.\n", ret);
+            if (server_notify_listener_done)
+                break;
+            else
+                continue;
+        }
+        else if (ret != Ble::Error::NONE)
+        {
+            printf("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret));
             break;
         }
         printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
@@ -225,6 +232,8 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
     }
 
 // done:
+    printf("server_notify_listener exited\n");
+    fflush(stdout);
     pthread_exit(NULL);
     return (void*) 0;
 }
@@ -245,20 +254,26 @@ int preprocess_client_commands(SampleStruct_t *cmd)
 
     case CMD_SLEEP_SECONDS:
         printf("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data);
+        sleep((int)(unsigned long)cmd->data);
         break;
 
     case CMD_WAIT_NOTIFICATIONS:
     {
         pthread_t thread_id;
         server_notify_listener_done = 0;
+
         if (Ble::Error::NONE != pthread_create(&thread_id, NULL, server_notify_listener, NULL))
         {
             printf("failed to create pthread %s (%d)\n", strerror(errno), errno);
             return Ble::Error::PTHREAD_ERROR;
         }
-        printf("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to terminate and continue\\>");
+
+        printf("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to stop listening and continue\\>\n\n");
         getchar();
+
+        // set done and wait for exit
         server_notify_listener_done = 1;
+        pthread_join(thread_id, NULL);
         break;
     }
     default:
@@ -311,7 +326,7 @@ int main(int argc, char** argv )
             else
             {
                 printf ("Message Sent to server, type %d %s, size = %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.size);
-                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg))))
+                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg), 5000)))
                 {
                     shut_comm(CLIENT);
                     die("failed recv from server", ret);

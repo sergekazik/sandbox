@@ -43,8 +43,29 @@ static const char *debug_msg[] =
     "MSG_NOTIFY_DATA_READ",
     "MSG_NOTIFY_DATA_WRITE",
 };
+static const char *err_msg[] =
+{
+    "NONE",
+    "OPERATION_FAILED",
+    "INVALID_COMMAND",
+    "IGNORED",
+    "FUNCTION",
+    "TIMEOUT",
+    "INVALID_PARAMETER",
+    "NOT_INITIALIZED",
+    "UNDEFINED",
+    "NOT_IMPLEMENTED",
+    "NOT_FOUND",
+    "INVALID_STATE",
+    "NOT_REGISTERED",
+    "FAILED_INITIALIZE",
+    "PTHREAD_ERROR",
+    "RESOURCE_UNAVAILABLE",
+    "CB_REGISTER_FAILED",
+    "REGISTER_SVC_ERROR",
+    "MEMORY_ALLOOCATION",
+};
 #endif
-
 
 typedef struct comm_msgbuf
 {
@@ -71,6 +92,19 @@ const char* get_msg_name(Comm_Msg_t *cm)
 {
 #ifdef DEBUG_ENABLED
     return debug_msg[cm->hdr.type];
+#endif
+    return "";
+}
+
+///
+/// \brief get_err_name
+/// \param ret
+/// \return
+///
+const char* get_err_name(int ret)
+{
+#ifdef DEBUG_ENABLED
+    return err_msg[-ret];
 #endif
     return "";
 }
@@ -228,7 +262,7 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size)
 /// \param size
 /// \return
 ///
-int recv_comm(bool bServer, char* buffer, int size)
+int recv_comm(bool bServer, char* buffer, int size, int timeout_ms)
 {
     if (!gbInitialized)
         return Ble::Error::NOT_INITIALIZED;
@@ -250,10 +284,20 @@ int recv_comm(bool bServer, char* buffer, int size)
         memset(&addr, 0, sizeof(addr));
         int sockfd = bServer?fdServerRx:fdClientRx;
 
+        struct timeval tv;
+        tv.tv_sec = timeout_ms > 0 ? ((int)timeout_ms/1000):0xFFFF;
+        tv.tv_usec = timeout_ms > 0 ? (timeout_ms%1000)*1000:0;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+            perror("setsockopt error");
+        }
+
         int brecv = recvfrom(sockfd, (char *)buffer, size, MSG_WAITALL, (struct sockaddr *) &addr, &len);
         if (brecv <= 0)
         {
-            return Ble::Error::OPERATION_FAILED;
+            if ((timeout_ms > 0) && (brecv == -1))
+                return Ble::Error::TIMEOUT;
+            else
+                return Ble::Error::OPERATION_FAILED;
         }
 
         // save client address for Server to respond

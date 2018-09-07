@@ -1,5 +1,6 @@
 #include "icommon.h"
 #include <time.h>
+#include <assert.h>
 
 // static vars, status
 static uint8_t gsSessionId = 0;
@@ -151,7 +152,7 @@ int update_attribute(Update_Attribute_t *data)
         if (attr->CharacteristicPropertiesMask & GATT_PROPERTY_NOTIFY)
         {
             ret = gatt->NotifyCharacteristic(data->attr_idx, (const char*) data->data, data->size);
-            DEBUG_PRINTF("Notify characteristic err = %d", ret);
+            DEBUG_PRINTF("Notify characteristic err = %d %s", ret, get_err_name(ret));
             ret = Ble::Error::NONE;
         }
     }
@@ -194,18 +195,18 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
         if (gClientService.AttributeList[aAttribueIdx].ValueLength > 1)
         {
             // re-alloc message to include Value
-            int new_size = sizeof(Common_Header_t) + sizeof(Notify_Data_Write_t) + gClientService.AttributeList[aAttribueIdx].ValueLength -1;
+            int new_size = msg->hdr.size + gClientService.AttributeList[aAttribueIdx].ValueLength - 1;
             msg = (Comm_Msg_t*) malloc(new_size);
             if (msg)
             {
-                *msg = _msg; // restore header and data values
-                msg->hdr.size = new_size;
+                memcpy(msg, &_msg, _msg.hdr.size); // copy header and values
                 memcpy(msg->data.notify_data_write.data, gClientService.AttributeList[aAttribueIdx].Value, gClientService.AttributeList[aAttribueIdx].ValueLength);
+                msg->hdr.size = new_size;
             }
             else
             {   // Notify Client about Error
                 DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
-                msg = &_msg; // restore pointer
+                msg = &_msg; // restore pointer to static _msg
                 msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
             }
         }
@@ -225,12 +226,13 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     if (msg->hdr.error == Ble::Error::NONE)
     {
         int ret = send_comm(TO_CLIENT, msg, msg->hdr.size);
-        DEBUG_PRINTF("Notify Client aAccessType = %d, err = %d", aAccessType, ret);
+        DEBUG_PRINTF("Notify Client aAccessType = %d, type = %d %s, err = %d %s", aAccessType, msg->hdr.type, get_msg_name(msg), ret, get_err_name(ret));
     }
 
     // if new msg was allocated with malloc - release it
     if (msg != &_msg)
     {
+        assert(msg);
         free(msg);
     }
 }

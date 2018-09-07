@@ -18,8 +18,10 @@
 
 #ifdef DEBUG_ENABLED
 #define DEBUG_PRINTF(...) {printf(__VA_ARGS__); printf("\n");}
+#define TRACE() {printf("%s %d\n", __FUNCTION__, __LINE__);fflush(stdout);}
 #else
 #define DEBUG_PRINTF
+#define TRACE()
 #endif
 
 typedef enum msg_type
@@ -103,8 +105,8 @@ typedef struct _notify_data_read
 
 typedef struct _notify_data_write
 {
-    uint8_t  attr_idx;
     uint16_t size;
+    uint8_t  attr_idx;
     uint8_t  data[1];
 } Notify_Data_Write_t;
 
@@ -159,11 +161,9 @@ void die(const char *s, int err);
 ///
 int parse_command_line(int argc, char** argv);
 
-///
-/// \brief get_msg_name
-/// \param cm
-///
+/// debug only
 const char *get_msg_name(Comm_Msg_t *cm);
+const char* get_err_name(int ret);
 
 ///
 /// \brief init_comm
@@ -188,7 +188,7 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size);
 /// \param size
 /// \return
 ///
-int recv_comm(bool bServer, char *buffer, int size);
+int recv_comm(bool bServer, char *buffer, int size, int timeout_ms = 0);
 
 ///
 /// \brief shut_comm
