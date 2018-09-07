@@ -5,6 +5,10 @@
 static uint8_t gsSessionId = 0;
 static Ble::ServiceInfo_t gClientService = {0,{0},0, NULL};
 
+///
+/// \brief cleanup_attribute_value
+/// \param attr
+///
 void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 {
     if (attr != NULL)
@@ -19,6 +23,9 @@ void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
     }
 }
 
+///
+/// \brief cleanup_client_service
+///
 void cleanup_client_service()
 {
     Ble::GattSrv::getInstance()->CleanupServiceList();
@@ -29,6 +36,11 @@ void cleanup_client_service()
     }
 }
 
+///
+/// \brief allocate_zero_attr_table
+/// \param alloc_size
+/// \return
+///
 int allocate_zero_attr_table(int alloc_size)
 {
     int ret = Ble::Error::NONE;
@@ -45,6 +57,11 @@ int allocate_zero_attr_table(int alloc_size)
     return ret;
 }
 
+///
+/// \brief append_attribute
+/// \param msg
+/// \return
+///
 int append_attribute(Comm_Msg_t *msg)
 {
     if (!gClientService.AttributeList)
@@ -85,6 +102,11 @@ int append_attribute(Comm_Msg_t *msg)
     return Ble::Error::INVALID_PARAMETER;
 }
 
+///
+/// \brief update_attribute
+/// \param data
+/// \return
+///
 int update_attribute(Update_Attribute_t *data)
 {
     int ret = Ble::Error::NONE;
@@ -103,7 +125,7 @@ int update_attribute(Update_Attribute_t *data)
     {
         return Ble::Error::INVALID_PARAMETER;
     }
-#ifdef DIRECT_UPDATE
+#ifdef OPTIONAL_DIRECT_UPDATE
     cleanup_attribute_value(attr);
     if (data->size > 0)
     {
@@ -136,6 +158,11 @@ int update_attribute(Update_Attribute_t *data)
     return ret;
 }
 
+///
+/// \brief attr_access_callback
+/// \param aAttribueIdx
+/// \param aAccessType
+///
 static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccessType)
 {
     Comm_Msg_t _msg, *msg = &_msg;
@@ -201,13 +228,18 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
         DEBUG_PRINTF("Notify Client aAccessType = %d, err = %d", aAccessType, ret);
     }
 
-    // if msg was allocated - release it
+    // if new msg was allocated with malloc - release it
     if (msg != &_msg)
     {
         free(msg);
     }
 }
 
+///
+/// \brief handle_request_msg
+/// \param msg
+/// \return
+///
 int handle_request_msg(Comm_Msg_t *msg)
 {
     int ret = Ble::Error::NONE;
@@ -361,6 +393,13 @@ int handle_request_msg(Comm_Msg_t *msg)
     return ret;
 }
 
+
+///
+/// \brief main
+/// \param argc
+/// \param argv
+/// \return
+///
 int main(int argc, char** argv )
 {
     int ret;

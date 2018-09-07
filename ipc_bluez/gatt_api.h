@@ -89,7 +89,7 @@ namespace Error { enum Error {
     NONE                =  0, // NO ERROR, SUCCESS
     OPERATION_FAILED    = -1, // no command was specified to the parser.
     INVALID_COMMAND     = -2, // the Command does not exist for processing.
-    EXIT_CODE           = -3, // the Command specified was the Exit Command.
+    IGNORED             = -3, // the Command was not expected and ignored by handler
     FUNCTION            = -4, // an error occurred in execution of the Command Function.
     TOO_MANY_PARAMS     = -5, // there are more parameters then will fit in the UserCommand.
     INVALID_PARAMETER   = -6, // an error occurred due to the fact that one or more of the required parameters were invalid.

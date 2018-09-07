@@ -1,4 +1,6 @@
 #include "icommon.h"
+#include <pthread.h>
+#include <errno.h>
 
 // static vars, status
 static uint8_t giSessionId = 0;
@@ -47,7 +49,7 @@ SampleStruct_t msg_list[] = {
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[2]  },
     { MSG_UPDATE_ATTRIBUTE, (void*) &attr_upd       },
     { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Start},
-    { CMD_PAUSE_GETCHAR,    /* pause */ NULL        },
+    { CMD_WAIT_NOTIFICATIONS,    /* listen */ NULL  },
     { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Stop},
     { MSG_POWER,            (void*) Ble::ConfigArgument::PowerOff},
     { MSG_SESSION,          (void*) Ble::ConfigArgument::Disable},
@@ -186,21 +188,83 @@ int handle_response_message(Comm_Msg_t &msg)
     case MSG_NOTIFY_CONNECT_STATUS:
         if (msg.data.notify_connect.on_off)
         {
-            // on connect
+            printf("MSG_NOTIFY_CONNECT_STATUS // connect\n");
         }
         else
         {
-            // on disconnect
+            printf("MSG_NOTIFY_CONNECT_STATUS // disconnect\n");
         }
         break;
 
     case MSG_NOTIFY_DATA_READ:
+        printf("MSG_NOTIFY_DATA_READ // attr->idx = %d\n", msg.data.notify_data_read.attr_idx);
         break;
 
     case MSG_NOTIFY_DATA_WRITE:
+        printf("MSG_NOTIFY_DATA_WRITE // attr->idx = %d val = %s\n", msg.data.notify_data_write.attr_idx, msg.data.notify_data_write.data);
         break;
     }
     return ret;
+}
+
+static volatile char server_notify_listener_done = 0;
+static void* server_notify_listener(void *data __attribute__ ((unused)))
+{
+    while (server_notify_listener_done == 0)
+    {
+        Comm_Msg_t msg;
+        int ret = Ble::Error::NONE;
+
+        if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg))))
+        {
+            printf("failed recv notification from server in server_notify_listener\nerr = %d, stop listening.\n", ret);
+            break;
+        }
+        printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
+        handle_response_message(msg);
+    }
+
+// done:
+    pthread_exit(NULL);
+    return (void*) 0;
+}
+
+///
+/// \brief preprocess_client_commands
+/// \param cmd
+/// \return
+///
+int preprocess_client_commands(SampleStruct_t *cmd)
+{
+    switch (cmd->type)
+    {
+    case CMD_PAUSE_GETCHAR:
+        printf("\nCMD_PAUSE_GETCHAR\\>");
+        getchar();
+        break;
+
+    case CMD_SLEEP_SECONDS:
+        printf("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data);
+        break;
+
+    case CMD_WAIT_NOTIFICATIONS:
+    {
+        pthread_t thread_id;
+        server_notify_listener_done = 0;
+        if (Ble::Error::NONE != pthread_create(&thread_id, NULL, server_notify_listener, NULL))
+        {
+            printf("failed to create pthread %s (%d)\n", strerror(errno), errno);
+            return Ble::Error::PTHREAD_ERROR;
+        }
+        printf("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to terminate and continue\\>");
+        getchar();
+        server_notify_listener_done = 1;
+        break;
+    }
+    default:
+        return Ble::Error::IGNORED;
+    }
+    return Ble::Error::NONE;
 }
 
 ///
@@ -226,12 +290,7 @@ int main(int argc, char** argv )
 
     for (uint32_t i = 0; i < sizeof(msg_list)/sizeof(SampleStruct_t); i++)
     {
-        if (CMD_PAUSE_GETCHAR == msg_list[i].type)
-        {
-            printf("\nCMD_PAUSE_GETCHAR\\>");
-            getchar();
-        }
-        else
+        if (Ble::Error::IGNORED == preprocess_client_commands(&msg_list[i]))
         {
             Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(msg_list[i].type, msg, msg_list[i].data);
 

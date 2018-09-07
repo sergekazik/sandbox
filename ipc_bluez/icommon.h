@@ -44,8 +44,9 @@ typedef enum msg_type
     MSG_NOTIFY_DATA_READ,
     MSG_NOTIFY_DATA_WRITE,
 
-    // client controlling commands
-    CMD_SLEEP_IN_SEC,
+    // client controlling commands - not used in communicatoin for sample/demo only
+    CMD_WAIT_NOTIFICATIONS,
+    CMD_SLEEP_SECONDS,
     CMD_PAUSE_GETCHAR
 } Msg_Type_t;
 
