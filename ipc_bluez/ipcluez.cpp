@@ -166,7 +166,7 @@ int update_attribute(Update_Attribute_t *data)
 ///
 static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccessType)
 {
-    Comm_Msg_t _msg, *msg = &_msg;
+    Comm_Msg_t stash, *msg = &stash;
     msg->hdr.error = Ble::Error::NONE;
     msg->hdr.session_id = gsSessionId;
     msg->hdr.size = sizeof(Common_Header_t);
@@ -199,14 +199,14 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
             msg = (Comm_Msg_t*) malloc(new_size);
             if (msg)
             {
-                memcpy(msg, &_msg, _msg.hdr.size); // copy header and values
+                memcpy(msg, &stash, stash.hdr.size); // copy header and values
                 memcpy(msg->data.notify_data_write.data, gClientService.AttributeList[aAttribueIdx].Value, gClientService.AttributeList[aAttribueIdx].ValueLength);
                 msg->hdr.size = new_size;
             }
             else
             {   // Notify Client about Error
                 DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
-                msg = &_msg; // restore pointer to static _msg
+                msg = &stash; // restore pointer to static stash
                 msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
             }
         }
@@ -230,7 +230,7 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     }
 
     // if new msg was allocated with malloc - release it
-    if (msg != &_msg)
+    if (msg != &stash)
     {
         assert(msg);
         free(msg);
