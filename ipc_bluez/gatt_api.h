@@ -16,7 +16,7 @@
 #define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
 #define DEV_NAME_LEN                        64      /* text string = device name */
 #define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
-#define ATTR_NAME_LEN                       20
+#define ATTR_NAME_LEN                       16
 
 struct server_ref
 {
@@ -51,29 +51,28 @@ typedef struct
 } DeviceConfig_t;
 }
 
-#define GATT_SECURITY_NONE   0x00000000
-#define GATT_PROPERTY_READ          0x00000002
-#define GATT_PROPERTY_WRITE         0x00000008
-#define GATT_PROPERTY_NOTIFY        0x00000010
+#define GATT_SECURITY_NONE      0x00000000
+#define GATT_PROPERTY_READ      0x00000002
+#define GATT_PROPERTY_WRITE     0x00000008
+#define GATT_PROPERTY_NOTIFY    0x00000010
 
 typedef enum
 {
-    atInclude,
     atCharacteristic,
     atDescriptor
 } AttributeType_t;
 
 typedef struct attributeinfo
 {
-    AttributeType_t AttributeType;
-    unsigned int    AttributeOffset;
+    uint8_t         AttributeType;
+    uint8_t         AttributeOffset;
     char            AttributeName[ATTR_NAME_LEN];
-    unsigned long   CharacteristicPropertiesMask;
-    unsigned long   SecurityPropertiesMask;
-    UUID_128_t      CharacteristicUUID;
+    uint8_t         PropertiesMask;
+    uint8_t         SecurityMask;
+    UUID_128_t      AttributeUUID;
     uint8_t         AllocatedValue;
-    unsigned int    MaximumValueLength;
-    unsigned int    ValueLength;
+    uint16_t        MaxValueLength;
+    uint16_t        ValueLength;
     char           *Value;
 } AttributeInfo_t;
 

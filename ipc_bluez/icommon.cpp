@@ -6,7 +6,7 @@
 
 #define QUEUE_KEY_DEFAULT 0x52696e67
 #define SOCK_PORT_DEFAULT 2407
-#define LOCAL_IP   ((char*) "127.0.0.1")
+#define LOOPBACK_ADDR   ((char*) "127.0.0.1")
 #define fdServerTx fdClientRx
 #define fdClientTx fdServerRx
 
@@ -18,7 +18,7 @@ static int giPort = SOCK_PORT_DEFAULT;
 static int fdServerRx = -1;
 static int fdClientRx = -1;
 static struct sockaddr_in gClient_addr;
-static char *gsServerAdd = LOCAL_IP;
+static char *gsServerAdd = LOOPBACK_ADDR;
 static bool gbInitialized = false;
 
 #ifdef DEBUG_ENABLED
@@ -142,7 +142,7 @@ int parse_command_line(int argc, char** argv)
         else if (!strcmp(argv[i], "-ip")) // Server IP for Client to connect
         {
             gbIpc = false;
-            gsServerAdd = i+1<argc?argv[++i]:LOCAL_IP;
+            gsServerAdd = i+1<argc?argv[++i]:LOOPBACK_ADDR;
             if (gsServerAdd && strlen(gsServerAdd))
             {
                 printf("set server ip %s\n", gsServerAdd);

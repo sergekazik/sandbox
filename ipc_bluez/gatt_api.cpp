@@ -386,7 +386,7 @@ int GattSrv::GATTUpdateCharacteristic(int attr_idx, const char *str_data, int le
     else
     {
         AttributeInfo_t *attr = (AttributeInfo_t*) &mServiceTable->AttributeList[attr_idx];
-        if (len > (int) attr->MaximumValueLength)
+        if (len > (int) attr->MaxValueLength)
             ret_val = Error::INVALID_PARAMETER;
         else
         {
@@ -1160,7 +1160,7 @@ static int populate_gatt_service()
 
         if (NULL != (ch_info = (AttributeInfo_t *)&svc->AttributeList[attr_index]))
         {
-            memcpy(&uuid128.data, &ch_info->CharacteristicUUID, sizeof(UUID_128_t));
+            memcpy(&uuid128.data, &ch_info->AttributeUUID, sizeof(UUID_128_t));
             bt_uuid128_create(&uuid, uuid128); //
 
             if (svc->AttributeList[attr_index].AttributeType == atCharacteristic)

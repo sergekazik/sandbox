@@ -115,7 +115,7 @@ typedef struct _common_header
     uint16_t type;      // message type
     uint16_t error;     // error (filled by server in response)
     uint16_t session_id;// session id (filled by server in session open response)
-    uint16_t size;      // actual size of the following payload
+    uint16_t size;      // actual size of the message including following payload
 } Common_Header_t;
 
 typedef struct _comm_msg

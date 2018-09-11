@@ -71,7 +71,7 @@ int append_attribute(Comm_Msg_t *msg)
     }
     else for (int i = 0; i < (int) gClientService.NumberAttributes; i++)
     {
-        if (0 == gClientService.AttributeList[i].MaximumValueLength)
+        if (0 == gClientService.AttributeList[i].MaxValueLength)
         {
             Ble::AttributeInfo_t *attr = &gClientService.AttributeList[i];
             cleanup_attribute_value(attr);
@@ -149,7 +149,7 @@ int update_attribute(Update_Attribute_t *data)
         DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
 #endif
         // Notify if connected
-        if (attr->CharacteristicPropertiesMask & GATT_PROPERTY_NOTIFY)
+        if (attr->PropertiesMask & GATT_PROPERTY_NOTIFY)
         {
             ret = gatt->NotifyCharacteristic(data->attr_idx, (const char*) data->data, data->size);
             DEBUG_PRINTF("Notify characteristic err = %d %s", ret, get_err_name(ret));
