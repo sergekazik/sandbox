@@ -187,32 +187,13 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
         break;
 
     case Ble::Property::Access::Write:
-        msg->hdr.type = MSG_NOTIFY_DATA_WRITE;
-        msg->hdr.size += sizeof(Notify_Data_Write_t);
-        msg->data.notify_data_write.attr_idx = aAttribueIdx;
-        msg->data.notify_data_write.size = gClientService.AttributeList[aAttribueIdx].ValueLength;
-
-        if (gClientService.AttributeList[aAttribueIdx].ValueLength > 1)
         {
-            // re-alloc message to include Value
-            int new_size = msg->hdr.size + gClientService.AttributeList[aAttribueIdx].ValueLength - 1;
-            msg = (Comm_Msg_t*) malloc(new_size);
-            if (msg)
-            {
-                memcpy(msg, &stash, stash.hdr.size); // copy header and values
-                memcpy(msg->data.notify_data_write.data, gClientService.AttributeList[aAttribueIdx].Value, gClientService.AttributeList[aAttribueIdx].ValueLength);
-                msg->hdr.size = new_size;
-            }
-            else
-            {   // Notify Client about Error
-                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
-                msg = &stash; // restore pointer to static stash
-                msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
-            }
-        }
-        else
-        {
-            msg->data.notify_data_write.data[0] = (gClientService.AttributeList[aAttribueIdx].Value != NULL)?*gClientService.AttributeList[aAttribueIdx].Value:0;
+            Define_Update_t update = {
+                (uint16_t) gClientService.AttributeList[aAttribueIdx].ValueLength,
+                (uint8_t) aAttribueIdx,
+                (uint8_t*)gClientService.AttributeList[aAttribueIdx].Value
+            };
+            msg = format_attr_updated_msg(MSG_NOTIFY_DATA_WRITE, msg, &update);
         }
         break;
 

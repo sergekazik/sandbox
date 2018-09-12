@@ -23,11 +23,7 @@ static Ble::AttributeInfo_t attr_table[] =
 };
 
 // sample to demo "update value" operation
-static Define_Update_t attr_upd = {
-    .size = strlen("updated_val"),
-    .attr_idx = 1,
-    .data = (uint8_t*) "updated_val"
-};
+static Define_Update_t attr_upd = {strlen("updated_val"), 1, (uint8_t*) "updated_val"};
 
 // sample service definitions
 #define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
@@ -64,6 +60,7 @@ SampleStruct_t msg_list[] = {
 ///
 void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
+    Comm_Msg_t *msg_new = NULL;
     msg.hdr.size = sizeof(Common_Header_t);
     msg.hdr.error = Ble::Error::NONE;
     msg.hdr.session_id = giSessionId;
@@ -120,28 +117,7 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
         break;
 
     case MSG_UPDATE_ATTRIBUTE:
-        if (data != NULL)
-        {   // for MSG_UPDATE_ATTRIBUTE case data contains Define_Update_t; the updated Value of the attribute may be NULL
-            msg.hdr.size += sizeof(Update_Attribute_t);
-            Define_Update_t* def = (Define_Update_t*)data;
-
-            msg.data.update_attribute.attr_idx = def->attr_idx;
-            msg.data.update_attribute.size = def->size;
-
-            // if updated Value is not NULL - re-allocate message to include payload = Value
-            if (msg.data.update_attribute.size > 0)
-            {
-                int new_size = msg.hdr.size + msg.data.update_attribute.size - 1;
-                uint8_t *msg_new = (uint8_t *) malloc(new_size);
-                if (msg_new)
-                {
-                    memcpy(msg_new, &msg, msg.hdr.size);
-                    memcpy(((Comm_Msg_t*)msg_new)->data.update_attribute.data, def->data, msg.data.update_attribute.size);
-                    msg.hdr.size = new_size;
-                    return msg_new;
-                }
-            }
-        }
+        msg_new = format_attr_updated_msg(MSG_UPDATE_ATTRIBUTE, &msg, (Define_Update_t*) data);
         break;
 
     case MSG_NOTIFY_CONNECT_STATUS:
@@ -151,7 +127,7 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
         printf("WARNING! Wrong handler - Notification and commands are not processed here\n");
         break;
     }
-    return NULL;
+    return msg_new;
 }
 
 ///

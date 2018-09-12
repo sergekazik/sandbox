@@ -103,12 +103,7 @@ typedef struct _notify_data_read
     uint8_t attr_idx;
 } Notify_Data_Read_t;
 
-typedef struct _notify_data_write
-{
-    uint16_t size;
-    uint8_t  attr_idx;
-    uint8_t  data[1];
-} Notify_Data_Write_t;
+typedef Update_Attribute_t Notify_Data_Write_t;
 
 typedef struct _common_header
 {
@@ -143,7 +138,6 @@ typedef struct _define_update
     uint8_t  *data;
 } Define_Update_t;
 
-
 ///
 /// \brief die
 /// \param s
@@ -160,6 +154,15 @@ void die(const char *s, int err);
 /// \return
 ///
 int parse_command_line(int argc, char** argv);
+
+///
+/// \brief format_attr_updated_msg
+/// \param stash
+/// \param attr_idx
+/// \param attr_new
+/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
+///
+Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new);
 
 /// debug only
 const char *get_msg_name(Comm_Msg_t *cm);

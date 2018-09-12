@@ -159,6 +159,53 @@ int parse_command_line(int argc, char** argv)
 }
 
 ///
+/// \brief format_attr_updated_msg Update_Attribute_t or Notify_Data_Write_t only
+/// \param stash
+/// \param attr_idx
+/// \param attr_new
+/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
+///
+Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new)
+{
+    if (stash && attr_new)
+    {
+        Comm_Msg_t *msg = stash;
+        msg->hdr.type = type;
+        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Update_Attribute_t);
+        msg->data.update_attribute.attr_idx = attr_new->attr_idx;
+        msg->data.update_attribute.size = attr_new->size;
+
+        if (attr_new->size > 1)
+        {
+            // re-alloc message to include Value
+            int new_size = msg->hdr.size + attr_new->size - 1;
+            msg = (Comm_Msg_t*) malloc(new_size);
+            if (msg)
+            {
+                memcpy(msg, stash, stash->hdr.size); // copy header and values
+                memcpy(msg->data.update_attribute.data, attr_new->data, attr_new->size);
+                msg->hdr.size = stash->hdr.size = new_size;
+            }
+            else
+            {   // Notify Client about Error
+                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
+                msg = stash; // restore pointer to static stash
+                msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
+            }
+        }
+        else
+        {
+            msg->data.notify_data_write.data[0] = (attr_new->data != NULL)?*((char*)attr_new->data):0;
+        }
+
+        // Note: the calling function is responsible to
+        // free memory if returned msg != stash
+        return msg;
+    }
+    return NULL;
+}
+
+///
 /// \brief init_comm
 /// \param bServer
 /// \return
