@@ -86,6 +86,8 @@ int append_attribute(Comm_Msg_t *msg)
                     attr->ValueLength = 0;
                     return Ble::Error::MEMORY_ALLOOCATION;
                 }
+
+                // Note: msg->data.add_attribute.attr.Value does not have valid pointer to payload
                 memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
                 attr->AllocatedValue = 1;
             }

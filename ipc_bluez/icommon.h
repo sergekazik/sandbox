@@ -156,6 +156,14 @@ void die(const char *s, int err);
 int parse_command_line(int argc, char** argv);
 
 ///
+/// \brief format_attr_add_msg
+/// \param stash
+/// \param attr_new
+/// \return
+///
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new);
+
+///
 /// \brief format_attr_updated_msg
 /// \param stash
 /// \param attr_idx

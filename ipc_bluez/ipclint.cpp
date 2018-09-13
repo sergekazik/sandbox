@@ -96,24 +96,7 @@ void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
         break;
 
     case MSG_ADD_ATTRIBUTE:
-        if (data != NULL)
-        {   // for MSG_ADD_ATTRIBUTE case data contains attribute description as Add_Attribute_t
-            msg.hdr.size += sizeof(Add_Attribute_t);
-            msg.data.add_attribute = *((Add_Attribute_t*)data);
-
-            // if contains payload - re-allocate message to include payload = Value
-            if (msg.data.add_attribute.attr.ValueLength > 0)
-            {
-                msg.hdr.size = sizeof(Comm_Msg_t) + msg.data.add_attribute.attr.ValueLength;
-                uint8_t *msg_new = (uint8_t *) malloc(msg.hdr.size);
-                if (msg_new)
-                {
-                    memcpy(msg_new, &msg, sizeof(Comm_Msg_t));
-                    memcpy(msg_new + sizeof(Comm_Msg_t), msg.data.add_attribute.attr.Value, msg.data.add_attribute.attr.ValueLength);
-                    return msg_new;
-                }
-            }
-        }
+        msg_new = format_attr_add_msg(&msg, (Add_Attribute_t*) data);
         break;
 
     case MSG_UPDATE_ATTRIBUTE:

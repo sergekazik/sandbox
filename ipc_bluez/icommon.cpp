@@ -158,6 +158,30 @@ int parse_command_line(int argc, char** argv)
     return 0;
 }
 
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new)
+{
+    if (stash && attr_new)
+    {
+        Comm_Msg_t *msg = stash;
+        msg->hdr.type = MSG_ADD_ATTRIBUTE;
+        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Add_Attribute_t);
+        msg->data.add_attribute = *attr_new;
+
+        if (attr_new->attr.ValueLength > 0)
+        {   // re-alloc message to include Value
+            msg->hdr.size = sizeof(Comm_Msg_t) + attr_new->attr.ValueLength;
+            msg = (Comm_Msg_t *) malloc(msg->hdr.size);
+            if (msg)
+            {
+                memcpy(msg, stash, sizeof(Comm_Msg_t)); // copy header and values
+                memcpy((char*) msg + sizeof(Comm_Msg_t), attr_new->attr.Value, attr_new->attr.ValueLength);
+                return msg;
+            }
+        }
+    }
+    return NULL;
+}
+
 ///
 /// \brief format_attr_updated_msg Update_Attribute_t or Notify_Data_Write_t only
 /// \param stash
@@ -176,8 +200,7 @@ Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_U
         msg->data.update_attribute.size = attr_new->size;
 
         if (attr_new->size > 1)
-        {
-            // re-alloc message to include Value
+        {   // re-alloc message to include Value
             int new_size = msg->hdr.size + attr_new->size - 1;
             msg = (Comm_Msg_t*) malloc(new_size);
             if (msg)
