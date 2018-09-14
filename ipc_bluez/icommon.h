@@ -1,3 +1,19 @@
+/******************************************************************************
+Copyright 2018 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2
+of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/gpl-2.0.html>.
+******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,9 +63,9 @@ typedef enum msg_type
     MSG_NOTIFY_DATA_WRITE,
 
     MSG_COUNT_MAX,
-    // don't add actual message of notification types below
+    // don't add actual message or notification types below
 
-    // client controlling commands - not used in communicatoin for sample/demo only
+    // client controlling commands - not used in comm - for sample/demo only
     CMD_WAIT_NOTIFICATIONS,
     CMD_SLEEP_SECONDS,
     CMD_PAUSE_GETCHAR

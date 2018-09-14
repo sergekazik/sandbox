@@ -1,3 +1,19 @@
+/******************************************************************************
+Copyright 2018 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2
+of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/gpl-2.0.html>.
+******************************************************************************/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -654,10 +670,10 @@ void GattSrv::HCIdown(int ctl, int hdev)
 ///
 void GattSrv::HCIreset(int ctl, int hdev)
 {
-    /* Reset HCI device */
     GattSrv::HCIdown(ctl, hdev);
     GattSrv::HCIup(ctl, hdev);
 }
+
 ///
 /// \brief GattSrv::HCIno_le_adv
 /// \param hdev
@@ -705,9 +721,7 @@ void GattSrv::HCIno_le_adv(int hdev)
 ///
 void GattSrv::WriteBdaddr(int hdev, char *opt)
 {
-    /* Vendor specific commands from lib/hci.h */
     #define OGF_VENDOR_CMD              0x3f
-    // from tools/bdaddr.c
     #define OCF_BCM_WRITE_BD_ADDR       0x0001
     typedef struct
     {
@@ -987,8 +1001,6 @@ int GattSrv::GetAttributeIdxByOffset(unsigned int attr_offset)
 /// \param att
 /// \param user_data
 ///
-/// Note: this callback is serving ALL client READ requests
-/// returning data from mServiceTable as is"
 /// This callback invokes OnAttributeAccessCallback callback via BleApi class
 ///
 static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
@@ -1031,8 +1043,6 @@ static void gatt_characteristic_read_cb(struct gatt_db_attribute *attrib,
 /// \param att
 /// \param user_data
 ///
-/// Note: this callback is service ALL client WRITE requests
-/// store data "as is" in the mServiceTable
 /// This callback invokes OnAttributeAccessCallback callback
 ///
 static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,

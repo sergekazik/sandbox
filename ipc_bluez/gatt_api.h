@@ -1,3 +1,19 @@
+/******************************************************************************
+Copyright 2018 Amazon.com, Inc. and its affiliates. All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2
+of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/gpl-2.0.html>.
+******************************************************************************/
 #ifndef _SERVER_GATT_API_H_
 #define _SERVER_GATT_API_H_
 
@@ -126,16 +142,6 @@ public:
     static GattServerInfo_t mServer;
     bool            mInitialized;              // initialization state
     ServiceInfo_t  *mServiceTable;             // pointer to populated service tbl
-
-    // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.gap.appearance.xml
-    enum Appearance {
-        BLE_APPEARANCE_UNKNOWN                  = 0,
-        BLE_APPEARANCE_GENERIC_PHONE            = 64,
-        BLE_APPEARANCE_GENERIC_COMPUTER         = 128,
-        BLE_APPEARANCE_GENERIC_WATCH            = 192,
-        BLE_APPEARANCE_GENERIC_SENSOR           = 1344,
-        BLE_APPEARANCE_MOTION_SENSOR            = 1345,
-    };
 
     typedef void (*onCharacteristicAccessCallback) (int aAttribueIdx, Ble::Property::Access aAccessType);
 
