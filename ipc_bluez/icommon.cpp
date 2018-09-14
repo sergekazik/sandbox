@@ -79,7 +79,7 @@ typedef struct comm_msgbuf
 ///
 void die(const char *s, int err)
 {
-    printf("die.. err %d\n", err);
+    DEBUG_PRINTF("die.. err %d\n", err);
     perror(s);
     exit(1);
 }
@@ -91,7 +91,7 @@ void die(const char *s, int err)
 const char* get_msg_name(Comm_Msg_t *cm)
 {
 #ifdef DEBUG_ENABLED
-    return debug_msg[cm->hdr.type];
+    return cm->hdr.type < MSG_COUNT_MAX ? debug_msg[cm->hdr.type] : "unknown";
 #endif
     return "";
 }
@@ -104,7 +104,7 @@ const char* get_msg_name(Comm_Msg_t *cm)
 const char* get_err_name(int ret)
 {
 #ifdef DEBUG_ENABLED
-    return err_msg[-ret];
+    return ((Ble::Error::ERROR_COUNT_MAX < ret) && (ret <= 0)) ? err_msg[-ret] : "unknown";
 #endif
     return "";
 }
@@ -119,24 +119,24 @@ int parse_command_line(int argc, char** argv)
 {
     for (int i = 1; i < argc; i++)
     {
-        if (!strcmp(argv[i], "-k")) // hey for queue
+        if (!strcmp(argv[i], "-k")) // key for IPC queue
         {
             int key = i+1<argc?atoi(argv[++i]):0;
             if (key > 0)
             {
                 gbIpc = true;
                 guiKey = key;
-                printf("set key %d\n", guiKey);
+                DEBUG_PRINTF("set key %d\n", guiKey);
             }
         }
-        else if (!strcmp(argv[i], "-p")) // port for UDP
+        else if (!strcmp(argv[i], "-p")) // port for UDP socket
         {
             int port = i+1<argc?atoi(argv[++i]):0;
             if (port > 0)
             {
                 gbIpc = false;
                 giPort = port;
-                printf("set port %d\n", giPort);
+                DEBUG_PRINTF("set port %d\n", giPort);
             }
         }
         else if (!strcmp(argv[i], "-ip")) // Server IP for Client to connect
@@ -145,89 +145,22 @@ int parse_command_line(int argc, char** argv)
             gsServerAdd = i+1<argc?argv[++i]:LOOPBACK_ADDR;
             if (gsServerAdd && strlen(gsServerAdd))
             {
-                printf("set server ip %s\n", gsServerAdd);
+                DEBUG_PRINTF("set server ip %s\n", gsServerAdd);
             }
         }
         else
         {
-            printf("invalid argument %s \nusage [-k key][-p port]\n", argv[i]);
+            DEBUG_PRINTF("invalid argument %s \nusage [-k key][-p port]\n", argv[i]);
             return Ble::Error::INVALID_PARAMETER;
         }
     }
-    printf("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort);
+    DEBUG_PRINTF("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort);
     return 0;
 }
 
-Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new)
-{
-    if (stash && attr_new)
-    {
-        Comm_Msg_t *msg = stash;
-        msg->hdr.type = MSG_ADD_ATTRIBUTE;
-        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Add_Attribute_t);
-        msg->data.add_attribute = *attr_new;
-
-        if (attr_new->attr.ValueLength > 0)
-        {   // re-alloc message to include Value
-            msg->hdr.size = sizeof(Comm_Msg_t) + attr_new->attr.ValueLength;
-            msg = (Comm_Msg_t *) malloc(msg->hdr.size);
-            if (msg)
-            {
-                memcpy(msg, stash, sizeof(Comm_Msg_t)); // copy header and values
-                memcpy((char*) msg + sizeof(Comm_Msg_t), attr_new->attr.Value, attr_new->attr.ValueLength);
-                return msg;
-            }
-        }
-    }
-    return NULL;
-}
-
-///
-/// \brief format_attr_updated_msg Update_Attribute_t or Notify_Data_Write_t only
-/// \param stash
-/// \param attr_idx
-/// \param attr_new
-/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
-///
-Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new)
-{
-    if (stash && attr_new)
-    {
-        Comm_Msg_t *msg = stash;
-        msg->hdr.type = type;
-        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Update_Attribute_t);
-        msg->data.update_attribute.attr_idx = attr_new->attr_idx;
-        msg->data.update_attribute.size = attr_new->size;
-
-        if (attr_new->size > 1)
-        {   // re-alloc message to include Value
-            int new_size = msg->hdr.size + attr_new->size - 1;
-            msg = (Comm_Msg_t*) malloc(new_size);
-            if (msg)
-            {
-                memcpy(msg, stash, stash->hdr.size); // copy header and values
-                memcpy(msg->data.update_attribute.data, attr_new->data, attr_new->size);
-                msg->hdr.size = stash->hdr.size = new_size;
-            }
-            else
-            {   // Notify Client about Error
-                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
-                msg = stash; // restore pointer to static stash
-                msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
-            }
-        }
-        else
-        {
-            msg->data.notify_data_write.data[0] = (attr_new->data != NULL)?*((char*)attr_new->data):0;
-        }
-
-        // Note: the calling function is responsible to
-        // free memory if returned msg != stash
-        return msg;
-    }
-    return NULL;
-}
-
+/*******************************************************************
+ * Client-Server communication functions
+ * *****************************************************************/
 ///
 /// \brief init_comm
 /// \param bServer
@@ -405,4 +338,145 @@ int shut_comm(bool bServer)
         gbInitialized = false;
     }
     return Ble::Error::NONE;
+}
+
+/*******************************************************************
+ * Helper & formatting functions
+ * *****************************************************************/
+
+///
+/// \brief format_attr_add_msg
+/// \param stash
+/// \param attr_new
+/// \return
+///
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new)
+{
+    if (stash && attr_new)
+    {
+        Comm_Msg_t *msg = stash;
+        msg->hdr.type = MSG_ADD_ATTRIBUTE;
+        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Add_Attribute_t);
+        msg->data.add_attribute = *attr_new;
+
+        if (attr_new->size > 0)
+        {   // re-alloc message to include Value
+            msg->hdr.size += attr_new->size;
+            msg = (Comm_Msg_t *) malloc(msg->hdr.size);
+            if (msg)
+            {
+                memcpy(msg, stash, msg->hdr.size); // copy header and values
+                memcpy(msg->data.add_attribute.data, attr_new->data, attr_new->size);
+                return msg;
+            }
+        }
+    }
+    return NULL;
+}
+
+///
+/// \brief format_attr_updated_msg Update_Attribute_t or Notify_Data_Write_t only
+/// \param stash
+/// \param attr_idx
+/// \param attr_new
+/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
+///
+Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new)
+{
+    if (stash && attr_new)
+    {
+        Comm_Msg_t *msg = stash;
+        msg->hdr.type = type;
+        msg->hdr.size = sizeof(Common_Header_t) + sizeof(Update_Attribute_t);
+        msg->data.update_attribute.attr_idx = attr_new->attr_idx;
+        msg->data.update_attribute.size = attr_new->size;
+
+        if (attr_new->size > 1)
+        {   // re-alloc message to include Value
+            int new_size = msg->hdr.size + attr_new->size - 1;
+            msg = (Comm_Msg_t*) malloc(new_size);
+            if (msg)
+            {
+                memcpy(msg, stash, stash->hdr.size); // copy header and values
+                memcpy(msg->data.update_attribute.data, attr_new->data, attr_new->size);
+                msg->hdr.size = stash->hdr.size = new_size;
+            }
+            else
+            {   // Notify Client about Error
+                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
+                msg = stash; // restore pointer to static stash
+                msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
+            }
+        }
+        else
+        {
+            msg->data.notify_data_write.data[0] = (attr_new->data != NULL)?*((char*)attr_new->data):0;
+        }
+
+        // Note: the calling function is responsible to
+        // free memory if returned msg != stash
+        return msg;
+    }
+    return NULL;
+}
+
+///
+/// \brief format_message_payload before sending to Server
+/// \param type
+/// \param msg
+/// \param data
+/// \return
+///
+void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &msg, void* data)
+{
+    Comm_Msg_t *msg_new = NULL;
+    msg.hdr.size = sizeof(Common_Header_t);
+    msg.hdr.error = Ble::Error::NONE;
+    msg.hdr.session_id = session_id;
+    msg.hdr.type = type;
+
+    switch (type)
+    {
+    case MSG_SESSION:
+        msg.hdr.size += sizeof(Session_t);
+        msg.data.session.on_off = (uint8_t)(unsigned long)data;
+        break;
+
+    case MSG_POWER:
+        msg.hdr.size += sizeof(Power_t);
+        msg.data.power.on_off = (uint8_t)(unsigned long)data;
+        break;
+
+    case MSG_CONFIG:
+        msg.hdr.size += sizeof(Config_t);
+        msg.data.config = *((Config_t*)data);
+        break;
+
+    case MSG_ADVERTISEMENT:
+        msg.hdr.size += sizeof(Advertisement_t);
+        msg.data.advertisement.on_off = (uint8_t)(unsigned long)data;
+        break;
+
+    case MSG_ADD_SERVICE:
+        msg.hdr.size += sizeof(Add_Service_t);
+        msg.data.add_service.count = ((Ble::ServiceInfo_t*)data)->NumberAttributes;
+        memcpy(msg.data.add_service.uuid, ((Ble::ServiceInfo_t*)data)->ServiceUUID, sizeof(Ble::UUID_128_t));
+        break;
+
+    case MSG_ADD_ATTRIBUTE:
+        msg_new = format_attr_add_msg(&msg, (Add_Attribute_t*) data);
+        break;
+
+    case MSG_UPDATE_ATTRIBUTE:
+        msg_new = format_attr_updated_msg(MSG_UPDATE_ATTRIBUTE, &msg, (Define_Update_t*) data);
+        break;
+
+    case MSG_NOTIFY_CONNECT_STATUS:
+    case MSG_NOTIFY_DATA_READ:
+    case MSG_NOTIFY_DATA_WRITE:
+    default:
+        DEBUG_PRINTF("WARNING! Wrong handler - Notification and commands are not processed here\n");
+        break;
+    }
+    return msg_new;
 }

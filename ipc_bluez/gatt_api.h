@@ -58,27 +58,26 @@ typedef struct
 
 typedef enum
 {
-    atCharacteristic,
-    atDescriptor
+    atCharacteristic = 0,
+    atDescriptor     = 1
 } AttributeType_t;
 
 typedef struct attributeinfo
 {
-    uint8_t         AttributeType;
-    uint8_t         AttributeOffset;
-    char            AttributeName[ATTR_NAME_LEN];
-    uint8_t         PropertiesMask;
-    uint8_t         SecurityMask;
-    UUID_128_t      AttributeUUID;
-    uint8_t         AllocatedValue;
-    uint16_t        MaxValueLength;
-    uint16_t        ValueLength;
-    char           *Value;
+    uint8_t    AttributeType;
+    uint8_t    AttributeOffset;
+    char       AttributeName[ATTR_NAME_LEN];
+    uint8_t    PropertiesMask;
+    uint8_t    SecurityMask;
+    UUID_128_t AttributeUUID;
+    uint8_t    AllocatedValue;
+    uint16_t   MaxValueLength;
+    uint16_t   ValueLength;
+    char      *Value;
 } AttributeInfo_t;
 
 typedef struct serviceinfo
 {
-    unsigned int     ServiceID;
     UUID_128_t       ServiceUUID;
     unsigned int     NumberAttributes;
     AttributeInfo_t *AttributeList;
@@ -104,6 +103,8 @@ namespace Error { enum Error {
     CB_REGISTER_FAILED  = -16,// registering callback failed
     REGISTER_SVC_ERROR  = -17,// registering gatt service failed
     MEMORY_ALLOOCATION  = -18,// memory allocation error
+    // last
+    ERROR_COUNT_MAX     = -19 // end of messages, don't add below
 };}
 
 namespace ConfigArgument { enum Arg {

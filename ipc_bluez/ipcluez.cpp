@@ -4,7 +4,7 @@
 
 // static vars, status
 static uint8_t gsSessionId = 0;
-static Ble::ServiceInfo_t gClientService = {0,{0},0, NULL};
+static Ble::ServiceInfo_t gClientService = {{0},0, NULL};
 
 ///
 /// \brief cleanup_attribute_value
@@ -75,12 +75,20 @@ int append_attribute(Comm_Msg_t *msg)
         {
             Ble::AttributeInfo_t *attr = &gClientService.AttributeList[i];
             cleanup_attribute_value(attr);
-            memcpy(attr, &msg->data.add_attribute.attr, sizeof(Ble::AttributeInfo_t));
+
+            memcpy(attr->AttributeUUID, msg->data.add_attribute.uuid, sizeof(Ble::UUID_128_t));
+            memcpy(attr->AttributeName, msg->data.add_attribute.name, ATTR_NAME_LEN);
+            attr->MaxValueLength = msg->data.add_attribute.max_length;
+            attr->ValueLength = msg->data.add_attribute.size;
+            attr->AttributeType = msg->data.add_attribute.type;
+            attr->PropertiesMask = msg->data.add_attribute.properties;
+            attr->SecurityMask = GATT_SECURITY_NONE;
+            attr->AttributeOffset = (i)?(gClientService.AttributeList[i-1].AttributeOffset+(gClientService.AttributeList[i-1].AttributeType==Ble::atCharacteristic?2:1)):1;
 
             // handle payload
-            if (msg->data.add_attribute.attr.ValueLength && (msg->data.add_attribute.attr.ValueLength == (msg->hdr.size - sizeof(Comm_Msg_t))))
+            if (msg->data.add_attribute.size)
             {
-                attr->ValueLength = msg->data.add_attribute.attr.ValueLength;
+                attr->ValueLength = msg->data.add_attribute.size;
                 if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
                 {
                     attr->ValueLength = 0;
@@ -88,7 +96,7 @@ int append_attribute(Comm_Msg_t *msg)
                 }
 
                 // Note: msg->data.add_attribute.attr.Value does not have valid pointer to payload
-                memcpy(attr->Value, (char*) msg + sizeof(Comm_Msg_t), attr->ValueLength);
+                memcpy(attr->Value, msg->data.add_attribute.data, attr->ValueLength);
                 attr->AllocatedValue = 1;
             }
 #ifdef DEBUG_ENABLED
@@ -325,15 +333,16 @@ int handle_request_msg(Comm_Msg_t *msg)
     case MSG_ADD_SERVICE:
     {
         Add_Service_t *data = (Add_Service_t *) &msg->data;
-        if (data->desc.NumberAttributes > 0)
+        if (data->count > 0)
         {
-            int alloc_size = data->desc.NumberAttributes * sizeof(Ble::AttributeInfo_t);
+            int alloc_size = data->count * sizeof(Ble::AttributeInfo_t);
 
             // only single service is supported at this time
             cleanup_client_service();
 
-            // copy service description from msg.data
-            gClientService = data->desc;
+            // set service parameters
+            gClientService.NumberAttributes = data->count;
+            memcpy(gClientService.ServiceUUID, data->uuid, sizeof(Ble::UUID_128_t));
 
             if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))
             {

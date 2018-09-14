@@ -46,6 +46,9 @@ typedef enum msg_type
     MSG_NOTIFY_DATA_READ,
     MSG_NOTIFY_DATA_WRITE,
 
+    MSG_COUNT_MAX,
+    // don't add actual message of notification types below
+
     // client controlling commands - not used in communicatoin for sample/demo only
     CMD_WAIT_NOTIFICATIONS,
     CMD_SLEEP_SECONDS,
@@ -78,12 +81,19 @@ typedef struct _advertisement
 
 typedef struct _add_service
 {
-    Ble::ServiceInfo_t desc;
+    Ble::UUID_128_t uuid;
+    uint8_t         count;
 } Add_Service_t;
 
 typedef struct _add_attribute
 {
-    Ble::AttributeInfo_t attr;
+    Ble::UUID_128_t uuid;
+    int8_t          name[ATTR_NAME_LEN];
+    uint16_t        max_length;
+    uint16_t        size;
+    uint8_t         type;
+    uint8_t         properties;
+    uint8_t         data[1];
 } Add_Attribute_t;
 
 typedef struct _update_attribute
@@ -155,23 +165,6 @@ void die(const char *s, int err);
 ///
 int parse_command_line(int argc, char** argv);
 
-///
-/// \brief format_attr_add_msg
-/// \param stash
-/// \param attr_new
-/// \return
-///
-Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new);
-
-///
-/// \brief format_attr_updated_msg
-/// \param stash
-/// \param attr_idx
-/// \param attr_new
-/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
-///
-Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new);
-
 /// debug only
 const char *get_msg_name(Comm_Msg_t *cm);
 const char* get_err_name(int ret);
@@ -208,3 +201,28 @@ int recv_comm(bool bServer, char *buffer, int size, int timeout_ms = 0);
 ///
 int shut_comm(bool bServer);
 
+///
+/// \brief format_attr_add_msg
+/// \param stash
+/// \param attr_new
+/// \return
+///
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new);
+
+///
+/// \brief format_attr_updated_msg
+/// \param stash
+/// \param attr_idx
+/// \param attr_new
+/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
+///
+Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new);
+
+///
+/// \brief format_message_payload before sending to Server
+/// \param type
+/// \param msg
+/// \param data
+/// \return
+///
+void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &msg, void* data);

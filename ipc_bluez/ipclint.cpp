@@ -13,6 +13,9 @@ static uint8_t giSessionId = 0;
 #define CCCDESC_UUID()       MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
 #define MAKE_PAYLOAD(_pld)  (unsigned int) strlen(_pld), (char *) _pld
 
+// sample Adapter configuration
+static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
+
 // sample Attribute Table definition
 // defines 2 characteristics and 1 descriptor
 static Ble::AttributeInfo_t attr_table[] =
@@ -22,12 +25,12 @@ static Ble::AttributeInfo_t attr_table[] =
     {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATT_SECURITY_NONE, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
 };
 
-// sample to demo "update value" operation
+// sample to demonstrate "update value" operation
 static Define_Update_t attr_upd = {strlen("updated_val"), 1, (uint8_t*) "updated_val"};
 
 // sample service definitions
 #define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
-static Ble::ServiceInfo_t service = {0, SERVICE_UUID, sizeof(attr_table)/sizeof(Ble::AttributeInfo_t), attr_table};
+static Ble::ServiceInfo_t service = {SERVICE_UUID, sizeof(attr_table)/sizeof(Ble::AttributeInfo_t), attr_table};
 
 // sample of communication sequence
 typedef struct {
@@ -38,7 +41,7 @@ typedef struct {
 SampleStruct_t msg_list[] = {
     { MSG_SESSION,          (void*) Ble::ConfigArgument::Enable},
     { MSG_POWER,            (void*) Ble::ConfigArgument::PowerOn},
-    { MSG_CONFIG,           /* config*/ NULL        },
+    { MSG_CONFIG,           (void*) &config_data    },
     { MSG_ADD_SERVICE,      (void*) &service        },
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[0]  },
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[1]  },
@@ -52,69 +55,7 @@ SampleStruct_t msg_list[] = {
 };
 
 ///
-/// \brief sample format_message_payload before sending to Server
-/// \param type
-/// \param msg
-/// \param data
-/// \return
-///
-void* format_message_payload(Msg_Type_t type, Comm_Msg_t &msg, void* data)
-{
-    Comm_Msg_t *msg_new = NULL;
-    msg.hdr.size = sizeof(Common_Header_t);
-    msg.hdr.error = Ble::Error::NONE;
-    msg.hdr.session_id = giSessionId;
-    msg.hdr.type = type;
-
-    switch (type)
-    {
-    case MSG_SESSION:
-        msg.hdr.size += sizeof(Session_t);
-        msg.data.session.on_off = (uint8_t)(unsigned long)data;
-        break;
-
-    case MSG_POWER:
-        msg.hdr.size += sizeof(Power_t);
-        msg.data.power.on_off = (uint8_t)(unsigned long)data;
-        break;
-
-    case MSG_CONFIG:
-        msg.hdr.size += sizeof(Config_t);
-        msg.data.config.device_class = 0x000430;
-        strcpy(msg.data.config.device_name, "IpClint-24");
-        strcpy(msg.data.config.mac_address, "AA:AA:BB:BB:CC:CC");
-        break;
-
-    case MSG_ADVERTISEMENT:
-        msg.hdr.size += sizeof(Advertisement_t);
-        msg.data.advertisement.on_off = (uint8_t)(unsigned long)data;
-        break;
-
-    case MSG_ADD_SERVICE:
-        msg.hdr.size += sizeof(Add_Service_t);
-        msg.data.add_service.desc = *((Ble::ServiceInfo_t*)data);
-        break;
-
-    case MSG_ADD_ATTRIBUTE:
-        msg_new = format_attr_add_msg(&msg, (Add_Attribute_t*) data);
-        break;
-
-    case MSG_UPDATE_ATTRIBUTE:
-        msg_new = format_attr_updated_msg(MSG_UPDATE_ATTRIBUTE, &msg, (Define_Update_t*) data);
-        break;
-
-    case MSG_NOTIFY_CONNECT_STATUS:
-    case MSG_NOTIFY_DATA_READ:
-    case MSG_NOTIFY_DATA_WRITE:
-    default:
-        printf("WARNING! Wrong handler - Notification and commands are not processed here\n");
-        break;
-    }
-    return msg_new;
-}
-
-///
-/// \brief sample handle_response_message or notification from Server
+/// \brief handle_response_message or notification from Server
 /// \param msg
 /// \return
 ///
@@ -124,7 +65,7 @@ int handle_response_message(Comm_Msg_t &msg)
 
     if (msg.hdr.error != Ble::Error::NONE)
     {
-        printf("ERROR in response: %d\n", msg.hdr.error);
+        DEBUG_PRINTF("ERROR in response: %d\n", msg.hdr.error);
         ret = msg.hdr.error;
     }
     else switch (msg.hdr.type)
@@ -132,7 +73,27 @@ int handle_response_message(Comm_Msg_t &msg)
     // server responses
     case MSG_SESSION:
         giSessionId = msg.hdr.session_id;
-        printf("giSessionId = %d %s\n", giSessionId, msg.data.session.on_off?"opened":"closed");
+        DEBUG_PRINTF("giSessionId = %d %s\n", giSessionId, msg.data.session.on_off?"opened":"closed");
+        break;
+
+    // server notifications
+    case MSG_NOTIFY_CONNECT_STATUS:
+        if (msg.data.notify_connect.on_off)
+        {
+            DEBUG_PRINTF("MSG_NOTIFY_CONNECT_STATUS // connect\n");
+        }
+        else
+        {
+            DEBUG_PRINTF("MSG_NOTIFY_CONNECT_STATUS // disconnect\n");
+        }
+        break;
+
+    case MSG_NOTIFY_DATA_READ:
+        DEBUG_PRINTF("MSG_NOTIFY_DATA_READ // attr->idx = %d\n", msg.data.notify_data_read.attr_idx);
+        break;
+
+    case MSG_NOTIFY_DATA_WRITE:
+        DEBUG_PRINTF("MSG_NOTIFY_DATA_WRITE // attr->idx = %d val = %s\n", msg.data.notify_data_write.attr_idx, msg.data.notify_data_write.data);
         break;
 
     case MSG_POWER:
@@ -141,26 +102,9 @@ int handle_response_message(Comm_Msg_t &msg)
     case MSG_ADD_SERVICE:
     case MSG_ADD_ATTRIBUTE:
     case MSG_UPDATE_ATTRIBUTE:
-        break;
-
-    // server notifications
-    case MSG_NOTIFY_CONNECT_STATUS:
-        if (msg.data.notify_connect.on_off)
-        {
-            printf("MSG_NOTIFY_CONNECT_STATUS // connect\n");
-        }
-        else
-        {
-            printf("MSG_NOTIFY_CONNECT_STATUS // disconnect\n");
-        }
-        break;
-
-    case MSG_NOTIFY_DATA_READ:
-        printf("MSG_NOTIFY_DATA_READ // attr->idx = %d\n", msg.data.notify_data_read.attr_idx);
-        break;
-
-    case MSG_NOTIFY_DATA_WRITE:
-        printf("MSG_NOTIFY_DATA_WRITE // attr->idx = %d val = %s\n", msg.data.notify_data_write.attr_idx, msg.data.notify_data_write.data);
+    default:
+        DEBUG_PRINTF("unexpected response to msg type %d [%s]\n", msg.hdr.type, get_msg_name(&msg));
+        ret = Ble::Error::INVALID_PARAMETER;
         break;
     }
     return ret;
@@ -183,7 +127,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
         }
         else if (ret != Ble::Error::NONE)
         {
-            printf("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret));
+            DEBUG_PRINTF("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret));
             break;
         }
         printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
@@ -191,7 +135,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
     }
 
 // done:
-    printf("server_notify_listener exited\n");
+    DEBUG_PRINTF("server_notify_listener exited\n");
     fflush(stdout);
     pthread_exit(NULL);
     return (void*) 0;
@@ -207,12 +151,12 @@ int preprocess_client_commands(SampleStruct_t *cmd)
     switch (cmd->type)
     {
     case CMD_PAUSE_GETCHAR:
-        printf("\nCMD_PAUSE_GETCHAR\\>");
+        DEBUG_PRINTF("\nCMD_PAUSE_GETCHAR\\>");
         getchar();
         break;
 
     case CMD_SLEEP_SECONDS:
-        printf("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data);
+        DEBUG_PRINTF("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data);
         sleep((int)(unsigned long)cmd->data);
         break;
 
@@ -223,11 +167,11 @@ int preprocess_client_commands(SampleStruct_t *cmd)
 
         if (Ble::Error::NONE != pthread_create(&thread_id, NULL, server_notify_listener, NULL))
         {
-            printf("failed to create pthread %s (%d)\n", strerror(errno), errno);
+            DEBUG_PRINTF("failed to create pthread %s (%d)\n", strerror(errno), errno);
             return Ble::Error::PTHREAD_ERROR;
         }
 
-        printf("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to stop listening and continue\\>\n\n");
+        DEBUG_PRINTF("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to stop listening and continue\\>\n\n");
         getchar();
 
         // set done and wait for exit
@@ -266,7 +210,7 @@ int main(int argc, char** argv )
     {
         if (Ble::Error::IGNORED == preprocess_client_commands(&msg_list[i]))
         {
-            Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(msg_list[i].type, msg, msg_list[i].data);
+            Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(giSessionId, msg_list[i].type, msg, msg_list[i].data);
 
             ret = send_comm(TO_SERVER, ((NULL != msg_to_send) ? msg_to_send : &msg), msg.hdr.size);
 
