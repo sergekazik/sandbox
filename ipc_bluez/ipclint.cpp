@@ -19,10 +19,10 @@ static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 // sample Attribute Table definition
 // defines 2 characteristics and 1 descriptor
 static Define_Attribute_t attr_table[] =
-{
-    {MAKE_UUID(01), "SAMPLE_ATTR-1", 64, 6, Ble::atCharacteristic, Ble::Property::RW_, "value1"},
-    {MAKE_UUID(02), "SAMPLE_ATTR-2", 64, 6, Ble::atCharacteristic, Ble::Property::RWN, "value2"},
-    {CCCDESC_UUID(),"SAMPLE_DESC-1", 32, 2, Ble::atDescriptor,     Ble::Property::RW_, "\x01\x00"}
+{   // uuid         name            max size    type                properties          value
+    {MAKE_UUID(01), "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW_, "value1"},
+    {MAKE_UUID(02), "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value2"},
+    {CCCDESC_UUID(),"SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW_, "\x01\x00"}
 };
 
 // sample to demonstrate "update value" operation
@@ -65,7 +65,7 @@ int handle_response_message(Comm_Msg_t &msg)
 
     if (msg.hdr.error != Ble::Error::NONE)
     {
-        DEBUG_PRINTF("ERROR in response: %d\n", msg.hdr.error);
+        DEBUG_PRINTF(("ERROR in response: %d\n", msg.hdr.error));
         ret = msg.hdr.error;
     }
     else switch (msg.hdr.type)
@@ -73,27 +73,27 @@ int handle_response_message(Comm_Msg_t &msg)
     // server responses
     case MSG_SESSION:
         giSessionId = msg.hdr.session_id;
-        DEBUG_PRINTF("giSessionId = %d %s\n", giSessionId, msg.data.session.on_off?"opened":"closed");
+        DEBUG_PRINTF(("giSessionId = %d %s\n", giSessionId, msg.data.session.on_off?"opened":"closed"));
         break;
 
     // server notifications
     case MSG_NOTIFY_CONNECT_STATUS:
         if (msg.data.notify_connect.on_off)
         {
-            DEBUG_PRINTF("MSG_NOTIFY_CONNECT_STATUS // connect\n");
+            DEBUG_PRINTF(("MSG_NOTIFY_CONNECT_STATUS // connect\n"));
         }
         else
         {
-            DEBUG_PRINTF("MSG_NOTIFY_CONNECT_STATUS // disconnect\n");
+            DEBUG_PRINTF(("MSG_NOTIFY_CONNECT_STATUS // disconnect\n"));
         }
         break;
 
     case MSG_NOTIFY_DATA_READ:
-        DEBUG_PRINTF("MSG_NOTIFY_DATA_READ // attr->idx = %d\n", msg.data.notify_data_read.attr_idx);
+        DEBUG_PRINTF(("MSG_NOTIFY_DATA_READ // attr->idx = %d\n", msg.data.notify_data_read.attr_idx));
         break;
 
     case MSG_NOTIFY_DATA_WRITE:
-        DEBUG_PRINTF("MSG_NOTIFY_DATA_WRITE // attr->idx = %d val = %s\n", msg.data.notify_data_write.attr_idx, msg.data.notify_data_write.data);
+        DEBUG_PRINTF(("MSG_NOTIFY_DATA_WRITE // attr->idx = %d val = %s\n", msg.data.notify_data_write.attr_idx, msg.data.notify_data_write.data));
         break;
 
     case MSG_POWER:
@@ -103,7 +103,7 @@ int handle_response_message(Comm_Msg_t &msg)
     case MSG_ADD_ATTRIBUTE:
     case MSG_UPDATE_ATTRIBUTE:
     default:
-        DEBUG_PRINTF("unexpected response to msg type %d [%s]\n", msg.hdr.type, get_msg_name(&msg));
+        DEBUG_PRINTF(("unexpected response to msg type %d [%s]\n", msg.hdr.type, get_msg_name(&msg)));
         ret = Ble::Error::INVALID_PARAMETER;
         break;
     }
@@ -127,7 +127,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
         }
         else if (ret != Ble::Error::NONE)
         {
-            DEBUG_PRINTF("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret));
+            DEBUG_PRINTF(("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret)));
             break;
         }
         printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
@@ -135,7 +135,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
     }
 
 // done:
-    DEBUG_PRINTF("server_notify_listener exited\n");
+    DEBUG_PRINTF(("server_notify_listener exited\n"));
     fflush(stdout);
     pthread_exit(NULL);
     return (void*) 0;
@@ -151,12 +151,12 @@ int preprocess_client_commands(SampleStruct_t *cmd)
     switch (cmd->type)
     {
     case CMD_PAUSE_GETCHAR:
-        DEBUG_PRINTF("\nCMD_PAUSE_GETCHAR\\>");
+        DEBUG_PRINTF(("\nCMD_PAUSE_GETCHAR\\>"));
         getchar();
         break;
 
     case CMD_SLEEP_SECONDS:
-        DEBUG_PRINTF("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data);
+        DEBUG_PRINTF(("\nCMD_SLEEP_SECONDS %d sec\n", (int)(unsigned long)cmd->data));
         sleep((int)(unsigned long)cmd->data);
         break;
 
@@ -167,11 +167,11 @@ int preprocess_client_commands(SampleStruct_t *cmd)
 
         if (Ble::Error::NONE != pthread_create(&thread_id, NULL, server_notify_listener, NULL))
         {
-            DEBUG_PRINTF("failed to create pthread %s (%d)\n", strerror(errno), errno);
+            DEBUG_PRINTF(("failed to create pthread %s (%d)\n", strerror(errno), errno));
             return Ble::Error::PTHREAD_ERROR;
         }
 
-        DEBUG_PRINTF("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to stop listening and continue\\>\n\n");
+        DEBUG_PRINTF(("\nCMD_WAIT_NOTIFICATIONS listening from server...\npress ENTER to stop listening and continue\\>\n\n"));
         getchar();
 
         // set done and wait for exit

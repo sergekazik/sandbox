@@ -12,7 +12,6 @@
 #define BLE_READ_PACKET_MAX                 22      /* varies 18-22 on multiple read/write */
 #define ATT_MTU_MAX                         512     /* maximum allowed value size of 512 bytes.*/
 #define GATT_SVC_NUM_OF_HANDLERS_MAX        48
-
 #define DEV_CLASS_LEN                       16      /* device class bitmask as a string */
 #define DEV_NAME_LEN                        64      /* text string = device name */
 #define DEV_MAC_ADDR_LEN                    18      /* text string = device mac address */
@@ -29,58 +28,32 @@ namespace Ble {
 
 typedef uint8_t UUID_128_t[16];
 
-namespace Config {
-typedef struct
-{
-    int             count;
-    char           *strParam;
-    unsigned int    intParam;
-} Parameter_t;
-
-enum Tag {
-    EOL                  = 0, // End of list
-    ServiceTable,
-    LocalDeviceName,
-    LocalClassOfDevice,
-    MACAddress
-};
-typedef struct
-{
-    Config::Tag         tag;
-    Config::Parameter_t params;
-} DeviceConfig_t;
-}
-
-#define GATT_SECURITY_NONE      0x00000000
-#define GATT_PROPERTY_READ      0x00000002
-#define GATT_PROPERTY_WRITE     0x00000008
-#define GATT_PROPERTY_NOTIFY    0x00000010
-
-typedef enum
-{
-    atCharacteristic = 0,
-    atDescriptor     = 1
-} AttributeType_t;
+#define GATT_PROPERTY_READ          0x02
+#define GATT_PROPERTY_WRITE         0x08
+#define GATT_PROPERTY_NOTIFY        0x10
+#define GATT_TYPE_CHARACTERISTIC    0x00
+#define GATT_TYPE_DESCRIPTOR        0x01
 
 typedef struct attributeinfo
 {
-    uint8_t    AttributeType;
-    uint8_t    AttributeOffset;
-    char       AttributeName[ATTR_NAME_LEN];
-    uint8_t    PropertiesMask;
-    uint8_t    SecurityMask;
-    UUID_128_t AttributeUUID;
-    uint8_t    AllocatedValue;
-    uint16_t   MaxValueLength;
-    uint16_t   ValueLength;
-    char      *Value;
+#ifdef DEBUG_ENABLED
+    char       attr_name[ATTR_NAME_LEN];
+#endif
+    uint8_t    attr_type;
+    uint8_t    attr_offset;
+    uint8_t    properties;
+    UUID_128_t attr_uuid;
+    uint8_t    dynamic_alloc;
+    uint16_t   max_val_size;
+    uint16_t   val_size;
+    char      *value;
 } AttributeInfo_t;
 
 typedef struct serviceinfo
 {
-    UUID_128_t       ServiceUUID;
-    unsigned int     NumberAttributes;
-    AttributeInfo_t *AttributeList;
+    UUID_128_t       svc_uuid;
+    unsigned int     attr_num;
+    AttributeInfo_t *attr_table;
 } ServiceInfo_t;
 
 namespace Error { enum Error {
@@ -137,19 +110,6 @@ namespace Property
     };
 }
 
-namespace Advertising { enum Flags {
-    // Flags is a bitmask in the following table
-    LocalPublicAddress  = 0x00000001, // [Local Random Address] - if not set
-    Discoverable        = 0x00000002, // [Non Discoverable] - if not set
-    Connectable         = 0x00000004, // [Non Connectable] - if not set
-    AdvertiseName       = 0x00000010, // [Advertise Name off] - if not set
-    AdvertiseTxPower    = 0x00000020, // [Advertise Tx Power off] - if not set
-    AdvertiseAppearance = 0x00000040, // [Advertise Appearance off] - if not set
-    PeerPublicAddress   = 0x00000100, // [Peer Random Address] - if not set
-    DirectConnectable   = 0x00000200, // [Undirect Connectable] // When Connectable bit (0x0004) is set: - if not set
-    LowDutyCycle        = 0x00000400, // [High Duty Cycle] // When Direct Connectable bit (0x0200) is set: - if not set
-};}
-
 typedef struct _GattServerInfo {
     int fd;
     int hci_socket;
@@ -188,47 +148,27 @@ private:
 
 public:
     int Initialize();
-    int Configure(Ble::Config::DeviceConfig_t* aConfig);
-
-    int SetDevicePower(Ble::ConfigArgument::Arg aOnOff);
-
     int Shutdown();
 
-    int SetLocalDeviceName(Ble::Config::Parameter_t *aParams);
-    int SetLocalClassOfDevice(Ble::Config::Parameter_t *aParams);
+    int SetServiceTable(ServiceInfo_t *aService);
+    int SetMACAddress(char *aAddress);
+    int SetLocalDeviceName(char *aName);
+    int SetLocalClassOfDevice(int aClass);
 
     int RegisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
     int UnregisterCharacteristicAccessCallback(onCharacteristicAccessCallback aCb);
 
-    int QueryLocalDeviceProperties(Ble::Config::Parameter_t *aParams);
-    int SetLocalDeviceAppearance(Ble::Config::Parameter_t *aParams);
-
-    // connection and security
-    int SetRemoteDeviceLinkActive(Ble::Config::Parameter_t *aParams);
-    int RegisterAuthentication(Ble::Config::Parameter_t *aParams);
-    int ChangeSimplepairingParameters(Ble::Config::Parameter_t *aParams);
-
-    // GATT
-    int RegisterGATMEventCallback(Ble::Config::Parameter_t *aParams);
-    int GATTRegisterService(Ble::Config::Parameter_t *aParams);
-    int GATTUpdateCharacteristic(int attr_idx, const char *str_data, int len);
+    int UpdateCharacteristic(int attr_idx, const char *str_data, int len);
     int NotifyCharacteristic(int aAttributeIdx, const char* aPayload, int len=0);
 
     // Advertising
-    int SetAdvertisingInterval(Ble::Config::Parameter_t *aParams);
-    int StartAdvertising(Ble::Config::Parameter_t *aParams);
-    int StopAdvertising(Ble::Config::Parameter_t *aParams);
+    int StartAdvertising();
+    int StopAdvertising();
 
-    int SetAuthenticatedPayloadTimeout(Ble::Config::Parameter_t *aParams);
-    int SetAndUpdateConnectionAndScanBLEParameters(Ble::Config::Parameter_t *aParams);
-    void CleanupServiceList(void);
-
-    // debug
-    int EnableBluetoothDebug(Ble::Config::Parameter_t *aParams);
-
-    // helper functions
-    int GetAttributeIdxByOffset(unsigned int AttributeOffset);
+    // helpers
+    int GetAttributeIdxByOffset(unsigned int attr_offset);
     int ProcessRegisteredCallback(Ble::Property::Access aEventType, int aAttrIdx);
+    void CleanupServiceList();
 
 private:
     struct hci_dev_info di;

@@ -79,7 +79,7 @@ typedef struct comm_msgbuf
 ///
 void die(const char *s, int err)
 {
-    DEBUG_PRINTF("die.. err %d\n", err);
+    DEBUG_PRINTF(("die.. err %d\n", err));
     perror(s);
     exit(1);
 }
@@ -126,7 +126,7 @@ int parse_command_line(int argc, char** argv)
             {
                 gbIpc = true;
                 guiKey = key;
-                DEBUG_PRINTF("set key %d\n", guiKey);
+                DEBUG_PRINTF(("set key %d\n", guiKey));
             }
         }
         else if (!strcmp(argv[i], "-p")) // port for UDP socket
@@ -136,7 +136,7 @@ int parse_command_line(int argc, char** argv)
             {
                 gbIpc = false;
                 giPort = port;
-                DEBUG_PRINTF("set port %d\n", giPort);
+                DEBUG_PRINTF(("set port %d\n", giPort));
             }
         }
         else if (!strcmp(argv[i], "-ip")) // Server IP for Client to connect
@@ -145,16 +145,16 @@ int parse_command_line(int argc, char** argv)
             gsServerAdd = i+1<argc?argv[++i]:LOOPBACK_ADDR;
             if (gsServerAdd && strlen(gsServerAdd))
             {
-                DEBUG_PRINTF("set server ip %s\n", gsServerAdd);
+                DEBUG_PRINTF(("set server ip %s\n", gsServerAdd));
             }
         }
         else
         {
-            DEBUG_PRINTF("invalid argument %s \nusage [-k key][-p port]\n", argv[i]);
+            DEBUG_PRINTF(("invalid argument %s \nusage [-k key][-p port]\n", argv[i]));
             return Ble::Error::INVALID_PARAMETER;
         }
     }
-    DEBUG_PRINTF("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort);
+    DEBUG_PRINTF(("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort));
     return 0;
 }
 
@@ -361,7 +361,7 @@ Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new)
         msg->data.add_attribute.data[0]='\0';
 
         if (attr_new->size > 0)
-        {   // re-alloc message to include Value
+        {   // re-alloc message to include value
             msg->hdr.size += attr_new->size-1;
             msg = (Comm_Msg_t *) malloc(msg->hdr.size);
             if (msg)
@@ -393,7 +393,7 @@ Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_U
         msg->data.update_attribute.size = attr_new->size;
 
         if (attr_new->size > 1)
-        {   // re-alloc message to include Value
+        {   // re-alloc message to include value
             int new_size = msg->hdr.size + attr_new->size - 1;
             msg = (Comm_Msg_t*) malloc(new_size);
             if (msg)
@@ -404,7 +404,7 @@ Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_U
             }
             else
             {   // Notify Client about Error
-                DEBUG_PRINTF("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory");
+                DEBUG_PRINTF(("ERROR: Notify Client Ble::Property::Access::Write failed to allocate memory"));
                 msg = stash; // restore pointer to static stash
                 msg->hdr.error = Ble::Error::MEMORY_ALLOOCATION;
             }
@@ -475,7 +475,7 @@ void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &m
     case MSG_NOTIFY_DATA_READ:
     case MSG_NOTIFY_DATA_WRITE:
     default:
-        DEBUG_PRINTF("WARNING! Wrong handler - Notification and commands are not processed here\n");
+        DEBUG_PRINTF(("WARNING! Wrong handler - Notification and commands are not processed here\n"));
         break;
     }
     return msg_new;

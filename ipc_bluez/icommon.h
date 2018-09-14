@@ -17,10 +17,10 @@
 #define FROM_CLIENT true
 
 #ifdef DEBUG_ENABLED
-#define DEBUG_PRINTF(...) {printf(__VA_ARGS__); printf("\n");}
+#define DEBUG_PRINTF(_args_) {printf _args_; printf("\n");}
 #define TRACE() {printf("%s %d\n", __FUNCTION__, __LINE__);fflush(stdout);}
 #else
-#define DEBUG_PRINTF
+#define DEBUG_PRINTF(_args_)
 #define TRACE()
 #endif
 

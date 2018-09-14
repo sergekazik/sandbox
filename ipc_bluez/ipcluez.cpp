@@ -6,11 +6,11 @@
 static uint8_t gsSessionId = 0;
 static Ble::ServiceInfo_t gClientService = {{0},0, NULL};
 
-void dump_uuid(Ble::UUID_128_t &uuid)
+void dump_uuid(Ble::UUID_128_t &uuid __attribute__((unused)))
 {
-    DEBUG_PRINTF("UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+    DEBUG_PRINTF(("UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                  uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
-                 uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+                 uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]));
 }
 
 ///
@@ -21,13 +21,13 @@ void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 {
     if (attr != NULL)
     {
-        if (attr->Value && attr->AllocatedValue)
+        if (attr->value && attr->dynamic_alloc)
         {
-            free(attr->Value);
+            free(attr->value);
         }
-        attr->Value = NULL;
-        attr->ValueLength = 0;
-        attr->AllocatedValue = 0;
+        attr->value = NULL;
+        attr->val_size = 0;
+        attr->dynamic_alloc = 0;
     }
 }
 
@@ -37,9 +37,9 @@ void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 void cleanup_client_service()
 {
     Ble::GattSrv::getInstance()->CleanupServiceList();
-    if (gClientService.AttributeList)
+    if (gClientService.attr_table)
     {
-        free(gClientService.AttributeList);
+        free(gClientService.attr_table);
         memset(&gClientService, 0, sizeof(gClientService));
     }
 }
@@ -53,14 +53,14 @@ int allocate_zero_attr_table(int alloc_size)
 {
     int ret = Ble::Error::NONE;
     // allocate clean attribute table
-    gClientService.AttributeList = (Ble::AttributeInfo_t*) malloc(alloc_size);
-    if (!gClientService.AttributeList)
+    gClientService.attr_table = (Ble::AttributeInfo_t*) malloc(alloc_size);
+    if (!gClientService.attr_table)
     {
         ret = Ble::Error::MEMORY_ALLOOCATION;
     }
     else
     {
-        memset(gClientService.AttributeList, 0, alloc_size);
+        memset(gClientService.attr_table, 0, alloc_size);
     }
     return ret;
 }
@@ -72,47 +72,48 @@ int allocate_zero_attr_table(int alloc_size)
 ///
 int append_attribute(Comm_Msg_t *msg)
 {
-    if (!gClientService.AttributeList)
+    if (!gClientService.attr_table)
     {
         return Ble::Error::MEMORY_ALLOOCATION;
     }
-    else for (int i = 0; i < (int) gClientService.NumberAttributes; i++)
+    else for (int i = 0; i < (int) gClientService.attr_num; i++)
     {
-        if (0 == gClientService.AttributeList[i].MaxValueLength)
+        if (0 == gClientService.attr_table[i].max_val_size)
         {
-            Ble::AttributeInfo_t *attr = &gClientService.AttributeList[i];
+            Ble::AttributeInfo_t *attr = &gClientService.attr_table[i];
             cleanup_attribute_value(attr);
 
-            memcpy(attr->AttributeUUID, msg->data.add_attribute.uuid, sizeof(Ble::UUID_128_t));
-            memcpy(attr->AttributeName, msg->data.add_attribute.name, ATTR_NAME_LEN);
-            attr->MaxValueLength = msg->data.add_attribute.max_length;
-            attr->ValueLength = msg->data.add_attribute.size;
-            attr->AttributeType = msg->data.add_attribute.type;
-            attr->PropertiesMask = msg->data.add_attribute.properties;
-            attr->SecurityMask = GATT_SECURITY_NONE;
-            attr->AttributeOffset = (i)?(gClientService.AttributeList[i-1].AttributeOffset+(gClientService.AttributeList[i-1].AttributeType==Ble::atCharacteristic?2:1)):1;
-            dump_uuid(attr->AttributeUUID);
+#ifdef DEBUG_ENABLED
+            memcpy(attr->attr_name, msg->data.add_attribute.name, ATTR_NAME_LEN);
+#endif
+            memcpy(attr->attr_uuid, msg->data.add_attribute.uuid, sizeof(Ble::UUID_128_t));
+            attr->max_val_size = msg->data.add_attribute.max_length;
+            attr->val_size = msg->data.add_attribute.size;
+            attr->attr_type = msg->data.add_attribute.type;
+            attr->properties = msg->data.add_attribute.properties;
+            attr->attr_offset = (i)?(gClientService.attr_table[i-1].attr_offset+(gClientService.attr_table[i-1].attr_type==GATT_TYPE_CHARACTERISTIC?2:1)):1;
+            dump_uuid(attr->attr_uuid);
 
             // handle payload
             if (msg->data.add_attribute.size)
             {
-                attr->ValueLength = msg->data.add_attribute.size;
-                if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
+                attr->val_size = msg->data.add_attribute.size;
+                if (NULL == (attr->value = (char*) malloc(attr->val_size)))
                 {
-                    attr->ValueLength = 0;
+                    attr->val_size = 0;
                     return Ble::Error::MEMORY_ALLOOCATION;
                 }
 
-                // Note: msg->data.add_attribute.attr.Value does not have valid pointer to payload
-                memcpy(attr->Value, msg->data.add_attribute.data, attr->ValueLength);
-                attr->AllocatedValue = 1;
+                // Note: msg->data.add_attribute.attr.value does not have valid pointer to payload
+                memcpy(attr->value, msg->data.add_attribute.data, attr->val_size);
+                attr->dynamic_alloc = 1;
             }
 #ifdef DEBUG_ENABLED
             {
-                char print_string_tmp[attr->ValueLength+1];
-                memcpy(print_string_tmp, attr->Value, attr->ValueLength);
-                print_string_tmp[attr->ValueLength] = '\0';
-                DEBUG_PRINTF("\tadded attr %d [%s] val [%d] %s", i, attr->AttributeName, attr->ValueLength, print_string_tmp);
+                char print_string_tmp[attr->val_size+1];
+                memcpy(print_string_tmp, attr->value, attr->val_size);
+                print_string_tmp[attr->val_size] = '\0';
+                DEBUG_PRINTF(("\tadded attr %d [%s] val [%d] %s", i, attr->attr_name, attr->val_size, print_string_tmp));
             }
 #endif
             return Ble::Error::NONE;
@@ -132,45 +133,32 @@ int update_attribute(Update_Attribute_t *data)
     Ble::AttributeInfo_t *attr = NULL;
     Ble::GattSrv* gatt = Ble::GattSrv::getInstance();
 
-    if (!gClientService.AttributeList)
+    if (!gClientService.attr_table)
     {
         return Ble::Error::MEMORY_ALLOOCATION;
     }
-    else if ((data->attr_idx > 0) && (data->attr_idx < (int) gClientService.NumberAttributes))
+    else if ((data->attr_idx > 0) && (data->attr_idx < (int) gClientService.attr_num))
     {
-        attr = &gClientService.AttributeList[data->attr_idx];
+        attr = &gClientService.attr_table[data->attr_idx];
     }
     else
     {
         return Ble::Error::INVALID_PARAMETER;
     }
-#ifdef OPTIONAL_DIRECT_UPDATE
-    cleanup_attribute_value(attr);
-    if (data->size > 0)
-    {
-        if (NULL == (attr->Value = (char*) malloc(attr->ValueLength)))
-            return Ble::Error::MEMORY_ALLOOCATION;
-        attr->ValueLength = data->size;
-        attr->AllocatedValue = 1;
-        memcpy(attr->Value, data->data, attr->ValueLength);
-    }
-#else
-    ret = gatt->GATTUpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size);
-#endif
 
-    if (ret == Ble::Error::NONE)
+    if (Ble::Error::NONE == (ret = gatt->UpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size)))
     {
 #ifdef DEBUG_ENABLED
-        char print_string_tmp[attr->ValueLength+1];
-        memcpy(print_string_tmp, attr->Value, attr->ValueLength);
-        print_string_tmp[attr->ValueLength] = '\0';
-        DEBUG_PRINTF("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->AttributeName, attr->ValueLength, print_string_tmp);
+        char print_string_tmp[attr->val_size+1];
+        memcpy(print_string_tmp, attr->value, attr->val_size);
+        print_string_tmp[attr->val_size] = '\0';
+        DEBUG_PRINTF(("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->attr_name, attr->val_size, print_string_tmp));
 #endif
         // Notify if connected
-        if (attr->PropertiesMask & GATT_PROPERTY_NOTIFY)
+        if (attr->properties & GATT_PROPERTY_NOTIFY)
         {
             ret = gatt->NotifyCharacteristic(data->attr_idx, (const char*) data->data, data->size);
-            DEBUG_PRINTF("Notify characteristic err = %d %s", ret, get_err_name(ret));
+            DEBUG_PRINTF(("Notify characteristic err = %d %s", ret, get_err_name(ret)));
             ret = Ble::Error::NONE;
         }
     }
@@ -207,16 +195,16 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     case Ble::Property::Access::Write:
         {
             Define_Update_t update = {
-                (uint16_t) gClientService.AttributeList[aAttribueIdx].ValueLength,
+                (uint16_t) gClientService.attr_table[aAttribueIdx].val_size,
                 (uint8_t) aAttribueIdx,
-                (uint8_t*)gClientService.AttributeList[aAttribueIdx].Value
+                (uint8_t*)gClientService.attr_table[aAttribueIdx].value
             };
             msg = format_attr_updated_msg(MSG_NOTIFY_DATA_WRITE, msg, &update);
         }
         break;
 
     default:
-        DEBUG_PRINTF("Unexpected aAccessType = %d", aAccessType);
+        DEBUG_PRINTF(("Unexpected aAccessType = %d", aAccessType));
         msg->hdr.error = Ble::Error::INVALID_COMMAND;
         break;
     }
@@ -225,7 +213,7 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     if (msg->hdr.error == Ble::Error::NONE)
     {
         int ret = send_comm(TO_CLIENT, msg, msg->hdr.size);
-        DEBUG_PRINTF("Notify Client aAccessType = %d, type = %d %s, err = %d %s", aAccessType, msg->hdr.type, get_msg_name(msg), ret, get_err_name(ret));
+        DEBUG_PRINTF(("Notify Client aAccessType = %d, type = %d %s, err = %d %s", aAccessType, msg->hdr.type, get_msg_name(msg), ret, get_err_name(ret)));
     }
 
     // if new msg was allocated with malloc - release it
@@ -246,7 +234,7 @@ int handle_request_msg(Comm_Msg_t *msg)
     int ret = Ble::Error::NONE;
     Ble::GattSrv* gatt = Ble::GattSrv::getInstance();
 
-    DEBUG_PRINTF("got msg %d %s", msg->hdr.type, get_msg_name(msg));
+    DEBUG_PRINTF(("got msg %d %s", msg->hdr.type, get_msg_name(msg)));
 
     if (!msg)
     {
@@ -310,17 +298,18 @@ int handle_request_msg(Comm_Msg_t *msg)
 
     case MSG_CONFIG:
     {
-        Config_t *data = (Config_t *) &msg->data;
-
-        Ble::Config::DeviceConfig_t config[] =
-        { // config tag                             count                           params
-            {Ble::Config::LocalDeviceName,        {strlen(data->device_name)?1:0,   (char*) data->device_name, Ble::ConfigArgument::None}},
-            {Ble::Config::MACAddress,             {strlen(data->mac_address)?1:0,   (char*) data->mac_address, Ble::ConfigArgument::None}},
-            {Ble::Config::LocalClassOfDevice,     {data->device_class?1:0,          NULL,                      data->device_class}},
-            {Ble::Config::EOL,                    {0,                               NULL,                      Ble::ConfigArgument::None}},
-        };
-
-        ret = gatt->Configure(config);
+        if (Ble::Error::NONE != (ret = gatt->SetLocalDeviceName((char*) ((Config_t *)&msg->data)->device_name)))
+        {
+            DEBUG_PRINTF(("ERROR %d from gatt->SetLocalDeviceName((char*) ((Config_t *)&msg->data)->device_name)))\n", ret));
+        }
+        else if (Ble::Error::NONE != (ret = gatt->SetMACAddress((char*) ((Config_t *)&msg->data)->mac_address)))
+        {
+            DEBUG_PRINTF(("ERROR %d from gatt->SetMACAddress((char*) ((Config_t *)&msg->data)->mac_address)))\n", ret));
+        }
+        else if (Ble::Error::NONE != (ret = gatt->SetLocalClassOfDevice(((Config_t *)&msg->data)->device_class)))
+        {
+            DEBUG_PRINTF(("ERROR %d from gatt->SetLocalClassOfDevice(((Config_t *)&msg->data)->device_class)))\n", ret));
+        }
         break;
     }
 
@@ -329,11 +318,11 @@ int handle_request_msg(Comm_Msg_t *msg)
         Advertisement_t *data = (Advertisement_t*) &msg->data;
         if (data->on_off)
         {
-            ret = gatt->StartAdvertising(NULL);
+            ret = gatt->StartAdvertising();
         }
         else
         {
-            ret = gatt->StopAdvertising(NULL);
+            ret = gatt->StopAdvertising();
         }
         break;
     }
@@ -349,25 +338,16 @@ int handle_request_msg(Comm_Msg_t *msg)
             cleanup_client_service();
 
             // set service parameters
-            gClientService.NumberAttributes = data->count;
-            memcpy(gClientService.ServiceUUID, data->uuid, sizeof(Ble::UUID_128_t));
-            dump_uuid(gClientService.ServiceUUID);
+            gClientService.attr_num = data->count;
+            memcpy(gClientService.svc_uuid, data->uuid, sizeof(Ble::UUID_128_t));
+            dump_uuid(gClientService.svc_uuid);
 
             if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))
             {
-                // congig gatt server with a new service table
-                Ble::Config::DeviceConfig_t config[] =
-                { // config tag                             count                           params
-                    {Ble::Config::ServiceTable,           {1,   (char*) &gClientService, Ble::ConfigArgument::None}},
-                    {Ble::Config::EOL,                    {0,   NULL,                    Ble::ConfigArgument::None}},
-                };
-                ret = gatt->Configure(config);
-            }
-
-            // register attribute access callback
-            if (ret == Ble::Error::NONE)
-            {
-                gatt->RegisterCharacteristicAccessCallback(attr_access_callback);
+                if (Ble::Error::NONE == (ret = gatt->SetServiceTable(&gClientService)))
+                {
+                    ret = gatt->RegisterCharacteristicAccessCallback(attr_access_callback);
+                }
             }
         }
         else
