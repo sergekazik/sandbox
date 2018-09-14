@@ -18,11 +18,11 @@ static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 
 // sample Attribute Table definition
 // defines 2 characteristics and 1 descriptor
-static Ble::AttributeInfo_t attr_table[] =
+static Define_Attribute_t attr_table[] =
 {
-    {Ble::atCharacteristic, 1, "SAMPLE_ATTR-1", Ble::Property::RW_, GATT_SECURITY_NONE, MAKE_UUID(01), 0, 160, MAKE_PAYLOAD("value1")},
-    {Ble::atCharacteristic, 3, "SAMPLE_ATTR-2", Ble::Property::RWN, GATT_SECURITY_NONE, MAKE_UUID(02), 0, 160, MAKE_PAYLOAD("value2")},
-    {Ble::atDescriptor,     5, "SAMPLE_DESC-1", Ble::Property::RW_, GATT_SECURITY_NONE, CCCDESC_UUID(),0, 16,  2, (char*) "\x01\x00"}
+    {MAKE_UUID(01), "SAMPLE_ATTR-1", 64, 6, Ble::atCharacteristic, Ble::Property::RW_, "value1"},
+    {MAKE_UUID(02), "SAMPLE_ATTR-2", 64, 6, Ble::atCharacteristic, Ble::Property::RWN, "value2"},
+    {CCCDESC_UUID(),"SAMPLE_DESC-1", 32, 2, Ble::atDescriptor,     Ble::Property::RW_, "\x01\x00"}
 };
 
 // sample to demonstrate "update value" operation
@@ -30,7 +30,7 @@ static Define_Update_t attr_upd = {strlen("updated_val"), 1, (uint8_t*) "updated
 
 // sample service definitions
 #define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
-static Ble::ServiceInfo_t service = {SERVICE_UUID, sizeof(attr_table)/sizeof(Ble::AttributeInfo_t), attr_table};
+static Add_Service_t service = {SERVICE_UUID, 3};
 
 // sample of communication sequence
 typedef struct {

@@ -350,22 +350,23 @@ int shut_comm(bool bServer)
 /// \param attr_new
 /// \return
 ///
-Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new)
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new)
 {
     if (stash && attr_new)
     {
         Comm_Msg_t *msg = stash;
         msg->hdr.type = MSG_ADD_ATTRIBUTE;
         msg->hdr.size = sizeof(Common_Header_t) + sizeof(Add_Attribute_t);
-        msg->data.add_attribute = *attr_new;
+        msg->data.add_attribute = *((Add_Attribute_t*)attr_new);
+        msg->data.add_attribute.data[0]='\0';
 
         if (attr_new->size > 0)
         {   // re-alloc message to include Value
-            msg->hdr.size += attr_new->size;
+            msg->hdr.size += attr_new->size-1;
             msg = (Comm_Msg_t *) malloc(msg->hdr.size);
             if (msg)
             {
-                memcpy(msg, stash, msg->hdr.size); // copy header and values
+                memcpy(msg, stash, stash->hdr.size); // copy header and values
                 memcpy(msg->data.add_attribute.data, attr_new->data, attr_new->size);
                 return msg;
             }
@@ -459,12 +460,11 @@ void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &m
 
     case MSG_ADD_SERVICE:
         msg.hdr.size += sizeof(Add_Service_t);
-        msg.data.add_service.count = ((Ble::ServiceInfo_t*)data)->NumberAttributes;
-        memcpy(msg.data.add_service.uuid, ((Ble::ServiceInfo_t*)data)->ServiceUUID, sizeof(Ble::UUID_128_t));
+        msg.data.add_service = *((Add_Service_t*) data);
         break;
 
     case MSG_ADD_ATTRIBUTE:
-        msg_new = format_attr_add_msg(&msg, (Add_Attribute_t*) data);
+        msg_new = format_attr_add_msg(&msg, (Define_Attribute_t*) data);
         break;
 
     case MSG_UPDATE_ATTRIBUTE:

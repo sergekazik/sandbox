@@ -148,6 +148,18 @@ typedef struct _define_update
     uint8_t  *data;
 } Define_Update_t;
 
+typedef struct _define_attribute
+{
+    Ble::UUID_128_t uuid;
+    int8_t          name[ATTR_NAME_LEN];
+    uint16_t        max_length;
+    uint16_t        size;
+    uint8_t         type;
+    uint8_t         properties;
+    const char     *data;
+} Define_Attribute_t;
+
+
 ///
 /// \brief die
 /// \param s
@@ -207,7 +219,7 @@ int shut_comm(bool bServer);
 /// \param attr_new
 /// \return
 ///
-Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Add_Attribute_t *attr_new);
+Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new);
 
 ///
 /// \brief format_attr_updated_msg

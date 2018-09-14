@@ -6,6 +6,13 @@
 static uint8_t gsSessionId = 0;
 static Ble::ServiceInfo_t gClientService = {{0},0, NULL};
 
+void dump_uuid(Ble::UUID_128_t &uuid)
+{
+    DEBUG_PRINTF("UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                 uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
+                 uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+}
+
 ///
 /// \brief cleanup_attribute_value
 /// \param attr
@@ -84,6 +91,7 @@ int append_attribute(Comm_Msg_t *msg)
             attr->PropertiesMask = msg->data.add_attribute.properties;
             attr->SecurityMask = GATT_SECURITY_NONE;
             attr->AttributeOffset = (i)?(gClientService.AttributeList[i-1].AttributeOffset+(gClientService.AttributeList[i-1].AttributeType==Ble::atCharacteristic?2:1)):1;
+            dump_uuid(attr->AttributeUUID);
 
             // handle payload
             if (msg->data.add_attribute.size)
@@ -343,6 +351,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             // set service parameters
             gClientService.NumberAttributes = data->count;
             memcpy(gClientService.ServiceUUID, data->uuid, sizeof(Ble::UUID_128_t));
+            dump_uuid(gClientService.ServiceUUID);
 
             if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))
             {
