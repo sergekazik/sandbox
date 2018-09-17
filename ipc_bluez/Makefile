@@ -20,6 +20,9 @@ BUILD_PATH=$(shell pwd)
 CC = gcc
 RM = rm -f
 
+# set path to Bluez directory
+BLUEZ_548  = ./bluez-5.48
+
 CFLAGS =    -fPIC -Wall -Wextra -O0 -g -std=c++11 -pthread \
 	    -Wunused -Wunreachable-code	-Wunused-function -Wno-permissive \
 	    -Wno-format-zero-length -Wno-write-strings -Wno-missing-field-initializers -Wno-unused-result  \
@@ -27,8 +30,6 @@ CFLAGS =    -fPIC -Wall -Wextra -O0 -g -std=c++11 -pthread \
 
 CXXFLAGS = $(CFLAGS)
 ################################################################################
-# set path to bluez-5.4 directory
-BLUEZ_548  = ./bluez-5.48
 LDFLAGS_LIB = -shared -lbluetooth -lpthread
 TARGET_BLZ = libBluez548.so
 
