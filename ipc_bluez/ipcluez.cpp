@@ -257,11 +257,11 @@ int handle_request_msg(Comm_Msg_t *msg)
 
     if (!msg)
     {
-        return Ble::Error::INVALID_PARAMETER;
+        DEBUG_RETURN(Ble::Error::INVALID_PARAMETER);
     }
     else if (gsSessionId && (msg->hdr.session_id != gsSessionId))
     {
-        return Ble::Error::RESOURCE_UNAVAILABLE; // wrong session or client
+        DEBUG_RETURN(Ble::Error::RESOURCE_UNAVAILABLE); // wrong session or client
     }
 
     switch (msg->hdr.type)
@@ -274,7 +274,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             // Open_Session_t *data = (Open_Session_t *) &msg->data;
             if (gsSessionId > 0)
             {
-                ret = Ble::Error::RESOURCE_UNAVAILABLE;
+                DEBUG_RETURN(Ble::Error::RESOURCE_UNAVAILABLE);
             }
             else
             {
@@ -293,7 +293,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             }
             else
             {
-                ret = Ble::Error::RESOURCE_UNAVAILABLE;
+                DEBUG_RETURN(Ble::Error::RESOURCE_UNAVAILABLE);
             }
         }
         break;
@@ -371,7 +371,7 @@ int handle_request_msg(Comm_Msg_t *msg)
         }
         else
         {
-            ret = Ble::Error::INVALID_PARAMETER;
+            DEBUG_RETURN(Ble::Error::INVALID_PARAMETER);
         }
         break;
     }
@@ -389,7 +389,7 @@ int handle_request_msg(Comm_Msg_t *msg)
     }
 
     default:
-        ret = Ble::Error::INVALID_PARAMETER;
+        DEBUG_RETURN(Ble::Error::INVALID_PARAMETER);
         break;
     }
     return ret;
@@ -423,7 +423,7 @@ int main(int argc, char** argv )
         //Receive message
         if (Ble::Error::NONE != (ret = recv_from_client(msg, sizeof(recv_buff))))
         {
-            die("recv failed", ret);
+            die("recv_from_client failed", ret);
         }
 
         // handle request, set response
@@ -431,7 +431,7 @@ int main(int argc, char** argv )
 
         if (Ble::Error::NONE != (ret = resp_to_client(msg, sizeof(Common_Header_t))))
         {
-            die("send failed", ret);
+            die("resp_to_client failed", ret);
         }
 
         if ((msg->hdr.type == MSG_SESSION) && (0 == msg->data.session.on_off))

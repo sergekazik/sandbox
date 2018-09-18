@@ -94,7 +94,7 @@ typedef struct comm_msgbuf
 ///
 void die(const char *s, int err)
 {
-    DEBUG_PRINTF(("die.. err %d\n", err));
+    DEBUG_PRINTF(("%s... err %d, %s", s, err, get_err_name(err)));
     perror(s);
     exit(1);
 }
@@ -179,7 +179,7 @@ int init_comm(bool bServer)
         int *sockfd = bServer?&fdServerRx:&fdClientRx;
         if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
         {
-            return Ble::Error::FAILED_INITIALIZE;
+            DEBUG_RETURN(Ble::Error::FAILED_INITIALIZE);
         }
 
         memset(&rx_addr, 0, sizeof(rx_addr));
@@ -193,14 +193,14 @@ int init_comm(bool bServer)
         if ( bind(*sockfd, (const struct sockaddr *)&rx_addr, sizeof(rx_addr)) < 0 )
         {
             close(*sockfd);
-            return Ble::Error::FAILED_INITIALIZE;
+            DEBUG_RETURN(Ble::Error::FAILED_INITIALIZE);
         }
 
         // create sending socket file descriptor
         sockfd = bServer?&fdServerTx:&fdClientTx;
         if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
         {
-            return Ble::Error::FAILED_INITIALIZE;
+            DEBUG_RETURN(Ble::Error::FAILED_INITIALIZE);
         }
         gbInitialized = true;
     }
@@ -224,13 +224,14 @@ int send_comm(bool bServer, Comm_Msg_t *msg, int size, bool bNotification)
     int sockfd = bServer?fdServerTx:fdClientTx;
 
     rx_addr.sin_family = AF_INET;
-    rx_addr.sin_port = htons(dest_port);
+    rx_addr.sin_port = !bServer?htons(dest_port): (bNotification ? htons(dest_port) : gClient_addr.sin_port);
     rx_addr.sin_addr.s_addr = !bServer ? inet_addr(gsServerAdd) : gClient_addr.sin_addr.s_addr;
 
+    TRACE_DEBUG_PRINTF(("Responding client addr:port %d:%d", gClient_addr.sin_addr.s_addr, gClient_addr.sin_port));
     int bsent = sendto(sockfd, (const char *)msg, size, MSG_CONFIRM, (const struct sockaddr *) &rx_addr, sizeof(rx_addr));
     if (bsent != size)
     {
-        return Ble::Error::OPERATION_FAILED;
+        DEBUG_RETURN(Ble::Error::OPERATION_FAILED);
     }
     return Ble::Error::NONE;
 }
@@ -240,8 +241,8 @@ static int receive_from(bool bServer, Comm_Msg_t *buffer, int size, int timeout_
     if (!gbInitialized)
         return Ble::Error::NOT_INITIALIZED;
 
-    socklen_t len = 0;
     struct sockaddr_in addr;
+    socklen_t len = sizeof(struct sockaddr_in);
 
     memset(&addr, 0, sizeof(addr));
 
@@ -267,6 +268,7 @@ static int receive_from(bool bServer, Comm_Msg_t *buffer, int size, int timeout_
     if (bServer)
     {
         gClient_addr = addr;
+        TRACE_DEBUG_PRINTF(("saving client addr:port %d:%d", gClient_addr.sin_addr.s_addr, gClient_addr.sin_port));
     }
     return Ble::Error::NONE;
 }

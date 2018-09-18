@@ -37,9 +37,18 @@
 
 #ifdef DEBUG_ENABLED
 #define DEBUG_PRINTF(_args_) {printf _args_; printf("\n");}
+#define DEBUG_RETURN(_val) printf("%s %d: ", __FUNCTION__, __LINE__);DEBUG_PRINTF((#_val)); return _val;
+#else
+#define DEBUG_RETURN(_val) return _val
+#define DEBUG_PRINTF(_args_)
+#define TRACE()
+#endif
+
+#ifdef TRACE_ALL
+#define TRACE_DEBUG_PRINTF DEBUG_PRINTF
 #define TRACE() {printf("%s %d\n", __FUNCTION__, __LINE__);fflush(stdout);}
 #else
-#define DEBUG_PRINTF(_args_)
+#define TRACE_DEBUG_PRINTF(_args_)
 #define TRACE()
 #endif
 
