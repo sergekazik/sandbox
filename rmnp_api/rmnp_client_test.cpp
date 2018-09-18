@@ -1,27 +1,17 @@
 #include "rmnp_api.h"
 
-#define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) \
-    {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
-#define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
-#define MAKE_UUID(_attr_idx) MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,20,D0,87,33,3C,2C,_attr_idx)
-#define CCCDESC_UUID()       MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
-
-#define GATT_PROPERTY_READ          0x02
-#define GATT_PROPERTY_WRITE         0x08
-#define GATT_PROPERTY_NOTIFY        0x10
-#define GATT_TYPE_CHARACTERISTIC    0x00
-#define GATT_TYPE_DESCRIPTOR        0x01
-
-enum Permission
+typedef enum
 {
-    R__     = GATT_PROPERTY_READ,
-    _W_     = GATT_PROPERTY_WRITE,
-    RW_     = GATT_PROPERTY_READ | GATT_PROPERTY_WRITE,
-    __N     = GATT_PROPERTY_NOTIFY,
-    R_N     = GATT_PROPERTY_READ | GATT_PROPERTY_NOTIFY,
-    _WN     = GATT_PROPERTY_WRITE | GATT_PROPERTY_NOTIFY,
-    RWN     = GATT_PROPERTY_READ | GATT_PROPERTY_WRITE | GATT_PROPERTY_NOTIFY,
-};
+    CHR     = 0x00,
+    DSC     = 0x01,
+    R__     = 0x02,
+    _W_     = 0x08,
+    RW_     = 0x02 | 0x08,
+    __N     = 0x10,
+    R_N     = 0x02 | 0x10,
+    _WN     = 0x08 | 0x10,
+    RWN     = 0x02 | 0x08 | 0x10,
+} Properties_t;
 
 static void my_callback(int attr_idx, void* data, int size)
 {
@@ -31,8 +21,12 @@ static void my_callback(int attr_idx, void* data, int size)
 int main()
 {
     Rmnp_Error_t ret = NO_ERROR;
-    uint8_t uuid[16] = SERVICE_UUID;
-    uint8_t attr_uuid[3][16] = {MAKE_UUID(01), MAKE_UUID(02), CCCDESC_UUID()};
+    uint8_t uuid[16] = {0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x00,0xFC,0xBB,0xEE,0x33,0x73,0xF7};
+    uint8_t attr_uuid[3][16] = {
+        {0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x01},
+        {0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x02},
+        {0x00,0x00,0x29,0x02,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB}
+    };
 
     if (NO_ERROR != (ret = rmnp_init()))
     {
@@ -50,21 +44,34 @@ int main()
     {
         printf("failed to add service, err = %d\n", ret);
     }
-    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[0],"attr-1", 64, 6, 0, RWN, "value1")))
+    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[0],"attr-1", 64, 6, CHR, RWN, "value1")))
     {
         printf("failed to add attr, err = %d\n", ret);
     }
-    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[1],"attr-2", 64, 6, 0, RWN, "value2")))
+    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[1],"attr-2", 64, 6, CHR, RWN, "value2")))
     {
         printf("failed to add attr, err = %d\n", ret);
     }
-    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[2],"desc", 32, 2, 1, RW_, "\x01\00")))
+    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_uuid[2],"desc", 32, 2, DSC, RW_, "\x01\00")))
     {
         printf("failed to add attr, err = %d\n", ret);
+    }
+    else if (NO_ERROR != (ret = rmnp_start_advertisement()))
+    {
+        printf("failed to shutdown, err = %d\n", ret);
+    }
+
+
+    // do real things in callback now
+
+
+    if (NO_ERROR != (ret = rmnp_stop_advertisement()))
+    {
+        printf("failed to shutdown, err = %d\n", ret);
     }
     else if (NO_ERROR != (ret = rmnp_shutdown()))
     {
         printf("failed to shutdown, err = %d\n", ret);
     }
-    return 0;
+    return ret;
 }
