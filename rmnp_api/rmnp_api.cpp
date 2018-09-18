@@ -144,7 +144,7 @@ static Rmnp_Error_t start_stop_advertisement(int onoff)
     return ret;
 }
 
-/* --------------------------------------------------------
+/* -------------------------------------------------------/-
  * RMNP API implementation
  * --------------------------------------------------------*/
 
@@ -336,8 +336,8 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr)
     struct Message_Sevice_t
     {
         Message_Header_t hdr;
-        uint8_t    uuid[16];// 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the GATT Service to be added
-        uint32_t   count;   // Unsigned 32 bit integer Total number of attribute per service
+        uint8_t    uuid[16];    // 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the GATT Service to be added
+        uint32_t   count;       // Unsigned 32 bit integer Total number of attribute per service
     } service = {{MessageType_ADD_SVC, NO_ERROR, (uint16_t) Globals->session_id, sizeof(Message_Sevice_t)}, "", number_of_attr};
 
     memcpy(service.uuid, uuid, sizeof(service.uuid));
@@ -354,7 +354,7 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr)
 /// \brief rmnp_add_attribute
 /// \return
 ///
-Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, void* value)
+Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value)
 {
     if ((uuid == NULL) || (max_len <=0 ) || ((size > 0) && (value == NULL)) || (size > MAX_ATT_MTU_SIZE))
     {
@@ -366,12 +366,12 @@ Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size
     struct Message_Attribute_t
     {
         Message_Header_t hdr;
-        uint8_t    uuid[16];   // 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the Attribute to be added
-        uint8_t    name[16];   // 16 byte string User-friendly attribute name for debugging
-        uint16_t   max_length; // unsigned 16 bit integer Maximum allowed size of the attribute value
-        uint16_t   size;       // unsigned 16 bit integer Current size of the attribute value
-        uint8_t    type;       // unsigned 8 bit integer Type of Attribute specifying “0” for Characteristic or “1” for Descriptor
-        uint8_t    properties; // unsigned 8 bit integer Bit-mask defining READ, WRITE and NOTIFY
+        uint8_t    uuid[16];    // 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the Attribute to be added
+        uint8_t    name[16];    // 16 byte string User-friendly attribute name for debugging
+        uint16_t   max_length;  // unsigned 16 bit integer Maximum allowed size of the attribute value
+        uint16_t   size;        // unsigned 16 bit integer Current size of the attribute value
+        uint8_t    type;        // unsigned 8 bit integer Type of Attribute specifying “0” for Characteristic or “1” for Descriptor
+        uint8_t    properties;  // unsigned 8 bit integer Bit-mask defining READ, WRITE and NOTIFY
         uint8_t    value[MAX_ATT_MTU_SIZE];  // attribute value
     } attr = {
         {MessageType_ADD_ATTR, NO_ERROR, (uint16_t) Globals->session_id, (uint16_t) (sizeof(Message_Attribute_t)-(MAX_ATT_MTU_SIZE-size))},
@@ -400,7 +400,7 @@ Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size
 /// \brief rmnp_update_attribute
 /// \return
 ///
-Rmnp_Error_t rmnp_update_attribute(int attr_idx, int size, void* value)
+Rmnp_Error_t rmnp_update_attribute(int attr_idx, int size, const void* value)
 {
     if ((attr_idx < 0) || ((size > 0) && (value == NULL)) || (size > MAX_ATT_MTU_SIZE))
     {
@@ -412,8 +412,8 @@ Rmnp_Error_t rmnp_update_attribute(int attr_idx, int size, void* value)
     struct Message_Update_t
     {
         Message_Header_t hdr;
-        uint16_t   size;   // Unsigned 16 bit integer Size of the attribute value to update
-        uint8_t    attr_idx;   // Unsigned 8 bit integer Index of the attribute in sequence in order it was added with MSG_ADD_ATTRIBUTE
+        uint16_t   size;        // Unsigned 16 bit integer Size of the attribute value to update
+        uint8_t    attr_idx;    // Unsigned 8 bit integer Index of the attribute in sequence in order it was added with rmnp_add_attribute()
         uint8_t    value[MAX_ATT_MTU_SIZE];  // attribute new value
     } update = {
         {MessageType_UPDATE_ATTR, NO_ERROR, (uint16_t) Globals->session_id, (uint16_t) (sizeof(Message_Update_t)-(MAX_ATT_MTU_SIZE-size))},

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2018-09-17T12:19:52. -->
+<!-- Written by QtCreator 3.4.2, 2018-09-17T17:26:08. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -215,10 +215,10 @@
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments"></value>
-    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">/home/ring-sergie/workspace/sandbox/rmnp_api/Makefile</value>
+    <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.Executable">/home/ring-sergie/workspace/sandbox/rmnp_api/rmnp_client_test</value>
     <value type="bool" key="ProjectExplorer.CustomExecutableRunConfiguration.UseTerminal">true</value>
     <value type="QString" key="ProjectExplorer.CustomExecutableRunConfiguration.WorkingDirectory">/home/ring-sergie/workspace/sandbox/rmnp_api</value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run /home/ring-sergie/workspace/sandbox/rmnp_api/Makefile</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">Run /home/ring-sergie/workspace/sandbox/rmnp_api/rmnp_client_test</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">rmnp_api</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">ProjectExplorer.CustomExecutableRunConfiguration</value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>
