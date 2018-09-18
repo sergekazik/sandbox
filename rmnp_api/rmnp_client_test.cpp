@@ -62,10 +62,9 @@ int main()
     {
         printf("failed to add attr, err = %d\n", ret);
     }
-
-
-
-
-
+    else if (NO_ERROR != (ret = rmnp_shutdown()))
+    {
+        printf("failed to shutdown, err = %d\n", ret);
+    }
     return 0;
 }
