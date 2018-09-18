@@ -135,7 +135,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
     while (server_notify_listener_done == 0)
     {
         Comm_Msg_t msg;
-        int ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg), 333);
+        int ret = wait_notification(&msg, sizeof(msg), 333 /*timeout ms*/);
 
         if (ret == Ble::Error::TIMEOUT)
         {
@@ -231,7 +231,7 @@ int main(int argc, char** argv )
         {
             Comm_Msg_t *msg_to_send = (Comm_Msg_t *) format_message_payload(giSessionId, msg_list[i].type, msg, msg_list[i].data);
 
-            ret = send_comm(TO_SERVER, ((NULL != msg_to_send) ? msg_to_send : &msg), msg.hdr.size);
+            ret = send_to_server(((NULL != msg_to_send) ? msg_to_send : &msg), msg.hdr.size);
 
             // if allocated by format_message_payload - release it
             if (msg_to_send)
@@ -242,15 +242,15 @@ int main(int argc, char** argv )
 
             if (Ble::Error::NONE != ret)
             {
-                shut_comm(CLIENT);
+                shut_comm();
                 die("msg send to server failed", ret);
             }
             else
             {
                 printf ("Message Sent to server, type %d %s, size = %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.size);
-                if (Ble::Error::NONE != (ret = recv_comm(FROM_SERVER, (char*) &msg, sizeof(msg), 5000)))
+                if (Ble::Error::NONE != (ret = resp_from_server(&msg, sizeof(msg), 5000 /*timeout ms*/)))
                 {
-                    shut_comm(CLIENT);
+                    shut_comm();
                     die("failed recv from server", ret);
                 }
                 printf ("got rsp: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
@@ -258,7 +258,6 @@ int main(int argc, char** argv )
             }
         }
     }
-
-    shut_comm(CLIENT);
+    shut_comm();
     return 0;
 }

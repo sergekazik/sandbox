@@ -208,29 +208,61 @@ const char* get_err_name(int ret);
 int init_comm(bool bServer);
 
 ///
-/// \brief send_comm
-/// \param bServer
-/// \param msg
-/// \param size
-/// \return
-///
-int send_comm(bool bServer, Comm_Msg_t *msg, int size);
-
-///
-/// \brief recv_comm
-/// \param bServer
+/// \brief send_to_server
 /// \param buffer
 /// \param size
 /// \return
 ///
-int recv_comm(bool bServer, char *buffer, int size, int timeout_ms = 0);
+int send_to_server(Comm_Msg_t *buffer, int size);
+
+///
+/// \brief recv_from_client
+/// \param buffer
+/// \param size
+/// \return
+///
+int recv_from_client(Comm_Msg_t *buffer, int size);
+
+///
+/// \brief resp_to_client
+/// \param msg
+/// \param size
+/// \return
+///
+int resp_to_client(Comm_Msg_t *msg, int size);
+
+///
+/// \brief resp_from_server
+/// \param msg
+/// \param size
+/// \param timeout_ms
+/// \return
+///
+int resp_from_server(Comm_Msg_t *msg, int size, int timeout_ms);
+
+///
+/// \brief notify_client
+/// \param msg
+/// \param size
+/// \return
+///
+int notify_client(Comm_Msg_t *msg, int size);
+
+///
+/// \brief wait_notification
+/// \param buffer
+/// \param size
+/// \param timeout_ms
+/// \return
+///
+int wait_notification(Comm_Msg_t *buffer, int size, int timeout_ms);
 
 ///
 /// \brief shut_comm
 /// \param bServer
 /// \return
 ///
-int shut_comm(bool bServer);
+int shut_comm();
 
 ///
 /// \brief format_attr_add_msg

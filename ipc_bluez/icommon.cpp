@@ -23,17 +23,13 @@
 #include <netinet/in.h>
 #include "icommon.h"
 
-#define QUEUE_KEY_DEFAULT 0x52696e67
+#define WAIT_FOREVER      0
 #define SOCK_PORT_DEFAULT 2407
 #define LOOPBACK_ADDR   ((char*) "127.0.0.1")
 #define fdServerTx fdClientRx
 #define fdClientTx fdServerRx
 
-
-static bool gbIpc = true;
-static uint32_t guiKey = QUEUE_KEY_DEFAULT;
 static int giPort = SOCK_PORT_DEFAULT;
-
 static int fdServerRx = -1;
 static int fdClientRx = -1;
 static struct sockaddr_in gClient_addr;
@@ -138,29 +134,17 @@ int parse_command_line(int argc, char** argv)
 {
     for (int i = 1; i < argc; i++)
     {
-        if (!strcmp(argv[i], "-k")) // key for IPC queue
-        {
-            int key = i+1<argc?atoi(argv[++i]):0;
-            if (key > 0)
-            {
-                gbIpc = true;
-                guiKey = key;
-                DEBUG_PRINTF(("set key %d\n", guiKey));
-            }
-        }
-        else if (!strcmp(argv[i], "-p")) // port for UDP socket
+        if (!strcmp(argv[i], "-p")) // port for UDP socket
         {
             int port = i+1<argc?atoi(argv[++i]):0;
             if (port > 0)
             {
-                gbIpc = false;
                 giPort = port;
                 DEBUG_PRINTF(("set port %d\n", giPort));
             }
         }
         else if (!strcmp(argv[i], "-ip")) // Server IP for Client to connect
         {
-            gbIpc = false;
             gsServerAdd = i+1<argc?argv[++i]:LOOPBACK_ADDR;
             if (gsServerAdd && strlen(gsServerAdd))
             {
@@ -173,7 +157,7 @@ int parse_command_line(int argc, char** argv)
             return Ble::Error::INVALID_PARAMETER;
         }
     }
-    DEBUG_PRINTF(("configured to use %s %d [0x%08x]\n", gbIpc?"queue key =":gsServerAdd, gbIpc?guiKey:giPort, gbIpc?guiKey:giPort));
+    DEBUG_PRINTF(("configured to use %s %d [0x%08x]\n", gsServerAdd, giPort, giPort));
     return 0;
 }
 
@@ -189,46 +173,34 @@ int init_comm(bool bServer)
 {
     if (!gbInitialized)
     {
-        if (gbIpc)
+        struct sockaddr_in rx_addr;
+
+        // Creating listening socket file descriptor
+        int *sockfd = bServer?&fdServerRx:&fdClientRx;
+        if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
         {
-            int msgflg = bServer ? (IPC_CREAT | 0666) : 0666;
-            if (((fdServerRx = msgget(guiKey, msgflg )) < 0)   || // Get the message queues IDs for the given key
-                ((fdClientRx = msgget(guiKey+1, msgflg )) < 0))
-            {
-              return Ble::Error::FAILED_INITIALIZE;
-            }
+            return Ble::Error::FAILED_INITIALIZE;
         }
-        else
+
+        memset(&rx_addr, 0, sizeof(rx_addr));
+
+        // Binding to dedicated port
+        int binding_port = giPort + (bServer?0:1);
+        rx_addr.sin_family    = AF_INET; // IPv4
+        rx_addr.sin_addr.s_addr = INADDR_ANY;
+        rx_addr.sin_port = htons(binding_port);
+
+        if ( bind(*sockfd, (const struct sockaddr *)&rx_addr, sizeof(rx_addr)) < 0 )
         {
-            struct sockaddr_in rx_addr;
+            close(*sockfd);
+            return Ble::Error::FAILED_INITIALIZE;
+        }
 
-            // Creating listening socket file descriptor
-            int *sockfd = bServer?&fdServerRx:&fdClientRx;
-            if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
-            {
-                return Ble::Error::FAILED_INITIALIZE;
-            }
-
-            memset(&rx_addr, 0, sizeof(rx_addr));
-
-            // Binding to dedicated port
-            int binding_port = giPort + (bServer?0:1);
-            rx_addr.sin_family    = AF_INET; // IPv4
-            rx_addr.sin_addr.s_addr = INADDR_ANY;
-            rx_addr.sin_port = htons(binding_port);
-
-            if ( bind(*sockfd, (const struct sockaddr *)&rx_addr, sizeof(rx_addr)) < 0 )
-            {
-                close(*sockfd);
-                return Ble::Error::FAILED_INITIALIZE;
-            }
-
-            // create sending socket file descriptor
-            sockfd = bServer?&fdServerTx:&fdClientTx;
-            if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
-            {
-                return Ble::Error::FAILED_INITIALIZE;
-            }
+        // create sending socket file descriptor
+        sockfd = bServer?&fdServerTx:&fdClientTx;
+        if ( (*sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 )
+        {
+            return Ble::Error::FAILED_INITIALIZE;
         }
         gbInitialized = true;
     }
@@ -242,117 +214,143 @@ int init_comm(bool bServer)
 /// \param size
 /// \return
 ///
-int send_comm(bool bServer, Comm_Msg_t *msg, int size)
+int send_comm(bool bServer, Comm_Msg_t *msg, int size, bool bNotification)
 {
     if (!gbInitialized)
         return Ble::Error::NOT_INITIALIZED;
 
-    if (gbIpc)
-    {
-        Comm_Msgbuf_t sbuf;
-        sbuf.mtype = 1;
-        sbuf.msg = *msg;
+    struct sockaddr_in rx_addr;
+    int dest_port = giPort + (bServer?(bNotification?1:0):0);
+    int sockfd = bServer?fdServerTx:fdClientTx;
 
-        if (msgsnd(bServer?fdClientRx:fdServerRx, &sbuf, size+1, IPC_NOWAIT) < 0)
-        {
-            return Ble::Error::OPERATION_FAILED;
-        }
+    rx_addr.sin_family = AF_INET;
+    rx_addr.sin_port = htons(dest_port);
+    rx_addr.sin_addr.s_addr = !bServer ? inet_addr(gsServerAdd) : gClient_addr.sin_addr.s_addr;
+
+    int bsent = sendto(sockfd, (const char *)msg, size, MSG_CONFIRM, (const struct sockaddr *) &rx_addr, sizeof(rx_addr));
+    if (bsent != size)
+    {
+        return Ble::Error::OPERATION_FAILED;
     }
-    else
+    return Ble::Error::NONE;
+}
+
+static int receive_from(bool bServer, Comm_Msg_t *buffer, int size, int timeout_ms, bool bNotification)
+{
+    if (!gbInitialized)
+        return Ble::Error::NOT_INITIALIZED;
+
+    socklen_t len = 0;
+    struct sockaddr_in addr;
+
+    memset(&addr, 0, sizeof(addr));
+
+    int sockfd = bServer?fdServerRx:(bNotification?fdClientRx:fdClientTx);
+
+    struct timeval tv;
+    tv.tv_sec = timeout_ms > 0 ? ((int)timeout_ms/1000):0xFFFF;
+    tv.tv_usec = timeout_ms > 0 ? (timeout_ms%1000)*1000:0;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+        perror("setsockopt error");
+    }
+
+    int brecv = recvfrom(sockfd, (char *)buffer, size, MSG_WAITALL, (struct sockaddr *) &addr, &len);
+    if (brecv <= 0)
     {
-        struct sockaddr_in rx_addr;
-        int dest_port = giPort + (bServer?1:0);
-        int sockfd = bServer?fdServerTx:fdClientTx;
-
-        rx_addr.sin_family = AF_INET;
-        rx_addr.sin_port = htons(dest_port);
-        rx_addr.sin_addr.s_addr = !bServer ? inet_addr(gsServerAdd) : gClient_addr.sin_addr.s_addr;
-
-        int bsent = sendto(sockfd, (const char *)msg, size, MSG_CONFIRM, (const struct sockaddr *) &rx_addr, sizeof(rx_addr));
-        if (bsent != size)
-        {
+        if ((timeout_ms > 0) && (brecv == -1))
+            return Ble::Error::TIMEOUT;
+        else
             return Ble::Error::OPERATION_FAILED;
-        }
+    }
+
+    // save client address for Server to respond
+    if (bServer)
+    {
+        gClient_addr = addr;
     }
     return Ble::Error::NONE;
 }
 
 ///
-/// \brief recv_comm
-/// \param bServer
+/// \brief send_to_server
 /// \param buffer
 /// \param size
 /// \return
 ///
-int recv_comm(bool bServer, char* buffer, int size, int timeout_ms)
+int send_to_server(Comm_Msg_t *buffer, int size)
 {
-    if (!gbInitialized)
-        return Ble::Error::NOT_INITIALIZED;
-
-    if (gbIpc)
-    {
-        Comm_Msgbuf_t sbuf;
-        if (msgrcv(bServer?fdServerRx:fdClientRx, &sbuf, sizeof(Comm_Msgbuf_t), 1, 0) < 0)
-        {
-            return Ble::Error::OPERATION_FAILED;
-        }
-        memcpy(buffer, &sbuf.msg, sizeof(sbuf.msg));
-    }
-    else
-    {
-        socklen_t len = 0;
-        struct sockaddr_in addr;
-
-        memset(&addr, 0, sizeof(addr));
-        int sockfd = bServer?fdServerRx:fdClientRx;
-
-        struct timeval tv;
-        tv.tv_sec = timeout_ms > 0 ? ((int)timeout_ms/1000):0xFFFF;
-        tv.tv_usec = timeout_ms > 0 ? (timeout_ms%1000)*1000:0;
-        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-            perror("setsockopt error");
-        }
-
-        int brecv = recvfrom(sockfd, (char *)buffer, size, MSG_WAITALL, (struct sockaddr *) &addr, &len);
-        if (brecv <= 0)
-        {
-            if ((timeout_ms > 0) && (brecv == -1))
-                return Ble::Error::TIMEOUT;
-            else
-                return Ble::Error::OPERATION_FAILED;
-        }
-
-        // save client address for Server to respond
-        if (bServer)
-        {
-            gClient_addr = addr;
-        }
-    }
-    return Ble::Error::NONE;
+    return send_comm(TO_SERVER, buffer, size, false);
 }
+
+///
+/// \brief recv_from_client
+/// \param buffer
+/// \param size
+/// \return
+///
+int recv_from_client(Comm_Msg_t * buffer, int size)
+{
+    return receive_from(FROM_CLIENT, buffer, size, WAIT_FOREVER, false);
+}
+
+///
+/// \brief resp_to_client
+/// \param msg
+/// \param size
+/// \return
+///
+int resp_to_client(Comm_Msg_t *msg, int size)
+{
+    return send_comm(TO_CLIENT, msg, size, false);
+}
+
+///
+/// \brief resp_from_server
+/// \param msg
+/// \param size
+/// \param timeout_ms
+/// \return
+///
+int resp_from_server(Comm_Msg_t *msg, int size, int timeout_ms)
+{
+    return receive_from(FROM_SERVER, msg, size, timeout_ms, false);
+}
+
+///
+/// \brief notify_client
+/// \param msg
+/// \param size
+/// \return
+///
+int notify_client(Comm_Msg_t *msg, int size)
+{
+    return send_comm(TO_CLIENT, msg, size, true);
+}
+
+///
+/// \brief wait_notification
+/// \param buffer
+/// \param size
+/// \param timeout_ms
+/// \return
+///
+ int wait_notification(Comm_Msg_t *buffer, int size, int timeout_ms)
+ {
+    return receive_from(FROM_SERVER, buffer, size, timeout_ms, true);
+ }
+
 
 ///
 /// \brief shut_comm
 /// \param bServer
 /// \return
 ///
-int shut_comm(bool bServer)
+int shut_comm()
 {
     if (gbInitialized)
     {
-        if (gbIpc)
-        {
-            if (bServer)
-            {
-                msgctl(fdClientRx, IPC_RMID, 0);
-                msgctl(fdServerRx, IPC_RMID, 0);
-            }
-        }
-        else
-        {
-            close(fdClientRx);
-            close(fdServerRx);
-        }
+        close(fdClientRx);
+        close(fdServerRx);
         fdClientRx = fdServerRx = -1;
         gbInitialized = false;
     }

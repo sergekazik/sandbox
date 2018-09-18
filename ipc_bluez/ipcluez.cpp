@@ -231,7 +231,7 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     // send to Client
     if (msg->hdr.error == Ble::Error::NONE)
     {
-        int ret = send_comm(TO_CLIENT, msg, msg->hdr.size);
+        int ret = notify_client(msg, msg->hdr.size);
         DEBUG_PRINTF(("Notify Client aAccessType = %d, type = %d %s, err = %d %s", aAccessType, msg->hdr.type, get_msg_name(msg), ret, get_err_name(ret)));
     }
 
@@ -421,7 +421,7 @@ int main(int argc, char** argv )
     while (1)
     {
         //Receive message
-        if (Ble::Error::NONE != (ret = recv_comm(FROM_CLIENT, recv_buff, sizeof(recv_buff))))
+        if (Ble::Error::NONE != (ret = recv_from_client(msg, sizeof(recv_buff))))
         {
             die("recv failed", ret);
         }
@@ -429,7 +429,7 @@ int main(int argc, char** argv )
         // handle request, set response
         msg->hdr.error = handle_request_msg(msg);
 
-        if (Ble::Error::NONE != (ret = send_comm(TO_CLIENT, msg, sizeof(Common_Header_t))))
+        if (Ble::Error::NONE != (ret = resp_to_client(msg, sizeof(Common_Header_t))))
         {
             die("send failed", ret);
         }
@@ -440,7 +440,7 @@ int main(int argc, char** argv )
         }
     }
 
-    shut_comm(SERVER);
+    shut_comm();
     return 0;
 }
 
