@@ -9,6 +9,7 @@ typedef enum _rmnp_error
     NOT_INITIALIZED,
     REQUEST_RESPONSE_MISMATCH,
     INVALID_PARAMETER,
+    PTHREAD_CREATE_FAILED,
     SOCKET_CREATE_FAILED,
     SOCKET_BIND_FAILED,
     SOCKET_SET_TIMEOUT_FAILED,
@@ -43,8 +44,15 @@ Rmnp_Error_t rmnp_shutdown();
 ///
 Rmnp_Error_t rmnp_config(uint32_t dev_class = 0, char *name = NULL, char *mac = NULL);
 
+enum Rmnp_Callback_Type_t
+{
+    Server_disconnected = 0,
+    Server_connected    = 1,
+    Attr_data_read      = 2,
+    Attr_data_write     = 3,
+};
 
-typedef void (*data_access_cb) (int attr_idx, void* data, int size);
+typedef void (*data_access_cb) (Rmnp_Callback_Type_t type, int attr_idx, void* data, int size);
 ///
 /// \brief rmnp_register_callback
 /// \param cb
@@ -72,6 +80,24 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr);
 /// \return
 ///
 Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value = NULL);
+
+typedef struct Attr_Define
+{
+    uint8_t uuid[16];
+    char* name;
+    int max_len;
+    int size;
+    uint8_t type;
+    uint8_t prop;
+    const void* value;
+} Attr_Define_t;
+
+///
+/// \brief rmnp_add_attribute
+/// \param attr
+/// \return
+///
+Rmnp_Error_t rmnp_add_attribute(Attr_Define_t &attr);
 
 ///
 /// \brief rmnp_update_attribute
