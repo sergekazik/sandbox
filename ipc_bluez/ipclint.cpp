@@ -71,6 +71,9 @@ SampleStruct_t msg_list[] = {
     { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Stop},
     { MSG_POWER,            (void*) Ble::ConfigArgument::PowerOff},
     { MSG_SESSION,          (void*) Ble::ConfigArgument::Disable},
+    // for debugging - not used in real communication
+    { CMD_SERVER_EXIT,      (void*) NULL},
+
 };
 
 ///
@@ -244,6 +247,11 @@ int main(int argc, char** argv )
             {
                 shut_comm();
                 die("msg send to server failed", ret);
+            }
+            else if (msg.hdr.type == CMD_SERVER_EXIT)
+            {
+                printf ("---- end of test ----\n");
+                break;
             }
             else
             {

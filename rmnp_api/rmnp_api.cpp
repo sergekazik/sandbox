@@ -9,9 +9,9 @@
 /*
  * TODO: replace with proper definitions
  */
-#define BOT_NOTIFY_ERROR    printf
-#define BOT_NOTIFY_DEBUG    printf
-#define BOT_NOTIFY_WARNING  printf
+#define BOT_NOTIFY_ERROR(fmt, ...) printf(fmt "\n", __VA_ARGS__)
+#define BOT_NOTIFY_DEBUG(fmt, ...) printf(fmt "\n", __VA_ARGS__)
+#define BOT_NOTIFY_WARNING(fmt, ...) printf(fmt "\n", __VA_ARGS__)
 
 /* --------------------------------------------------------
  * static definitions
@@ -23,7 +23,6 @@
 #define RMNP_DEFAULT_TIMEOUT    5000        // ms
 #define MAX_ATT_MTU_SIZE        512
 #define NOTIFICATION_PLD_SIZE   (MAX_ATT_MTU_SIZE+4)
-
 
 #define MessageType_SESSION     0   // Open/Close session
 #define MessageType_POWER       1   // Power On/Off Bluetooth Adapter
@@ -141,6 +140,7 @@ static Rmnp_Error_t send_receive(Message_Header_t *msg)
     {
         return REQUEST_RESPONSE_MISMATCH;
     }
+    BOT_NOTIFY_DEBUG("send_receive msg type %d ret = %d", msg->type, msg->error);
     return (Rmnp_Error_t) msg->error; // error code returned by Server as result of the requested operation
 }
 
@@ -157,7 +157,7 @@ static Rmnp_Error_t start_stop_advertisement(int onoff)
     {
         Message_Header_t hdr;
         uint8_t         on_off;            // This unsigned 8 bit value indicates request to OPEN a new session when set to “1” and CLOSE when set to “0”
-    } adv = {{MessageType_POWER, NO_ERROR, (uint16_t) Globals->session_id, sizeof(Message_Adv_t)}, (uint8_t) onoff};
+    } adv = {{MessageType_ADV, NO_ERROR, (uint16_t) Globals->session_id, sizeof(Message_Adv_t)}, (uint8_t) onoff};
 
     // send ad msg
     if (NO_ERROR != (ret = send_receive((Message_Header_t*) &adv)))
@@ -182,8 +182,11 @@ static void* listening_thread_func(void *data __attribute__ ((unused)))
         uint8_t          pld[NOTIFICATION_PLD_SIZE];
     } msg;
 
-    for (int bread = recvfrom(Globals->sock_ntf, (char *)&msg, sizeof(msg), MSG_WAITALL, (struct sockaddr *) &server_addr, &addr_len); !Globals->lth_done;)
+    BOT_NOTIFY_DEBUG("listening_thread activated! err=%d", NO_ERROR);
+    while (!Globals->lth_done)
     {
+        int bread = recvfrom(Globals->sock_ntf, (char *)&msg, sizeof(msg), MSG_WAITALL, (struct sockaddr *) &server_addr, &addr_len);
+        // BOT_NOTIFY_DEBUG("recvfrom notify %d bytes type %d", bread, msg.hdr.type);
         if (bread > 0)
         {
             if (Globals->cb) switch (msg.hdr.type)
@@ -214,7 +217,7 @@ static void* listening_thread_func(void *data __attribute__ ((unused)))
         }
     }
 
-    BOT_NOTIFY_DEBUG("listening_thread done!");
+    BOT_NOTIFY_DEBUG("listening_thread done! err=%d", NO_ERROR);
     pthread_exit(NULL);
     return (void*) 0;
 }
@@ -266,6 +269,15 @@ Rmnp_Error_t rmnp_init(int tm_ms, int port, const char *ip)
         GOTOERR(SOCKET_CREATE_FAILED);
     }
 
+    tv.tv_sec = Globals->timeout_ms > 0 ? ((int)Globals->timeout_ms / 1000) : 0xFFFF;
+    tv.tv_usec = Globals->timeout_ms > 0 ? (Globals->timeout_ms % 1000) * 1000 : 0;
+
+    if (setsockopt(Globals->sock_main, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+    {
+        BOT_NOTIFY_ERROR("setsockopt main(SO_RCVTIMEO) %d ms error %s (%d)", Globals->timeout_ms, strerror(errno), errno);
+        GOTOERR(SOCKET_SET_TIMEOUT_FAILED);
+    }
+
     if ((Globals->sock_ntf = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         BOT_NOTIFY_ERROR("cannot create notify socket %s (%d)", strerror(errno), errno);
         GOTOERR(SOCKET_CREATE_FAILED);
@@ -283,14 +295,15 @@ Rmnp_Error_t rmnp_init(int tm_ms, int port, const char *ip)
         GOTOERR(SOCKET_BIND_FAILED);
     }
 
-    tv.tv_sec = Globals->timeout_ms > 0 ? ((int)Globals->timeout_ms / 1000) : 0xFFFF;
-    tv.tv_usec = Globals->timeout_ms > 0 ? (Globals->timeout_ms % 1000) * 1000 : 0;
-
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000; // 1/2 sec
     if (setsockopt(Globals->sock_ntf, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
     {
-        BOT_NOTIFY_ERROR("setsockopt(SO_RCVTIMEO) %d ms error %s (%d)", Globals->timeout_ms, strerror(errno), errno);
+        BOT_NOTIFY_ERROR("setsockopt ntf(SO_RCVTIMEO) %d ms error %s (%d)", Globals->timeout_ms, strerror(errno), errno);
         GOTOERR(SOCKET_SET_TIMEOUT_FAILED);
     }
+
+    BOT_NOTIFY_DEBUG("notification socket created on port %d, rcv timeout %d ms", Globals->port_listen, (int) tv.tv_usec/1000);
 
     // open session
     if (NO_ERROR == (ret = send_receive((Message_Header_t*) &session)))

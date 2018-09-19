@@ -80,7 +80,8 @@ typedef enum msg_type
     // client controlling commands - not used in comm - for sample/demo only
     CMD_WAIT_NOTIFICATIONS,
     CMD_SLEEP_SECONDS,
-    CMD_PAUSE_GETCHAR
+    CMD_PAUSE_GETCHAR,
+    CMD_SERVER_EXIT
 } Msg_Type_t;
 
 typedef struct session
@@ -187,114 +188,122 @@ typedef struct _define_attribute
     const char     *data;
 } Define_Attribute_t;
 
-
-///
-/// \brief die
-/// \param s
-///
+/**
+ * @brief die
+ * @param s - string prefix
+ * @param err - error code to print out
+ */
 void die(const char *s, int err);
 
-///
-/// \brief parse_command_line
-/// \param argc
-/// \param argv
-/// \param gbIpc
-/// \param guiKey
-/// \param giPort
-/// \return
-///
+/**
+ * @brief parse_command_line
+ * @param argc
+ * @param argv
+ * @return int - error code
+ */
 int parse_command_line(int argc, char** argv);
 
-/// debug only
+/**
+ * @brief get_msg_name
+ * @param cm
+ * @return const char *
+ */
 const char *get_msg_name(Comm_Msg_t *cm);
+
+/**
+ * @brief get_err_name
+ * @param ret
+ * @return const char*
+ */
 const char* get_err_name(int ret);
 
-///
-/// \brief init_comm
-/// \param bServer
-/// \return
-///
+/**
+ * @brief init_comm
+ * @param bServer
+ * @return int - error code
+ */
 int init_comm(bool bServer);
 
-///
-/// \brief send_to_server
-/// \param buffer
-/// \param size
-/// \return
-///
+/**
+ * @brief send_to_server
+ * @param buffer
+ * @param size
+ * @return int - error code
+ */
 int send_to_server(Comm_Msg_t *buffer, int size);
 
-///
-/// \brief recv_from_client
-/// \param buffer
-/// \param size
-/// \return
-///
+/**
+ * @brief recv_from_client
+ * @param buffer
+ * @param size
+ * @return int - error code
+ */
 int recv_from_client(Comm_Msg_t *buffer, int size);
 
-///
-/// \brief resp_to_client
-/// \param msg
-/// \param size
-/// \return
-///
+/**
+ * @brief resp_to_client
+ * @param msg
+ * @param size
+ * @return int - error code
+ */
 int resp_to_client(Comm_Msg_t *msg, int size);
 
-///
-/// \brief resp_from_server
-/// \param msg
-/// \param size
-/// \param timeout_ms
-/// \return
-///
+/**
+ * @brief resp_from_server
+ * @param msg
+ * @param size
+ * @param timeout_ms
+ * @return int - error code
+ */
 int resp_from_server(Comm_Msg_t *msg, int size, int timeout_ms);
 
-///
-/// \brief notify_client
-/// \param msg
-/// \param size
-/// \return
-///
+/**
+ * @brief notify_client
+ * @param msg
+ * @param size
+ * @return int - error code
+ */
 int notify_client(Comm_Msg_t *msg, int size);
 
-///
-/// \brief wait_notification
-/// \param buffer
-/// \param size
-/// \param timeout_ms
-/// \return
-///
+/**
+ * @brief wait_notification
+ * @param buffer
+ * @param size
+ * @param timeout_ms
+ * @return int - error code
+ */
 int wait_notification(Comm_Msg_t *buffer, int size, int timeout_ms);
 
-///
-/// \brief shut_comm
-/// \param bServer
-/// \return
-///
+/**
+ * @brief shut_comm
+ * @return int - error code
+ */
 int shut_comm();
 
-///
-/// \brief format_attr_add_msg
-/// \param stash
-/// \param attr_new
-/// \return
-///
+/**
+ * @brief format_attr_add_msg
+ * @param stash
+ * @param attr_new
+ * @return Comm_Msg_t * - pointer to formatted message; must be freed if != stash
+ */
 Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new);
 
-///
-/// \brief format_attr_updated_msg
-/// \param stash
-/// \param attr_idx
-/// \param attr_new
-/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
-///
+/**
+ * @brief format_attr_updated_msg
+ * @param type
+ * @param stash
+ * @param attr_new
+ * @return Comm_Msg_t * - pointer to formatted message; must be freed if != stash
+ */
 Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new);
 
-///
-/// \brief format_message_payload before sending to Server
-/// \param type
-/// \param msg
-/// \param data
-/// \return
-///
+/**
+ * @brief format_message_payload
+ * @param session_id
+ * @param type
+ * @param msg
+ * @param data
+ * @return void* - pointer to new message; must be freed if != NULL; otherwise payload added to msg
+ */
 void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &msg, void* data);
+

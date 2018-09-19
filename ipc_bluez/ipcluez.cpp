@@ -20,6 +20,7 @@
 #include "icommon.h"
 #include <time.h>
 #include <assert.h>
+#include <string>
 
 // static vars, status
 static uint8_t gsSessionId = 0;
@@ -27,7 +28,7 @@ static Ble::ServiceInfo_t gClientService = {{0},0, NULL};
 
 void dump_uuid(Ble::UUID_128_t &uuid __attribute__((unused)))
 {
-    DEBUG_PRINTF(("UUID %02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+    DEBUG_PRINTF(("UUID %02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
                  uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
                  uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]));
 }
@@ -84,6 +85,14 @@ int allocate_zero_attr_table(int alloc_size)
     return ret;
 }
 
+void print_attr(const char *pref, int idx, Ble::AttributeInfo_t *attr)
+{
+#ifdef DEBUG_ENABLED
+    std::string print_string_tmp((char*) attr->value, attr->val_size);
+    DEBUG_PRINTF(("\t%s attr[%d] \"%s\" val[%d]=\"%s\"", pref, idx, attr->attr_name, attr->val_size, print_string_tmp.c_str()));
+#endif
+}
+
 ///
 /// \brief append_attribute
 /// \param msg
@@ -127,14 +136,7 @@ int append_attribute(Comm_Msg_t *msg)
                 memcpy(attr->value, msg->data.add_attribute.data, attr->val_size);
                 attr->dynamic_alloc = 1;
             }
-#ifdef DEBUG_ENABLED
-            {
-                char print_string_tmp[attr->val_size+1];
-                memcpy(print_string_tmp, attr->value, attr->val_size);
-                print_string_tmp[attr->val_size] = '\0';
-                DEBUG_PRINTF(("\tadded attr %d [%s] val [%d] %s", i, attr->attr_name, attr->val_size, print_string_tmp));
-            }
-#endif
+            print_attr("added", i, attr);
             return Ble::Error::NONE;
         }
     }
@@ -167,12 +169,8 @@ int update_attribute(Update_Attribute_t *data)
 
     if (Ble::Error::NONE == (ret = gatt->UpdateCharacteristic(data->attr_idx, (const char*) data->data, data->size)))
     {
-#ifdef DEBUG_ENABLED
-        char print_string_tmp[attr->val_size+1];
-        memcpy(print_string_tmp, attr->value, attr->val_size);
-        print_string_tmp[attr->val_size] = '\0';
-        DEBUG_PRINTF(("\tupdated attr %d [%s] val [%d] %s", data->attr_idx, attr->attr_name, attr->val_size, print_string_tmp));
-#endif
+        print_attr("updated", data->attr_idx, attr);
+
         // Notify if connected
         if (attr->properties & GATT_PROPERTY_NOTIFY)
         {
@@ -426,6 +424,12 @@ int main(int argc, char** argv )
             die("recv_from_client failed", ret);
         }
 
+        if (msg->hdr.type == CMD_SERVER_EXIT) // to exit server, for debugging, not used in communication
+        {
+            printf ("---- end of test ----\n");
+            break;
+        }
+
         // handle request, set response
         msg->hdr.error = handle_request_msg(msg);
 
@@ -434,10 +438,6 @@ int main(int argc, char** argv )
             die("resp_to_client failed", ret);
         }
 
-        if ((msg->hdr.type == MSG_SESSION) && (0 == msg->data.session.on_off))
-        {
-            break;
-        }
     }
 
     shut_comm();

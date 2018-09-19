@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef enum _rmnp_error
+typedef enum
 {
     NO_ERROR,
     NOT_INITIALIZED,
@@ -19,6 +19,19 @@ typedef enum _rmnp_error
     OPEN_SESSION_FAILED,
     POWER_COMMAND_FAILED,
 } Rmnp_Error_t;
+
+typedef enum
+{
+    CHR     = 0x00,
+    DSC     = 0x01,
+    R__     = 0x02,
+    _W_     = 0x08,
+    __N     = 0x10,
+    RW_     = R__ | _W_,
+    R_N     = R__ | __N,
+    _WN     = _W_ | __N,
+    RWN     = R__ | _W_ | __N,
+} Characteristic_Properties_t;
 
 ///
 /// \brief rmnp_init

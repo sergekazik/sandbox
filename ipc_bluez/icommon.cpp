@@ -88,10 +88,11 @@ typedef struct comm_msgbuf
     Comm_Msg_t msg;
 } Comm_Msgbuf_t;
 
-///
-/// \brief die
-/// \param s
-///
+/**
+ * @brief die
+ * @param s
+ * @param err
+ */
 void die(const char *s, int err)
 {
     DEBUG_PRINTF(("%s... err %d, %s", s, err, get_err_name(err)));
@@ -99,10 +100,11 @@ void die(const char *s, int err)
     exit(1);
 }
 
-///
-/// \brief get_msg_name
-/// \param cm
-///
+/**
+ * @brief get_msg_name
+ * @param cm
+ * @return
+ */
 const char* get_msg_name(Comm_Msg_t *cm)
 {
 #ifdef DEBUG_ENABLED
@@ -111,11 +113,11 @@ const char* get_msg_name(Comm_Msg_t *cm)
     return "";
 }
 
-///
-/// \brief get_err_name
-/// \param ret
-/// \return
-///
+/**
+ * @brief get_err_name
+ * @param ret
+ * @return
+ */
 const char* get_err_name(int ret)
 {
 #ifdef DEBUG_ENABLED
@@ -124,12 +126,12 @@ const char* get_err_name(int ret)
     return "";
 }
 
-///
-/// \brief parse_command_line
-/// \param argc
-/// \param argv
-/// \return
-///
+/**
+ * @brief parse_command_line
+ * @param argc
+ * @param argv
+ * @return
+ */
 int parse_command_line(int argc, char** argv)
 {
     for (int i = 1; i < argc; i++)
@@ -164,11 +166,11 @@ int parse_command_line(int argc, char** argv)
 /*******************************************************************
  * Client-Server communication functions
  * *****************************************************************/
-///
-/// \brief init_comm
-/// \param bServer
-/// \return
-///
+/**
+ * @brief init_comm
+ * @param bServer
+ * @return
+ */
 int init_comm(bool bServer)
 {
     if (!gbInitialized)
@@ -207,13 +209,14 @@ int init_comm(bool bServer)
     return Ble::Error::NONE;
 }
 
-///
-/// \brief send_comm
-/// \param bServer
-/// \param msg
-/// \param size
-/// \return
-///
+/**
+ * @brief send_comm
+ * @param bServer
+ * @param msg
+ * @param size
+ * @param bNotification
+ * @return
+ */
 int send_comm(bool bServer, Comm_Msg_t *msg, int size, bool bNotification)
 {
     if (!gbInitialized)
@@ -273,80 +276,79 @@ static int receive_from(bool bServer, Comm_Msg_t *buffer, int size, int timeout_
     return Ble::Error::NONE;
 }
 
-///
-/// \brief send_to_server
-/// \param buffer
-/// \param size
-/// \return
-///
+/**
+ * @brief send_to_server
+ * @param buffer
+ * @param size
+ * @return
+ */
 int send_to_server(Comm_Msg_t *buffer, int size)
 {
     return send_comm(TO_SERVER, buffer, size, false);
 }
 
-///
-/// \brief recv_from_client
-/// \param buffer
-/// \param size
-/// \return
-///
+/**
+ * @brief recv_from_client
+ * @param buffer
+ * @param size
+ * @return
+ */
 int recv_from_client(Comm_Msg_t * buffer, int size)
 {
     return receive_from(FROM_CLIENT, buffer, size, WAIT_FOREVER, false);
 }
 
-///
-/// \brief resp_to_client
-/// \param msg
-/// \param size
-/// \return
-///
+/**
+ * @brief resp_to_client
+ * @param msg
+ * @param size
+ * @return
+ */
 int resp_to_client(Comm_Msg_t *msg, int size)
 {
     return send_comm(TO_CLIENT, msg, size, false);
 }
 
-///
-/// \brief resp_from_server
-/// \param msg
-/// \param size
-/// \param timeout_ms
-/// \return
-///
+/**
+ * @brief resp_from_server
+ * @param msg
+ * @param size
+ * @param timeout_ms
+ * @return
+ */
 int resp_from_server(Comm_Msg_t *msg, int size, int timeout_ms)
 {
     return receive_from(FROM_SERVER, msg, size, timeout_ms, false);
 }
 
-///
-/// \brief notify_client
-/// \param msg
-/// \param size
-/// \return
-///
+/**
+ * @brief notify_client
+ * @param msg
+ * @param size
+ * @return
+ */
 int notify_client(Comm_Msg_t *msg, int size)
 {
     return send_comm(TO_CLIENT, msg, size, true);
 }
 
-///
-/// \brief wait_notification
-/// \param buffer
-/// \param size
-/// \param timeout_ms
-/// \return
-///
+/**
+  * @brief wait_notification
+  * @param buffer
+  * @param size
+  * @param timeout_ms
+  * @return
+  */
  int wait_notification(Comm_Msg_t *buffer, int size, int timeout_ms)
  {
     return receive_from(FROM_SERVER, buffer, size, timeout_ms, true);
  }
 
 
-///
-/// \brief shut_comm
-/// \param bServer
-/// \return
-///
+ /**
+ * @brief shut_comm
+ * @return
+ */
 int shut_comm()
 {
     if (gbInitialized)
@@ -363,12 +365,12 @@ int shut_comm()
  * Helper & formatting functions
  * *****************************************************************/
 
-///
-/// \brief format_attr_add_msg
-/// \param stash
-/// \param attr_new
-/// \return
-///
+/**
+ * @brief format_attr_add_msg
+ * @param stash
+ * @param attr_new
+ * @return
+ */
 Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new)
 {
     if (stash && attr_new)
@@ -394,13 +396,13 @@ Comm_Msg_t *format_attr_add_msg(Comm_Msg_t *stash, Define_Attribute_t *attr_new)
     return NULL;
 }
 
-///
-/// \brief format_attr_updated_msg Update_Attribute_t or Notify_Data_Write_t only
-/// \param stash
-/// \param attr_idx
-/// \param attr_new
-/// \return pointer to stash or pointer of the newly allocated Comm_Msg_t message
-///
+/**
+ * @brief format_attr_updated_msg
+ * @param type
+ * @param stash
+ * @param attr_new
+ * @return
+ */
 Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_Update_t *attr_new)
 {
     if (stash && attr_new)
@@ -440,13 +442,14 @@ Comm_Msg_t *format_attr_updated_msg(Msg_Type_t type, Comm_Msg_t *stash, Define_U
     return NULL;
 }
 
-///
-/// \brief format_message_payload before sending to Server
-/// \param type
-/// \param msg
-/// \param data
-/// \return
-///
+/**
+ * @brief format_message_payload
+ * @param session_id
+ * @param type
+ * @param msg
+ * @param data
+ * @return
+ */
 void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &msg, void* data)
 {
     Comm_Msg_t *msg_new = NULL;
@@ -488,6 +491,9 @@ void* format_message_payload(uint16_t session_id, Msg_Type_t type, Comm_Msg_t &m
 
     case MSG_UPDATE_ATTRIBUTE:
         msg_new = format_attr_updated_msg(MSG_UPDATE_ATTRIBUTE, &msg, (Define_Update_t*) data);
+        break;
+
+    case CMD_SERVER_EXIT: // for debugging
         break;
 
     case MSG_NOTIFY_CONNECT_STATUS:
