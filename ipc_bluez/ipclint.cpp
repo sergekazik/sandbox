@@ -24,14 +24,6 @@
 // static vars, status
 static uint8_t giSessionId = 0;
 
-// sample UUID definitions and macros
-#define MAKE_UUID_128(_h, _g, _f, _d, _s, _a, _p, _o, _i, _u, _y, _t, _r, _e, _w, _q) \
-    {0x##_h, 0x##_g, 0x##_f, 0x##_d, 0x##_s, 0x##_a, 0x##_p, 0x##_o, 0x##_i, 0x##_u, 0x##_y, 0x##_t, 0x##_r, 0x##_e, 0x##_w, 0x##_q}
-
-#define MAKE_UUID(_attr_idx) MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,20,D0,87,33,3C,2C,_attr_idx)
-#define CCCDESC_UUID()       MAKE_UUID_128(00,00,29,02,00,00,10,00,80,00,00,80,5F,9B,34,FB)
-#define MAKE_PAYLOAD(_pld)  (unsigned int) strlen(_pld), (char *) _pld
-
 // sample Adapter configuration
 static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 
@@ -39,17 +31,16 @@ static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 // defines 2 characteristics and 1 descriptor
 static Define_Attribute_t attr_table[] =
 {   // uuid         name            max size    type                properties          value
-    {MAKE_UUID(01), "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW_, "value1"},
-    {MAKE_UUID(02), "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value2"},
-    {CCCDESC_UUID(),"SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW_, "\x01\x00"}
+    {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x01}, "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value1"},
+    {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x02}, "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value2"},
+    {{0x00,0x00,0x29,0x02,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB}, "SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW, "\x01\x00"}
 };
 
 // sample to demonstrate "update value" operation
 static Define_Update_t attr_upd = {strlen("updated_val"), 1, (uint8_t*) "updated_val"};
 
 // sample service definitions
-#define SERVICE_UUID   MAKE_UUID_128(97,60,AB,BA,A2,34,46,86,9E,00,FC,BB,EE,33,73,F7)
-static Add_Service_t service = {SERVICE_UUID, 3};
+static Add_Service_t service = {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x00,0xFC,0xBB,0xEE,0x33,0x73,0xF7}, 3};
 
 // sample of communication sequence
 typedef struct {

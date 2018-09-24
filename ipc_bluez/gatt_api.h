@@ -119,12 +119,10 @@ namespace Property
     };
     enum Permission
     {
-        R__     = GATT_PROPERTY_READ,
-        _W_     = GATT_PROPERTY_WRITE,
-        RW_     = GATT_PROPERTY_READ | GATT_PROPERTY_WRITE,
-        __N     = GATT_PROPERTY_NOTIFY,
-        R_N     = GATT_PROPERTY_READ | GATT_PROPERTY_NOTIFY,
-        _WN     = GATT_PROPERTY_WRITE | GATT_PROPERTY_NOTIFY,
+        READ    = GATT_PROPERTY_READ,
+        WRITE   = GATT_PROPERTY_WRITE,
+        RW      = GATT_PROPERTY_READ | GATT_PROPERTY_WRITE,
+        NOTIFY  = GATT_PROPERTY_NOTIFY,
         RWN     = GATT_PROPERTY_READ | GATT_PROPERTY_WRITE | GATT_PROPERTY_NOTIFY,
     };
 }
