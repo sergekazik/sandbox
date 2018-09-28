@@ -70,9 +70,10 @@ SampleStruct_t msg_list[] = {
 ///
 /// \brief handle_response_message or notification from Server
 /// \param msg
+/// \param bNotify
 /// \return
 ///
-int handle_response_message(Comm_Msg_t &msg)
+static int handle_response_message(Comm_Msg_t &msg, bool bNotify = false)
 {
     int ret = Ble::Error::NONE;
 
@@ -116,8 +117,11 @@ int handle_response_message(Comm_Msg_t &msg)
     case MSG_ADD_ATTRIBUTE:
     case MSG_UPDATE_ATTRIBUTE:
     default:
-        DEBUG_PRINTF(("unexpected response to msg type %d [%s]\n", msg.hdr.type, get_msg_name(&msg)));
-        ret = Ble::Error::INVALID_PARAMETER;
+        if (bNotify)
+        {
+            DEBUG_PRINTF(("unexpected notify msg type %d [%s]\n", msg.hdr.type, get_msg_name(&msg)));
+            ret = Ble::Error::INVALID_PARAMETER;
+        }
         break;
     }
     return ret;
@@ -144,7 +148,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
             break;
         }
         printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
-        handle_response_message(msg);
+        handle_response_message(msg, true);
     }
 
 // done:
@@ -260,3 +264,4 @@ int main(int argc, char** argv )
     shut_comm();
     return 0;
 }
+
