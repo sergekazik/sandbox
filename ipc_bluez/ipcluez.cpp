@@ -21,16 +21,18 @@
 #include <time.h>
 #include <assert.h>
 #include <string>
+extern "C" {
+    #include "lib/bluetooth.h"
+    #include "lib/uuid.h"
+}
 
 // static vars, status
 static uint8_t gsSessionId = 0;
-static Ble::ServiceInfo_t gClientService = {{0},0, NULL};
+static Ble::ServiceInfo_t gClientService = {0, 0, NULL};
 
-void dump_uuid(Ble::UUID_128_t &uuid __attribute__((unused)))
+void dump_uuid(uint16_t uuid16)
 {
-    DEBUG_PRINTF(("UUID %02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
-                 uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
-                 uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]));
+    DEBUG_PRINTF(("0000%04X-0000-1000-8000-00805F9B34FB\n", uuid16));
 }
 
 ///
@@ -114,7 +116,7 @@ int append_attribute(Comm_Msg_t *msg)
 #ifdef DEBUG_ENABLED
             memcpy(attr->attr_name, msg->data.add_attribute.name, ATTR_NAME_LEN);
 #endif
-            memcpy(attr->attr_uuid, msg->data.add_attribute.uuid, sizeof(Ble::UUID_128_t));
+            attr->attr_uuid =  msg->data.add_attribute.uuid;
             attr->max_val_size = msg->data.add_attribute.max_length;
             attr->val_size = msg->data.add_attribute.size;
             attr->attr_type = msg->data.add_attribute.type;
@@ -214,7 +216,7 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
             Define_Update_t update = {
                 (uint16_t) gClientService.attr_table[aAttribueIdx].val_size,
                 (uint8_t) aAttribueIdx,
-                (uint8_t*)gClientService.attr_table[aAttribueIdx].value
+                (const char*)gClientService.attr_table[aAttribueIdx].value
             };
             msg = format_attr_updated_msg(MSG_NOTIFY_DATA_WRITE, msg, &update);
         }
@@ -229,7 +231,10 @@ static void attr_access_callback(int aAttribueIdx, Ble::Property::Access aAccess
     // send to Client
     if (msg->hdr.error == Ble::Error::NONE)
     {
-        int ret = notify_client(msg, msg->hdr.size);
+#ifdef DEBUG_ENABLED
+        int ret =
+#endif
+        notify_client(msg, msg->hdr.size);
         DEBUG_PRINTF(("Notify Client aAccessType = %d, type = %d %s, err = %d %s", aAccessType, msg->hdr.type, get_msg_name(msg), ret, get_err_name(ret)));
     }
 
@@ -356,7 +361,7 @@ int handle_request_msg(Comm_Msg_t *msg)
 
             // set service parameters
             gClientService.attr_num = data->count;
-            memcpy(gClientService.svc_uuid, data->uuid, sizeof(Ble::UUID_128_t));
+            gClientService.svc_uuid = data->uuid;
             dump_uuid(gClientService.svc_uuid);
 
             if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))

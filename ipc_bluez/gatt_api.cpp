@@ -396,7 +396,7 @@ int GattSrv::UpdateCharacteristic(int attr_idx, const char *str_data, int len)
         {
             if (attr->value && ((int) attr->val_size == len) && str_data && !memcmp(attr->value, str_data, len))
             {
-                // the same - skip
+                // value is the same - skip update
                 ret_val = Error::NONE;
             }
             else
@@ -734,7 +734,7 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     struct hci_request rq;
     bcm_write_bd_addr_cp cp;
     uint8_t status;
-    int dd, err, ret;
+    int dd, ret;
     if (!opt)
         return;
     if (hdev < 0)
@@ -742,8 +742,10 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     dd = hci_open_dev(hdev);
     if (dd < 0)
     {
-        err = -errno;
+#ifdef DEBUG_ENABLED
+        int err = -errno;
         DEBUG_PRINTF(("Could not open device: %s(%d)", strerror(-err), -err));
+#endif
         return;
     }
     memset(&cp, 0, sizeof(cp));
@@ -758,8 +760,10 @@ void GattSrv::WriteBdaddr(int hdev, char *opt)
     ret = hci_send_req(dd, &rq, 1000);
     if (status || ret < 0)
     {
-        err = -errno;
+#ifdef DEBUG_ENABLED
+        int err = -errno;
         DEBUG_PRINTF(("Can't write BD address for hci%d: " "%s (%d)", hdev, strerror(-err), -err));
+#endif
     }
     else
         DEBUG_PRINTF(("Set BD address %s OK for hci%d ok", opt, hdev));
@@ -818,7 +822,6 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
         goto done;
     else
     {   // disable BR/EDR and add device name
-        // hcitool -i hci0 cmd 0x08 0x0008 11 02 01 06 0D 09 52 69 6e 67 53 65 74 75 70 2d 61 63
         le_set_advertising_data_cp adv_data_cp;
         memset(&adv_data_cp, 0, sizeof(adv_data_cp));
 
@@ -827,8 +830,6 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
         const int flags_len = sizeof(flags)/sizeof(uint8_t);
 
         int offset = 0;
-        // adv_data_cp.data[offset++] = flags_len + name_len + 1 /*segment len = name_len+type*/ + 1; /*type = 0x09*/
-
         DEBUG_PRINTF(("setting ads flags 0x%02x 0x%02x 0x%02x", flags[0], flags[1], flags[2]));
         memcpy(&adv_data_cp.data[offset], flags, flags_len); offset += flags_len;
 
@@ -854,13 +855,15 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
             goto done;
         }
         else if (mServiceTable != NULL)
-        {   // set scan response with UUID
-            // hci cmd 0x08 0x0009 12 11 07 FB 34 9B 5F 80 00 00 80 00 10 00 00 CE FA 00 00
+        {   // set scan response with service UUID
             le_set_scan_response_data_cp scn_data_cp;
             memset(&scn_data_cp, 0, sizeof(scn_data_cp));
             scn_data_cp.data[0] = 17;
             scn_data_cp.data[1] = 0x07;
-            memcpy(&scn_data_cp.data[2], &mServiceTable->svc_uuid, sizeof(UUID_128_t));
+
+            bt_uuid_t uuid128;
+            bt_uuid16_create(&uuid128, mServiceTable->svc_uuid);
+            memcpy(&scn_data_cp.data[2], &uuid128.value.u128, sizeof(uint128_t));
             scn_data_cp.length = 18;
 
             memset(&rq, 0, sizeof(rq));
@@ -1066,16 +1069,74 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
     if (attr_index >= 0 )
     {
         DEBUG_PRINTF(("write_cb: id [%d] offset [%d] attr_index = %d, len = %d, called for %s\n", id, offset, attr_index, (int) len, attr_info->attr_name));
-
         gatt_db_attribute_write_result(attrib, id, ecode);
 
-        // update in the mServiceTable value "as is" - if encrypted by client - then it will be encrypted
+        // update in the mServiceTable value "as is"
+        // if value is encrypted by client - then it will be encrypted
         gatt->UpdateCharacteristic(attr_index, (const char*) value, len);
         gatt->ProcessRegisteredCallback(Ble::Property::Write, attr_index);
     }
     else
+	{
         DEBUG_PRINTF(("write_cb: attr_index is not found for attr_offset = %d", attr_info->attr_offset));
 }
+}
+
+#ifdef POPULATE_GAP_SERVICE
+static void populate_gap_service(server_ref *server)
+{
+    bt_uuid_t uuid;
+    struct gatt_db_attribute *service, *tmp;
+    uint16_t appearance;
+
+    /* Add the GAP service */
+    #define UUID_GAP		0x1800
+    bt_uuid16_create(&uuid, UUID_GAP);
+    service = gatt_db_add_service(server->db, &uuid, true, 6);
+
+    /*
+     * Device Name characteristic. Make the value dynamically read and
+     * written via callbacks.
+     */
+    bt_uuid16_create(&uuid, GATT_CHARAC_DEVICE_NAME);
+    gatt_db_service_add_characteristic(service, &uuid,
+                    BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
+                    BT_GATT_CHRC_PROP_READ |
+                    BT_GATT_CHRC_PROP_EXT_PROP,
+                    NULL, // gap_device_name_read_cb,
+                    NULL, // gap_device_name_write_cb,
+                    server);
+
+    bt_uuid16_create(&uuid, GATT_CHARAC_EXT_PROPER_UUID);
+    gatt_db_service_add_descriptor(service, &uuid, BT_ATT_PERM_READ,
+                    NULL, // gap_device_name_ext_prop_read_cb,
+                    NULL, server);
+
+    /*
+     * Appearance characteristic. Reads and writes should obtain the value
+     * from the database.
+     */
+    bt_uuid16_create(&uuid, GATT_CHARAC_APPEARANCE);
+    tmp = gatt_db_service_add_characteristic(service, &uuid,
+                            BT_ATT_PERM_READ,
+                            BT_GATT_CHRC_PROP_READ,
+                            NULL, NULL, server);
+
+    /*
+     * Write the appearance value to the database, since we're not using a
+     * callback.
+     */
+    int BLE_APPEARANCE_GENERIC_COMPUTER = 128;
+    put_le16(BLE_APPEARANCE_GENERIC_COMPUTER, &appearance);
+    gatt_db_attribute_write(tmp, 0, (const uint8_t *) &appearance,
+                            sizeof(appearance),
+                            BT_ATT_OP_WRITE_REQ,
+                            NULL, NULL, // confirm_write,
+                            NULL);
+
+    gatt_db_service_set_active(service, true);
+}
+#endif
 
 ///
 /// \brief populate_gatt_service
@@ -1083,7 +1144,9 @@ static void gatt_characteristic_write_cb(struct gatt_db_attribute *attrib,
 ///
 static int populate_gatt_service()
 {
-    // populate_gap_service();
+#ifdef POPULATE_GAP_SERVICE
+    populate_gap_service(GattSrv::mServer.sref);
+#endif
     const ServiceInfo_t* svc = GattSrv::getInstance()->mServiceTable;
     if (!svc)
         return Error::NOT_INITIALIZED;
@@ -1096,10 +1159,7 @@ static int populate_gatt_service()
     int number_of_handlers = GATT_SVC_NUM_OF_HANDLERS_MAX;
     int max_attr = (int) svc->attr_num;
 
-    uint128_t uuid128;
-    memcpy(&uuid128.data, &svc->svc_uuid, sizeof(UUID_128_t));
-    bt_uuid128_create(&uuid, uuid128);
-
+    bt_uuid16_create(&uuid, svc->svc_uuid);
     client_svc = gatt_db_add_service(GattSrv::mServer.sref->db, &uuid, primary, number_of_handlers);
 
     if (NULL == client_svc)
@@ -1118,16 +1178,26 @@ static int populate_gatt_service()
 
         if (NULL != (ch_info = (AttributeInfo_t *)&svc->attr_table[attr_index]))
         {
-            memcpy(&uuid128.data, &ch_info->attr_uuid, sizeof(UUID_128_t));
-            bt_uuid128_create(&uuid, uuid128); //
-
+            bt_uuid16_create(&uuid, ch_info->attr_uuid);
+            uint8_t prop =  BT_GATT_CHRC_PROP_EXT_PROP;
+            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_WRITE)
+            {
+                prop = BT_GATT_CHRC_PROP_READ;
+            }
+            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_WRITE)
+            {
+                prop |= BT_GATT_CHRC_PROP_WRITE;
+            }
+            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_NOTIFY)
+            {
+                prop |= BT_GATT_CHRC_PROP_NOTIFY;
+            }
             if (svc->attr_table[attr_index].attr_type == GATT_TYPE_CHARACTERISTIC)
             {
                 if (NULL != (attr_new =  gatt_db_service_add_characteristic(client_svc, &uuid,
-                              BT_ATT_PERM_READ | BT_ATT_PERM_WRITE,
-                              BT_GATT_CHRC_PROP_READ | BT_GATT_CHRC_PROP_WRITE | BT_GATT_CHRC_PROP_NOTIFY,
+                                BT_ATT_PERM_READ | BT_ATT_PERM_WRITE, prop,
                               gatt_characteristic_read_cb, gatt_characteristic_write_cb,
-                              // user_data to be passed to every callback - here is the pointer to AttributeInfo_t
+                              // user_data to be passed to every callback
                               (void*) (unsigned long) &svc->attr_table[attr_index])))
                 {
                     GattSrv::mServer.client_attr_handle[attr_index] = gatt_db_attribute_get_handle(attr_new);
@@ -1138,10 +1208,10 @@ static int populate_gatt_service()
             {
                 if (NULL != (attr_new = gatt_db_service_add_descriptor(client_svc, &uuid, BT_ATT_PERM_READ | BT_ATT_PERM_WRITE, NULL, NULL, NULL)))
                 {
-                    DEBUG_PRINTF(("+ desc %d %s, hndl %d", attr_index, svc->attr_table[attr_index].attr_name, 0));
+                    GattSrv::mServer.client_attr_handle[attr_index] = gatt_db_attribute_get_handle(attr_new);
+                    DEBUG_PRINTF(("+ desc %d %s, hndl %d", attr_index, svc->attr_table[attr_index].attr_name, GattSrv::mServer.client_attr_handle[attr_index]));
                 }
             }
-
             if (NULL == attr_new)
             {
                 DEBUG_PRINTF(("gatt_db_service_add_characteristic failed, Abort - attr[%d] %s", attr_index, svc->attr_table[attr_index].attr_name));
@@ -1149,8 +1219,10 @@ static int populate_gatt_service()
             }
         }
     }
-
-    bool ret = gatt_db_service_set_active(client_svc, true);
+#ifdef DEBUG_ENABLED
+    bool ret =
+#endif
+    gatt_db_service_set_active(client_svc, true);
     DEBUG_PRINTF(("populate_gatt_service gatt_db_service_set_active ret %d\n-----------------------------------------------", ret));
     return Error::NONE;
 }
@@ -1168,6 +1240,7 @@ static void att_disconnect_cb(int err, void *user_data)
     mainloop_quit();
 }
 
+#ifdef DEBUG_ENABLED
 ///
 /// \brief att_debug_cb
 /// \param str
@@ -1191,6 +1264,7 @@ static void gatt_debug_cb(const char *str, void *user_data)
     const char *prefix = (const char *) user_data;
     DEBUG_PRINTF(("%s %s", prefix, str));
 }
+#endif
 
 ///
 /// \brief server_destroy

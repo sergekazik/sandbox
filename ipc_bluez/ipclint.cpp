@@ -31,16 +31,18 @@ static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 // defines 2 characteristics and 1 descriptor
 static Define_Attribute_t attr_table[] =
 {   // uuid         name            max size    type                properties          value
-    {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x01}, "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value1"},
-    {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x02}, "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value2"},
-    {{0x00,0x00,0x29,0x02,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB}, "SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW, "\x01\x00"}
+    {0xABB1, "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value1"},
+    {0xABB2, "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value2"},
+    {0xABB3, "SAMPLE_ATTR-3", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value3"},
+    {0x2902, "SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW, "\x01\x01"},
 };
 
 // sample to demonstrate "update value" operation
-static Define_Update_t attr_upd = {strlen("updated_val"), 1, (uint8_t*) "updated_val"};
+static const char* sample_update = "updated_val";
+static Define_Update_t attr_upd = {(uint16_t) strlen(sample_update), 1, sample_update};
 
 // sample service definitions
-static Add_Service_t service = {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x00,0xFC,0xBB,0xEE,0x33,0x73,0xF7}, 3};
+static Add_Service_t service = {0xABBA, sizeof(attr_table)/sizeof(Define_Attribute_t)};
 
 // sample of communication sequence
 typedef struct {
@@ -56,6 +58,7 @@ SampleStruct_t msg_list[] = {
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[0]  },
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[1]  },
     { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[2]  },
+    { MSG_ADD_ATTRIBUTE,    (void*) &attr_table[3]  },
     { MSG_UPDATE_ATTRIBUTE, (void*) &attr_upd       },
     { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Start},
     { CMD_WAIT_NOTIFICATIONS,    /* listen */ NULL  },
@@ -68,10 +71,23 @@ SampleStruct_t msg_list[] = {
 };
 
 ///
+/// helper function
+/// \brief start_advertising
+///
+static void start_advertising()
+{
+    SampleStruct_t st = { MSG_ADVERTISEMENT,    (void*) Ble::ConfigArgument::Start};
+    Comm_Msg_t msg;
+    format_message_payload(giSessionId, st.type, msg, st.data);
+    send_to_server(&msg, msg.hdr.size);
+}
+
+///
 /// \brief handle_response_message or notification from Server
 /// \param msg
 /// \param bNotify
 /// \return
+///
 ///
 static int handle_response_message(Comm_Msg_t &msg, bool bNotify = false)
 {
@@ -99,6 +115,7 @@ static int handle_response_message(Comm_Msg_t &msg, bool bNotify = false)
         else
         {
             DEBUG_PRINTF(("MSG_NOTIFY_CONNECT_STATUS // disconnect\n"));
+            start_advertising();
         }
         break;
 

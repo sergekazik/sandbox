@@ -110,13 +110,13 @@ typedef struct _advertisement
 
 typedef struct _add_service
 {
-    Ble::UUID_128_t uuid;
+    uint16_t uuid;
     uint8_t         count;
 } Add_Service_t;
 
 typedef struct _add_attribute
 {
-    Ble::UUID_128_t uuid;
+    uint16_t        uuid;
     int8_t          name[ATTR_NAME_LEN];
     uint16_t        max_length;
     uint16_t        size;
@@ -174,12 +174,12 @@ typedef struct _define_update
 {
     uint16_t size;
     uint8_t  attr_idx;
-    uint8_t  *data;
+    const char  *data;
 } Define_Update_t;
 
 typedef struct _define_attribute
 {
-    Ble::UUID_128_t uuid;
+    uint16_t        uuid;
     int8_t          name[ATTR_NAME_LEN];
     uint16_t        max_length;
     uint16_t        size;
