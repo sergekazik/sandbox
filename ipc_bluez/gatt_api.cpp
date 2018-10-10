@@ -860,10 +860,13 @@ void GattSrv::HCIle_adv(int hdev, char *opt)
             memset(&scn_data_cp, 0, sizeof(scn_data_cp));
             scn_data_cp.data[0] = 17;
             scn_data_cp.data[1] = 0x07;
-
+#ifdef UUID_BASE_16
             bt_uuid_t uuid128;
             bt_uuid16_create(&uuid128, mServiceTable->svc_uuid);
             memcpy(&scn_data_cp.data[2], &uuid128.value.u128, sizeof(uint128_t));
+#else
+            memcpy(&scn_data_cp.data[2], mServiceTable->svc_uuid.data, sizeof(uint128_t));
+#endif
             scn_data_cp.length = 18;
 
             memset(&rq, 0, sizeof(rq));
@@ -1159,7 +1162,11 @@ static int populate_gatt_service()
     int number_of_handlers = GATT_SVC_NUM_OF_HANDLERS_MAX;
     int max_attr = (int) svc->attr_num;
 
+#ifdef UUID_BASE_16
     bt_uuid16_create(&uuid, svc->svc_uuid);
+#else
+    bt_uuid128_create(&uuid, svc->svc_uuid);
+#endif
     client_svc = gatt_db_add_service(GattSrv::mServer.sref->db, &uuid, primary, number_of_handlers);
 
     if (NULL == client_svc)
@@ -1178,7 +1185,11 @@ static int populate_gatt_service()
 
         if (NULL != (ch_info = (AttributeInfo_t *)&svc->attr_table[attr_index]))
         {
+#ifdef UUID_BASE_16
             bt_uuid16_create(&uuid, ch_info->attr_uuid);
+#else
+            bt_uuid128_create(&uuid, ch_info->attr_uuid);
+#endif
             uint8_t prop =  BT_GATT_CHRC_PROP_EXT_PROP;
             if (svc->attr_table[attr_index].properties & GATT_PROPERTY_WRITE)
             {

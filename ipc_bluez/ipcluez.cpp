@@ -28,18 +28,41 @@ extern "C" {
 
 // static vars, status
 static uint8_t gsSessionId = 0;
-static Ble::ServiceInfo_t gClientService = {0, 0, NULL};
+static Ble::ServiceInfo_t gClientService = {{0}, 0, NULL};
 
-void dump_uuid(uint16_t uuid16)
+///
+/// \brief dump_uuid
+/// \param uuid128
+///
+static void dump_uuid(uint128_t &uuid128 __attribute__ ((unused)))
 {
-    DEBUG_PRINTF(("0000%04X-0000-1000-8000-00805F9B34FB\n", uuid16));
+//  DEBUG_PRINTF(("0000%04X-0000-1000-8000-00805F9B34FB\n", uuid16));
+    DEBUG_PRINTF(("UUID %02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X\n",
+                uuid128.data[0], uuid128.data[1], uuid128.data[2], uuid128.data[3],
+                uuid128.data[4], uuid128.data[5], uuid128.data[6], uuid128.data[7],
+                uuid128.data[8], uuid128.data[9], uuid128.data[10], uuid128.data[11],
+                uuid128.data[12], uuid128.data[13], uuid128.data[14], uuid128.data[15]));
+
+}
+
+///
+/// \brief format_16_to_128_uuid
+/// \param out
+/// \param uuid
+///
+static void format_16_to_128_uuid(uint8_t *out, uint16_t uuid)
+{
+    const uint8_t uuid_base[16] = {0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB};
+    memcpy(out, uuid_base, sizeof(uint128_t));
+    out[2] = (uuid >> 8) & 0xFF;
+    out[3] = uuid & 0xFF;
 }
 
 ///
 /// \brief cleanup_attribute_value
 /// \param attr
 ///
-void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
+static void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 {
     if (attr != NULL)
     {
@@ -56,7 +79,7 @@ void cleanup_attribute_value(Ble::AttributeInfo_t *attr)
 ///
 /// \brief cleanup_client_service
 ///
-void cleanup_client_service()
+static void cleanup_client_service()
 {
     Ble::GattSrv::getInstance()->CleanupServiceList();
     if (gClientService.attr_table)
@@ -71,7 +94,7 @@ void cleanup_client_service()
 /// \param alloc_size
 /// \return
 ///
-int allocate_zero_attr_table(int alloc_size)
+static int allocate_zero_attr_table(int alloc_size)
 {
     int ret = Ble::Error::NONE;
     // allocate clean attribute table
@@ -87,7 +110,13 @@ int allocate_zero_attr_table(int alloc_size)
     return ret;
 }
 
-void print_attr(const char *pref, int idx, Ble::AttributeInfo_t *attr)
+///
+/// \brief print_attr
+/// \param pref
+/// \param idx
+/// \param attr
+///
+static void print_attr(const char *pref, int idx, Ble::AttributeInfo_t *attr)
 {
 #ifdef DEBUG_ENABLED
     std::string print_string_tmp((char*) attr->value, attr->val_size);
@@ -116,13 +145,22 @@ int append_attribute(Comm_Msg_t *msg)
 #ifdef DEBUG_ENABLED
             memcpy(attr->attr_name, msg->data.add_attribute.name, ATTR_NAME_LEN);
 #endif
-            attr->attr_uuid =  msg->data.add_attribute.uuid;
+            // if uuid16 is not zero - use 16 bit UUID, otherwise 128bit
+            if (msg->data.add_attribute.uuid != 0)
+            {
+                format_16_to_128_uuid(attr->attr_uuid.data, msg->data.add_attribute.uuid);
+            }
+            else
+            {
+                memcpy(attr->attr_uuid.data, msg->data.add_attribute.uuid128.data, sizeof(uint128_t));
+            }
+            dump_uuid(attr->attr_uuid);
+
             attr->max_val_size = msg->data.add_attribute.max_length;
             attr->val_size = msg->data.add_attribute.size;
             attr->attr_type = msg->data.add_attribute.type;
             attr->properties = msg->data.add_attribute.properties;
             attr->attr_offset = (i)?(gClientService.attr_table[i-1].attr_offset+(gClientService.attr_table[i-1].attr_type==GATT_TYPE_CHARACTERISTIC?2:1)):1;
-            dump_uuid(attr->attr_uuid);
 
             // handle payload
             if (msg->data.add_attribute.size)
@@ -361,7 +399,16 @@ int handle_request_msg(Comm_Msg_t *msg)
 
             // set service parameters
             gClientService.attr_num = data->count;
-            gClientService.svc_uuid = data->uuid;
+
+            // if uuid16 is not zero - use 16 bit UUID, otherwise 128bit
+            if (data->uuid != 0)
+            {
+                format_16_to_128_uuid(gClientService.svc_uuid.data, data->uuid);
+            }
+            else
+            {
+                memcpy(gClientService.svc_uuid.data, data->uuid128.data, sizeof(uint128_t));
+            }
             dump_uuid(gClientService.svc_uuid);
 
             if (Ble::Error::NONE == (ret = allocate_zero_attr_table(alloc_size)))

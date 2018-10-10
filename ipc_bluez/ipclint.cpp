@@ -31,10 +31,10 @@ static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
 // defines 2 characteristics and 1 descriptor
 static Define_Attribute_t attr_table[] =
 {   // uuid         name            max size    type                properties          value
-    {0xABB1, "SAMPLE_ATTR-1", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value1"},
-    {0xABB2, "SAMPLE_ATTR-2", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value2"},
-    {0xABB3, "SAMPLE_ATTR-3", 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value3"},
-    {0x2902, "SAMPLE_DESC-1", 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW, "\x01\x01"},
+    {{0}, "SAMPLE_ATTR-1", 0xABB1, 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value1"},
+    {{0}, "SAMPLE_ATTR-2", 0xABB2, 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RW, "value2"},
+    {{0}, "SAMPLE_ATTR-3", 0xABB3, 64, 6, GATT_TYPE_CHARACTERISTIC, Ble::Property::RWN, "value3"},
+    {{0}, "SAMPLE_DESC-1", 0x2902, 32, 2, GATT_TYPE_DESCRIPTOR,     Ble::Property::RW, "\x01\x01"},
 };
 
 // sample to demonstrate "update value" operation
@@ -42,7 +42,7 @@ static const char* sample_update = "updated_val";
 static Define_Update_t attr_upd = {(uint16_t) strlen(sample_update), 1, sample_update};
 
 // sample service definitions
-static Add_Service_t service = {0xABBA, sizeof(attr_table)/sizeof(Define_Attribute_t)};
+static Add_Service_t service = {{0}, 0xABBA, sizeof(attr_table)/sizeof(Define_Attribute_t)};
 
 // sample of communication sequence
 typedef struct {

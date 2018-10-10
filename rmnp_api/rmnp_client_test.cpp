@@ -2,6 +2,10 @@
 #include "rmnp_api.h"
 #include <string>
 
+//https://www.bluetooth.com/specifications/assigned-numbers/company-identifiers
+//369 0x0171 Amazon Fulfillment Service
+#define AMAZON_BLE_SERVICE  0x0171
+
 static volatile bool done = false;
 static void my_callback(Rmnp_Callback_Type_t type, int attr_idx, void* data, int size)
 {
@@ -33,11 +37,11 @@ static void my_callback(Rmnp_Callback_Type_t type, int attr_idx, void* data, int
 int main()
 {
     Rmnp_Error_t ret = NO_ERROR;
-    uint8_t svc_uuid[16] = {0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x00,0xFC,0xBB,0xEE,0x33,0x73,0xF7};
-    Attr_Define_t attr_list[3] = {
-        {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x01},"attr-1", 64, 6, CHR, RWN, "value1"},
-        {{0x97,0x60,0xAB,0xBA,0xA2,0x34,0x46,0x86,0x9E,0x20,0xD0,0x87,0x33,0x3C,0x2C,0x02},"attr-2", 64, 6, CHR, RWN, "value2"},
-        {{0x00,0x00,0x29,0x02,0x00,0x00,0x10,0x00,0x80,0x00,0x00,0x80,0x5F,0x9B,0x34,0xFB},"descrp", 32, 2, DSC, RW_, "\x01\x00"}
+    Attr_Define_t attr_list[] = {
+        {0xFACC,"attr-1", 64, 6, CHAR, RWN, "value_1"},
+        {0xFACD,"attr-1", 64, 6, CHAR, RWN, "value_2"},
+        {0xFACE,"attr-2", 64, 6, CHAR, RWN, "value_3"},
+        {0x2902,"CCCD",   16, 2, DESC, RW_, "\x01\x01"}
     };
 
     if (NO_ERROR != (ret = rmnp_init()))
@@ -46,14 +50,16 @@ int main()
         printf("failed to config, err = %d\n", ret);
     else if (NO_ERROR != (ret = rmnp_register_callback(my_callback)))
         printf("failed to register callback, err = %d\n", ret);
-    else if (NO_ERROR != (ret = rmnp_add_service(svc_uuid, sizeof(attr_list)/sizeof(Attr_Define_t))))
+    else if (NO_ERROR != (ret = rmnp_add_service(AMAZON_BLE_SERVICE, sizeof(attr_list)/sizeof(Attr_Define_t))))
         printf("failed to add service, err = %d\n", ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[0])))
-        printf("failed to add attr, err = %d\n", ret);
+        printf("failed to add attr1, err = %d\n", ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[1])))
-        printf("failed to add attr, err = %d\n", ret);
+        printf("failed to add attr2, err = %d\n", ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[2])))
-        printf("failed to add attr, err = %d\n", ret);
+        printf("failed to add attr3, err = %d\n", ret);
+    else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[3])))
+        printf("failed to add desc, err = %d\n", ret);
     else if (NO_ERROR != (ret = rmnp_start_advertisement()))
         printf("failed to shutdown, err = %d\n", ret);
 

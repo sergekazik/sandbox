@@ -58,11 +58,11 @@ typedef struct attributeinfo
 #ifdef DEBUG_ENABLED
     char       attr_name[ATTR_NAME_LEN];
 #endif
+    uint128_t  attr_uuid;
     uint8_t    attr_type;
     uint8_t    attr_offset;
     uint8_t    properties;
     uint8_t    dynamic_alloc;
-    uint16_t   attr_uuid;
     uint16_t   max_val_size;
     uint16_t   val_size;
     char      *value;
@@ -70,7 +70,7 @@ typedef struct attributeinfo
 
 typedef struct serviceinfo
 {
-    uint16_t        svc_uuid;
+    uint128_t        svc_uuid;
     unsigned int     attr_num;
     AttributeInfo_t *attr_table;
 } ServiceInfo_t;

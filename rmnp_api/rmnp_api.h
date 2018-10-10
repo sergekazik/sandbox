@@ -22,8 +22,8 @@ typedef enum
 
 typedef enum
 {
-    CHR     = 0x00,
-    DSC     = 0x01,
+    CHAR     = 0x00,
+    DESC     = 0x01,
     R__     = 0x02,
     _W_     = 0x08,
     __N     = 0x10,
@@ -79,7 +79,7 @@ Rmnp_Error_t rmnp_register_callback(data_access_cb cb = NULL);
 /// \param number_of_attr
 /// \return
 ///
-Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr);
+Rmnp_Error_t rmnp_add_service(uint16_t uuid, uint8_t number_of_attr);
 
 ///
 /// \brief rmnp_add_attribute
@@ -92,11 +92,11 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr);
 /// \param value
 /// \return
 ///
-Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value = NULL);
+Rmnp_Error_t rmnp_add_attribute(uint16_t uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value = NULL);
 
 typedef struct Attr_Define
 {
-    uint8_t uuid[16];
+    uint16_t uuid;
     char* name;
     int max_len;
     int size;

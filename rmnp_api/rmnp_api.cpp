@@ -412,9 +412,9 @@ Rmnp_Error_t rmnp_register_callback(data_access_cb cb)
 /// \brief rmnp_add_service
 /// \return
 ///
-Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr)
+Rmnp_Error_t rmnp_add_service(uint16_t uuid, uint8_t number_of_attr)
 {
-    if ((uuid == NULL) || (number_of_attr == 0))
+    if ((uuid == 0) || (number_of_attr == 0))
     {
         return INVALID_PARAMETER;
     }
@@ -424,11 +424,9 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr)
     struct Message_Sevice_t
     {
         Message_Header_t hdr;
-        uint8_t    uuid[16];    // 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the GATT Service to be added
-        uint32_t   count;       // Unsigned 32 bit integer Total number of attribute per service
-    } service = {{MessageType_ADD_SVC, NO_ERROR, (uint16_t) Globals->session_id, sizeof(Message_Sevice_t)}, "", number_of_attr};
-
-    memcpy(service.uuid, uuid, sizeof(service.uuid));
+        uint16_t   uuid;    // 16-bit UUID (Universally Unique Identifier) of the GATT Service to be added
+        uint8_t    count;   // Unsigned 32 bit integer Total number of attribute per service
+    } service = {{MessageType_ADD_SVC, NO_ERROR, (uint16_t) Globals->session_id, sizeof(Message_Sevice_t)}, uuid, number_of_attr};
 
     // send request to add service
     if (NO_ERROR != (ret = send_receive((Message_Header_t*) &service)))
@@ -449,9 +447,9 @@ Rmnp_Error_t rmnp_add_service(uint8_t *uuid, uint32_t number_of_attr)
 /// \param value
 /// \return
 ///
-Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value)
+Rmnp_Error_t rmnp_add_attribute(uint16_t uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value)
 {
-    if ((uuid == NULL) || (max_len <=0 ) || ((size > 0) && (value == NULL)) || (size > MAX_ATT_MTU_SIZE))
+    if ((uuid == 0) || (max_len <=0 ) || ((size > 0) && (value == NULL)) || (size > MAX_ATT_MTU_SIZE))
     {
         return INVALID_PARAMETER;
     }
@@ -461,8 +459,8 @@ Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size
     struct Message_Attribute_t
     {
         Message_Header_t hdr;
-        uint8_t    uuid[16];    // 16 bytes array containing 128-bit UUID (Universally Unique Identifier) of the Attribute to be added
-        uint8_t    name[16];    // 16 byte string User-friendly attribute name for debugging
+        uint16_t   uuid;        // 16-bit UUID (Universally Unique Identifier) of the Attribute to be added
+        char       name[16];    // 16 byte string User-friendly attribute name for debugging
         uint16_t   max_length;  // unsigned 16 bit integer Maximum allowed size of the attribute value
         uint16_t   size;        // unsigned 16 bit integer Current size of the attribute value
         uint8_t    type;        // unsigned 8 bit integer Type of Attribute specifying “0” for Characteristic or “1” for Descriptor
@@ -470,13 +468,12 @@ Rmnp_Error_t rmnp_add_attribute(uint8_t *uuid, char* name, int max_len, int size
         uint8_t    value[MAX_ATT_MTU_SIZE];  // attribute value
     } attr = {
         {MessageType_ADD_ATTR, NO_ERROR, (uint16_t) Globals->session_id, (uint16_t) (sizeof(Message_Attribute_t)-(MAX_ATT_MTU_SIZE-size))},
-        "", "", (uint16_t) max_len, (uint16_t) size, type, prop, ""
+        uuid, "", (uint16_t) max_len, (uint16_t) size, type, prop, ""
     };
 
-    memcpy(attr.uuid, uuid, sizeof(attr.uuid));
     if (name != NULL)
     {
-        memcpy(attr.name, name, sizeof(attr.name));
+        strncpy(attr.name, name, sizeof(attr.name));
     }
     if (size > 0)
     {
