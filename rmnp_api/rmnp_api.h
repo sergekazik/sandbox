@@ -18,6 +18,7 @@ typedef enum
     SOCKET_RECV_TIMEOUT,
     OPEN_SESSION_FAILED,
     POWER_COMMAND_FAILED,
+    SERVER_ERROR,
 } Rmnp_Error_t;
 
 typedef enum
@@ -32,6 +33,8 @@ typedef enum
     _WN     = _W_ | __N,
     RWN     = R__ | _W_ | __N,
 } Characteristic_Properties_t;
+
+typedef uint8_t uint128_t[16];
 
 ///
 /// \brief rmnp_init
@@ -55,7 +58,7 @@ Rmnp_Error_t rmnp_shutdown();
 /// \param mac
 /// \return
 ///
-Rmnp_Error_t rmnp_config(uint32_t dev_class = 0, char *name = NULL, char *mac = NULL);
+Rmnp_Error_t rmnp_config(uint32_t dev_class = 0, const char *name = NULL, const char *mac = NULL);
 
 enum Rmnp_Callback_Type_t
 {
@@ -82,6 +85,14 @@ Rmnp_Error_t rmnp_register_callback(data_access_cb cb = NULL);
 Rmnp_Error_t rmnp_add_service(uint16_t uuid, uint8_t number_of_attr);
 
 ///
+/// \brief rmnp_add_service
+/// \param uuid
+/// \param number_of_attr
+/// \return
+///
+Rmnp_Error_t rmnp_add_service(uint128_t uuid128, uint8_t number_of_attr);
+
+///
 /// \brief rmnp_add_attribute
 /// \param uuid
 /// \param name
@@ -92,12 +103,13 @@ Rmnp_Error_t rmnp_add_service(uint16_t uuid, uint8_t number_of_attr);
 /// \param value
 /// \return
 ///
-Rmnp_Error_t rmnp_add_attribute(uint16_t uuid, char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value = NULL);
+Rmnp_Error_t rmnp_add_attribute(uint128_t uuid128, uint16_t uuid, const char* name, int max_len, int size, uint8_t type, uint8_t prop, const void* value = NULL);
 
 typedef struct Attr_Define
 {
-    uint16_t uuid;
+    uint128_t uuid128;
     char* name;
+    uint16_t uuid;
     int max_len;
     int size;
     uint8_t type;

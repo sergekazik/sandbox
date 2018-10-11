@@ -1,5 +1,5 @@
 Makefile
 rmnp_api.cpp
 rmnp_api.h
-rmnp_client_test.cpp
+rmnp_test.cpp
 

@@ -18,16 +18,16 @@ LDFLAGS = -lpthread -lstdc++
 LDFLAGS_LIB = -shared $(LDFLAGS)
 
 TARGET_SDKAPI = librmnpapi.so
-TARGET_CLIENT = rmnp_client_test
+TARGET_CLIENT = rmnp_test
 
 SRCS_SDKAPI = rmnp_api.cpp
-SRCS_CLIENT = rmnp_client_test.cpp
+SRCS_CLIENT = rmnp_test.cpp
 
 INCS_COMMON  = rmnp_api.h
 OBJS_COMMON  =
 
 OBJS_SDKAPI = rmnp_api.o $(OBJS_COMMON)
-OBJS_CLIENT = rmnp_client_test.o  $(OBJS_COMMON)
+OBJS_CLIENT = rmnp_test.o  $(OBJS_COMMON)
 
 .PHONY: all
 all: ${TARGET_SDKAPI} $(TARGET_CLIENT)

@@ -38,30 +38,30 @@ int main()
 {
     Rmnp_Error_t ret = NO_ERROR;
     Attr_Define_t attr_list[] = {
-        {0xFACC,"attr-1", 64, 6, CHAR, RWN, "value_1"},
-        {0xFACD,"attr-1", 64, 6, CHAR, RWN, "value_2"},
-        {0xFACE,"attr-2", 64, 6, CHAR, RWN, "value_3"},
-        {0x2902,"CCCD",   16, 2, DESC, RW_, "\x01\x01"}
+        {{0}, "attr-1", 0xFACC, 64, 6, CHAR, RWN, "value_1"},
+        {{0}, "attr-1", 0xFACD, 64, 6, CHAR, RWN, "value_2"},
+        {{0}, "attr-2", 0xFACE, 64, 6, CHAR, RWN, "value_3"},
+        {{0}, "CCCD",   0x2902, 16, 2, DESC, RW_, "\x01\x01"}
     };
 
     if (NO_ERROR != (ret = rmnp_init()))
-        printf("failed to init, err = %d\n", ret);
+        printf("failed to init, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_config(0, "SimpleSample", "34:45:56:67:78:8B")))
-        printf("failed to config, err = %d\n", ret);
+        printf("failed to config, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_register_callback(my_callback)))
-        printf("failed to register callback, err = %d\n", ret);
+        printf("failed to register callback, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_add_service(AMAZON_BLE_SERVICE, sizeof(attr_list)/sizeof(Attr_Define_t))))
-        printf("failed to add service, err = %d\n", ret);
+        printf("failed to add service, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[0])))
-        printf("failed to add attr1, err = %d\n", ret);
+        printf("failed to add attr1, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[1])))
-        printf("failed to add attr2, err = %d\n", ret);
+        printf("failed to add attr2, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[2])))
-        printf("failed to add attr3, err = %d\n", ret);
+        printf("failed to add attr3, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_add_attribute(attr_list[3])))
-        printf("failed to add desc, err = %d\n", ret);
+        printf("failed to add desc, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_start_advertisement()))
-        printf("failed to shutdown, err = %d\n", ret);
+        printf("failed to shutdown, err = %d\n", (int16_t) ret);
 
     printf("waiting for callback events.....\n");
     while (!ret && !done) {
@@ -70,8 +70,8 @@ int main()
 
     printf("continue operations - exiting...\n");
     if (NO_ERROR != (ret = rmnp_stop_advertisement()))
-        printf("failed to shutdown, err = %d\n", ret);
+        printf("failed to shutdown, err = %d\n", (int16_t) ret);
     else if (NO_ERROR != (ret = rmnp_shutdown()))
-        printf("failed to shutdown, err = %d\n", ret);
+        printf("failed to shutdown, err = %d\n", (int16_t) ret);
     return ret;
 }

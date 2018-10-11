@@ -347,6 +347,7 @@ int handle_request_msg(Comm_Msg_t *msg)
             {
                 if (session->force_shutdown)
                 {
+                    gatt->UnregisterCharacteristicAccessCallback(attr_access_callback);
                     gatt->Shutdown();
                 }
                 gsSessionId = 0;
