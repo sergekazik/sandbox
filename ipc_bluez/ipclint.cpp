@@ -25,8 +25,11 @@
 static uint8_t giSessionId = 0;
 
 // sample Adapter configuration
-static Config_t config_data = {0x000430, "IpClint-24", "AA:AA:BB:BB:CC:CC"};
-
+#ifdef __x86_64__
+static Config_t config_data = {0x000430, "IpLinux-24", "5C:F3:70:84:E8:8B"};
+#else
+static Config_t config_data = {0x000430, "IpClinex24", "AA:AA:BB:BB:CC:CC"};
+#endif
 // sample Attribute Table definition
 // defines 2 characteristics and 1 descriptor
 static Define_Attribute_t attr_table[] =
@@ -95,7 +98,7 @@ static int handle_response_message(Comm_Msg_t &msg, bool bNotify = false)
 
     if (msg.hdr.error != Ble::Error::NONE)
     {
-        DEBUG_PRINTF(("ERROR in response: %d\n", msg.hdr.error));
+        DEBUG_PRINTF(("ERROR in response: %d %s\n", (int16_t) msg.hdr.error, get_err_name((int16_t) msg.hdr.error)));
         ret = msg.hdr.error;
     }
     else switch (msg.hdr.type)
@@ -164,7 +167,7 @@ static void* server_notify_listener(void *data __attribute__ ((unused)))
             DEBUG_PRINTF(("failed recv notification from server in server_notify_listener\nerr = %d %s, stop listening.\n", ret, get_err_name(ret)));
             break;
         }
-        printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
+        printf ("got notify: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), (int16_t) msg.hdr.error);
         handle_response_message(msg, true);
     }
 
@@ -273,7 +276,7 @@ int main(int argc, char** argv )
                     shut_comm();
                     die("failed recv from server", ret);
                 }
-                printf ("got rsp: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), msg.hdr.error);
+                printf ("got rsp: msg type %d, %s error =  %d\n", msg.hdr.type, get_msg_name(&msg), (int16_t) msg.hdr.error);
                 handle_response_message(msg);
             }
         }

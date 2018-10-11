@@ -290,7 +290,7 @@ int GattSrv::StartAdvertising()
     }
     else
     {
-        DEBUG_PRINTF(("GattSrv has not been Initialized."));
+        DEBUG_PRINTF(("GattSrv has not been Initialized. [%d:%d:%d]", mInitialized?1:0, mServiceTable?1:0, mServiceTable->attr_num));
         ret_val = Error::NOT_INITIALIZED;
     }
     return ret_val;
@@ -1295,7 +1295,7 @@ int server_create()
 {
     mainloop_init();
 
-    uint16_t mtu = 0;
+    uint16_t mtu = BT_ATT_DEFAULT_LE_MTU;
     struct server_ref *server = new0(struct server_ref, 1);
     if (!server)
     {
@@ -1335,6 +1335,7 @@ int server_create()
         DEBUG_PRINTF(("Failed to create GATT server"));
         goto fail;
     }
+    bt_att_set_mtu(server->att, mtu);
 
     GattSrv::mServer.sref = server;
     // enable debug
