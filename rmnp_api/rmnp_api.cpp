@@ -511,6 +511,7 @@ Rmnp_Error_t rmnp_add_attribute(uint128_t uuid128, uint16_t uuid, const char* na
     if (name != NULL)
     {
         strncpy(attr.name, name, sizeof(attr.name));
+        attr.name[sizeof(attr.name)-1]='\0';
     }
     if (size > 0)
     {

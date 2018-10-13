@@ -57,7 +57,7 @@ CXXFLAGS = $(CFLAGS)
 
 #LDFLAGS_LIB = -shared -lbluetooth
 #LDFLAGS_APP = -lbluetooth -L$(BUILD_PATH)/ -lRingBle
-LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548 -lRingCrypto
+LDFLAGS_APP = -lbluetooth -lpthread -L$(BUILD_PATH)/ -lBluez548 -lRingCrypto -lrmnpapi
 
 RM = rm -f
 TARGET_LIB = libRingBle.a

@@ -34,6 +34,7 @@ all: ${TARGET_SDKAPI} $(TARGET_CLIENT)
 
 $(TARGET_SDKAPI): $(OBJS_SDKAPI) $(INCS_COMMON)
 	$(CC) $(OBJS_SDKAPI) $(LDFLAGS_LIB) -o $@
+	cp $@ ../simplescan/.
 
 $(TARGET_CLIENT): $(OBJS_CLIENT) $(INCS_COMMON)
 	$(CC) $(OBJS_CLIENT) $(LDFLAGS) -L ./ -lrmnpapi -o $@
