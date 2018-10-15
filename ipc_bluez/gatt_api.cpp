@@ -1190,23 +1190,10 @@ static int populate_gatt_service()
 #else
             bt_uuid128_create(&uuid, ch_info->attr_uuid);
 #endif
-            uint8_t prop =  BT_GATT_CHRC_PROP_EXT_PROP;
-            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_WRITE)
-            {
-                prop = BT_GATT_CHRC_PROP_READ;
-            }
-            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_WRITE)
-            {
-                prop |= BT_GATT_CHRC_PROP_WRITE;
-            }
-            if (svc->attr_table[attr_index].properties & GATT_PROPERTY_NOTIFY)
-            {
-                prop |= BT_GATT_CHRC_PROP_NOTIFY;
-            }
             if (svc->attr_table[attr_index].attr_type == GATT_TYPE_CHARACTERISTIC)
             {
                 if (NULL != (attr_new =  gatt_db_service_add_characteristic(client_svc, &uuid,
-                                BT_ATT_PERM_READ | BT_ATT_PERM_WRITE, prop,
+                                BT_ATT_PERM_READ | BT_ATT_PERM_WRITE, svc->attr_table[attr_index].properties,
                               gatt_characteristic_read_cb, gatt_characteristic_write_cb,
                               // user_data to be passed to every callback
                               (void*) (unsigned long) &svc->attr_table[attr_index])))
