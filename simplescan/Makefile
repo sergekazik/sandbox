@@ -5,7 +5,6 @@ RING_NAME = Linux_x86_64
 $(info RING_NAME = [${RING_NAME}])
 $(info BLE_CS = [${BLE_CS}])
 
-
 # Makefile for hciconfig shared library and test_ble
 BUILD_PATH=$(shell pwd)
 
@@ -22,7 +21,7 @@ BLUETOOTH  = -I$(LPD_TOPDIR)/amba-linux-sdk/ambarella/prebuild/third-party/armv7
 RING_TOP    = $(LPD_TOPDIR)/ring
 RING_PROP   = $(LPD_TOPDIR)/ring/properties
 RING_BLE    = $(LPD_TOPDIR)/ring/ble
-RING_COM    = $(LPD_TOPDIR)/ring/common
+RING_COM    = $(LPD_TOPDIR)/ring/common/include/common
 RING_LOG    = $(LPD_TOPDIR)/ring/ding/include
 CHIPSUBPATH = $(RING_BLE)/$(BLE_CS)
 
@@ -101,10 +100,7 @@ $(TARGET_APP): $(OBJS_APP)
 #$(TARGET_GATT): $(OBJS_GATT)
 #	$(CC) $(OBJS_GATT) ${TARGET_LIB} $(LDFLAGS_APP) -o $@
 
-$(TARGET_TEST_CRYPTO): $(OBJS_TEST_CRYPTO)
-	$(CC) $(OBJS_TEST_CRYPTO) $(LDFLAGS_APP) -o $@
-
-CRYPTO_CFLAGS =    -fPIC -Wall -Wextra -O2 -g -std=c++14 \
+CRYPTO_CFLAGS =    -fPIC -Wall -Werror -Wextra -O2 -g -std=c++14 \
 		    -I./include -Wno-unused-result -DPAIRING_ENABLE_CRYPTO=1
 
 #CXXFLAGS = $(CRYPTO_CFLAGS)
@@ -118,11 +114,11 @@ CC = g++
 CRYPTO_SRCS_LIB = $(RING_BLE)/crypto/sodium_glue.cpp $(RING_BLE)/crypto/RingCrypto.cpp
 CRYPTO_SRCS_APP = $(RING_BLE)/crypto/test_crypto.cpp
 
-CRYPTO_OBJS_LIB = sodium_glue.o RingCrypto.o
+CRYPTO_OBJS_LIB = sodium_glue.o RingCrypto.o test_stubs.o
 CRYPTO_OBJS_APP = test_crypto.o
 
 RingCrypto.o:	$(RING_BLE)/crypto/RingCrypto.cpp
-	$(CC) -c $(CFLAGS) $(RING_BLE)/crypto/RingCrypto.cpp -o $@
+	$(CC) -c $(CFLAGS) -Werror $(RING_BLE)/crypto/RingCrypto.cpp -o $@
 test_crypto.o:	$(RING_BLE)/crypto/test_crypto.cpp
 	$(CC) -c $(CFLAGS) $(RING_BLE)/crypto/test_crypto.cpp -o $@
 sodium_glue.o:	$(RING_BLE)/crypto/sodium_glue.cpp
