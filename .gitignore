@@ -15,3 +15,7 @@ _saved
 >>>>>>> b566acee02b1cc8c8f65d1a4b4fe90c8ffc8437b
 simplescan/test_ble
 simplescan/pairing_client_x86*
+simplescan/public_payload.*
+sockets/test_client_portblock
+sockets/test_server_portblock
+*.o

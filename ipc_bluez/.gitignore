@@ -1,0 +1,5 @@
+libBluez548.so
+libbluez.so
+source_env_LD_LIBRARY_PATH.sh
+iclient
+iserver

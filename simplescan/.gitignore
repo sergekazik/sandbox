@@ -3,4 +3,13 @@
 *.d
 simplescan
 libRingBle.a
-gatt_client_x86*
+gatt_client_x86
+pairing_client_x86
+pairing_client_x86.cfg
+test_gatt
+test_crypto
+cryptoclient.cfg
+scripts/expect.uuid.lst
+public_payload.log
+device.exclude.lst
+test_crypto_direct
