@@ -1,0 +1,17 @@
+ {
+    "timestamp": 1674810000500,
+    "type": "HDMIInStatus",
+    "hdmiInformation": [
+      {
+        "connected": true,
+        "index": 0,
+        "main": true,
+        "systemId": 1
+      }
+    ]
+  },
+  {
+    "timestamp": 1674810000513,
+    "type": "HDMIInStartSharing"
+  },
+
