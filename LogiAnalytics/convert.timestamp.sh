@@ -19,9 +19,11 @@ if [[ "$2" == "-v" ]]; then
 else
     verbose="false"
 fi
-linux='false'
-if [ `uname | grep -i linux` -gt 0 ]; then
-	linux='true'
+
+if [ `uname | grep -c "Linux" ` -gt 0 ]; then
+   linux="true"
+else
+   linux="false"
 fi
 
 count=0
