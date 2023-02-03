@@ -19,6 +19,10 @@ if [[ "$2" == "-v" ]]; then
 else
     verbose="false"
 fi
+linux='false'
+if [ `uname | grep -i linux` -gt 0 ]; then
+	linux='true'
+fi
 
 count=0
 maxline=$(wc -l < $input)
@@ -30,7 +34,12 @@ do
   if [ `echo $line | grep -c "timestamp" ` -gt 0 ]
   then
     ts=${line:17:10}
-    dt=$(date -d "@$ts")
+    
+    if [ "$linux" = true ] ; then
+    	dt=$(date -d "@$ts")
+    else
+        dt=$(date -r $ts)
+    fi
     
     echo "$line" >> $output
     if [ "$verbose" = true ] ; then
